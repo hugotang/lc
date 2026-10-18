@@ -18350,6 +18350,29 @@
         }
       }
     },
+    "lc.multitask.arrangeWindowsInGrid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrange Windows in a Grid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宫格排列窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宮格排列視窗"
+          }
+        }
+      }
+    },
     "lc.multitask.copyPid" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19553,6 +19576,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默認以多任務模式啟動"
+          }
+        }
+      }
+    },
+    "lc.settings.autoTileMultitaskWindows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatically Tile Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动宫格排列窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動宮格排列視窗"
+          }
+        }
+      }
+    },
+    "lc.settings.autoTileMultitaskWindowsDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrange visible windows when apps open, close, minimize or return, and when the screen rotates. Takes priority over launching windows maximized."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开、关闭、最小化、还原窗口或旋转屏幕时，自动排列可见窗口。启用后优先使用宫格排列，而非默认最大化。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟、關閉、縮小、還原視窗或旋轉螢幕時，自動排列可見視窗。啟用後會優先使用宮格排列，取代預設最大化。"
           }
         }
       }

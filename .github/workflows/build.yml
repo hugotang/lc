@@ -30,6 +30,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
+      - name: Test window grid layout
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowGridLayoutTests.c -lm -o "$RUNNER_TEMP/window-grid-tests"
+          "$RUNNER_TEMP/window-grid-tests"
       - name: Set Scheme
         id: scheme
         run: |

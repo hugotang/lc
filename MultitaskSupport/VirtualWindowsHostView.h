@@ -9,5 +9,8 @@
 API_AVAILABLE(ios(16.0))
 @interface VirtualWindowsHostView: UIView
 @property(nonatomic) BOOL shouldForwardTapAction;
+@property(nonatomic, readonly) BOOL automaticallyTilesWindows;
+- (void)arrangeWindowsInGrid;
+- (void)setNeedsGridLayout;
 - (BOOL)handleStatusBarTapAction:(UIAction *)action;
 @end

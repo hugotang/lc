@@ -11,6 +11,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
+    @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
     @AppStorage("LCSkipTerminatedScreen", store: LCUtils.appGroupUserDefault) var skipTerminatedScreen = false
@@ -39,10 +40,12 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $launchMultitaskMaximized) {
                         Text("lc.settings.launchMultitaskMaximized".loc)
                     }
+                    .disabled(autoTileMultitaskWindows)
                     if launchMultitaskMaximized {
                         Toggle(isOn: $onlyOneAppOnStage) {
                             Text("lc.settings.onlyOneAppOnStage".loc)
                         }
+                        .disabled(autoTileMultitaskWindows)
                     }
                     Toggle(isOn: $autoEndPiP) {
                         Text("lc.settings.autoEndPiP".loc)
@@ -62,6 +65,21 @@ struct LCMultitaskSettingView: View {
                         Text("lc.settings.redirectURLToHost".loc)
                     }
 
+                }
+            }
+
+            if multitaskMode == .virtualWindow, #available(iOS 16.0, *) {
+                Section {
+                    Toggle(isOn: $autoTileMultitaskWindows) {
+                        Text("lc.settings.autoTileMultitaskWindows".loc)
+                    }
+                    Button {
+                        MultitaskDockManager.shared.windowHostingView.arrangeWindowsInGrid()
+                    } label: {
+                        Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
+                    }
+                } footer: {
+                    Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
                 }
             }
             

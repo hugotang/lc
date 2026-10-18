@@ -619,8 +619,23 @@ class AppInfoProvider {
         let isMaximized = decoratedVC?.isMaximized ?? false
         
         // when a fullscreen multitask app is brought to front, optionally hide other windows
-        if UserDefaults.lcShared().bool(forKey: "LCMaxOneAppOnStage") && isMaximized {
+        if UserDefaults.lcShared().bool(forKey: "LCMaxOneAppOnStage") && isMaximized && !windowHostingView.automaticallyTilesWindows {
             MultitaskDockManager.shared.minimizeAllWindows(except: decoratedVC)
+        }
+
+        if isHidden && windowHostingView.automaticallyTilesWindows {
+            view.layer.removeAllAnimations()
+            bringViewToFront(view, in: window)
+            if let decoratedVC, PiPManager.shared!.isPiP(withDecoratedVC: decoratedVC) {
+                PiPManager.shared!.stopPiP()
+            } else {
+                view.transform = .identity
+                view.alpha = 1
+                view.isHidden = false
+                windowHostingView.setNeedsGridLayout()
+                windowHostingView.layoutIfNeeded()
+            }
+            return
         }
         
         if isHidden {

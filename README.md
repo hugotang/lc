@@ -94,6 +94,8 @@ You can now launch multiple apps simultaneously in in-app virtual windows. These
 
 To use multitasking, hold its banner and tap **"Multitask"**. You can also make Multitask the default launch mode in settings.
 
+For virtual windows, enable **"Automatically Tile Windows"** in **Settings → Multitask** to arrange visible windows in a grid as windows open, close, minimize or return, and when the screen rotates. This option takes priority over launching windows maximized. For a one-time arrangement, choose **"Arrange Windows in a Grid"** from a window's title menu or the multitasking settings. Minimized and Picture-in-Picture windows are not restored by arranging the grid.
+
 >[!Note]
 >1. To use multitasking, ensure you select **"Keep App Extensions"** when installing via SideStore/AltStore.  
 >2. If you want to enable JIT for multitasked apps, you’ll need a JIT enabler that supports attaching by PID. (StikDebug)

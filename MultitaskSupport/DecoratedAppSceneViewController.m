@@ -26,7 +26,8 @@
     
     _dataUUID = dataUUID;
     _scaleRatio = 1.0;
-    _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"];
+    _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"] &&
+                   !MultitaskDockManager.shared.windowHostingView.automaticallyTilesWindows;
     _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
     self.title = windowName;
     [self setupDecoratedView];
@@ -34,6 +35,9 @@
     [MultitaskDockManager.shared addRunningApp:windowName appUUID:dataUUID view:self.view];
     
     NSArray *menuItems = @[
+        [UIAction actionWithTitle:@"lc.multitask.arrangeWindowsInGrid".loc image:[UIImage systemImageNamed:@"square.grid.2x2"] identifier:nil handler:^(UIAction * _Nonnull action) {
+            [MultitaskDockManager.shared.windowHostingView arrangeWindowsInGrid];
+        }],
         [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
             UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
         }],
@@ -91,6 +95,7 @@
         [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
     });
 
+    [MultitaskDockManager.shared.windowHostingView setNeedsGridLayout];
     return self;
 }
 
@@ -258,6 +263,7 @@
         self.view.hidden = YES;
         self.view.transform = CGAffineTransformIdentity;
         [self.view.superview sendSubviewToBack:self.view];
+        [self.view.superview setNeedsLayout];
     }];
 }
 
@@ -265,7 +271,9 @@
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
     } completion:^(BOOL finished) {
+        if (!finished) return;
         self.view.hidden = YES;
+        [self.view.superview setNeedsLayout];
     }];
 }
 
@@ -273,7 +281,34 @@
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.hidden = NO;
         self.view.alpha = 1;
-    } completion:nil];
+    } completion:^(BOOL finished) {
+        [self.view.superview setNeedsLayout];
+    }];
+}
+
+- (void)updateMaximizeButtonImage {
+    NSString *imageName = self.isMaximized ? @"arrow.down.right.and.arrow.up.left.circle" : @"arrow.up.left.and.arrow.down.right.circle";
+    UIImageConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
+    self.maximizeButton.image = [[UIImage systemImageNamed:imageName] imageWithConfiguration:configuration];
+}
+
+- (void)applyGridFrame:(CGRect)frame {
+    BOOL wasMaximized = self.isMaximized;
+    self.isMaximized = NO;
+    self.view.transform = CGAffineTransformIdentity;
+    self.view.frame = frame;
+    self.view.layer.borderWidth = 1;
+    self.resizeHandle.alpha = 1;
+    if (wasMaximized || self.navigationBar.hidden) {
+        [self updateVerticalConstraints];
+    }
+    [self updateMaximizeButtonImage];
+    [self updateOriginalFrame];
+    [self.view layoutIfNeeded];
+    [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
+        settings.peripheryInsets = UIEdgeInsetsZero;
+        settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
+    }];
 }
 
 - (void)maximizeWindow {
@@ -287,18 +322,20 @@
         CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
         CGRect newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
         [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            self.isMaximized = NO;
             self.view.frame = newFrame;
             self.view.layer.borderWidth = 1;
             self.resizeHandle.alpha = 1;
+            [self updateVerticalConstraints];
             
             [self.appSceneVC updateSettingsWithBlock:updateSettingsBlock];
             
             [self.view layoutIfNeeded];
         } completion:^(BOOL finished) {
-            self.isMaximized = NO;
-            UIImage *maximizeImage = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right.circle"];
-            UIImageConfiguration *maximizeConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
-            self.maximizeButton.image = [maximizeImage imageWithConfiguration:maximizeConfig];
+            [self updateMaximizeButtonImage];
+            if (finished && !self.isMaximized) {
+                [MultitaskDockManager.shared.windowHostingView setNeedsGridLayout];
+            }
         }];
     } else {
         updateSettingsBlock = ^(UIMutableApplicationSceneSettings *settings) {
@@ -316,9 +353,7 @@
             
             [self.view layoutIfNeeded];
         } completion:^(BOOL finished) {
-            UIImage *restoreImage = [UIImage systemImageNamed:@"arrow.down.right.and.arrow.up.left.circle"];
-            UIImageConfiguration *restoreConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
-            self.maximizeButton.image = [restoreImage imageWithConfiguration:restoreConfig];
+            [self updateMaximizeButtonImage];
         }];
     }
 }
@@ -334,6 +369,7 @@
         self.view.layer.masksToBounds = NO;
         [UIView transitionWithView:self.view duration:0.4 options:UIViewAnimationOptionTransitionCurlUp animations:^{
             self.view.hidden = YES;
+            [self.view.superview setNeedsLayout];
         } completion:^(BOOL b){
             [self.view removeFromSuperview];
         }];
@@ -568,6 +604,12 @@
     CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
     settings.peripheryInsets = UIEdgeInsetsZero;
     settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
+
+    if (MultitaskDockManager.shared.windowHostingView.automaticallyTilesWindows) {
+        // The host lays out the grid using its bounds after rotation has finished.
+        [self.view.superview setNeedsLayout];
+        return;
+    }
     
     CGRect newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
     CGPoint center = self.view.center;
