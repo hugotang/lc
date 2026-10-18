@@ -96,6 +96,8 @@ To use multitasking, hold its banner and tap **"Multitask"**. You can also make 
 
 For virtual windows, enable **"Automatically Tile Windows"** in **Settings → Multitask** to arrange visible windows in a grid as windows open, close, minimize or return, and when the screen rotates. This option takes priority over launching windows maximized. For a one-time arrangement, choose **"Arrange Windows in a Grid"** from a window's title menu or the multitasking settings. Minimized and Picture-in-Picture windows are not restored by arranging the grid.
 
+Grid windows fill the safe area with 2-point separators. Window bars and resize handles are hidden by default, and the Dock collapses after arranging windows. Tap the Dock to expand it, then long-press an app icon to restore, maximize, minimize, close, use Picture-in-Picture, change scale, or copy its PID. Use the Dock's minimize-all button to return to LiveContainer. Turn off **"Hide Window Bars in Grid"** in multitasking settings to keep the bars visible. Games that maintain a fixed aspect ratio may still show their own borders.
+
 >[!Note]
 >1. To use multitasking, ensure you select **"Keep App Extensions"** when installing via SideStore/AltStore.  
 >2. If you want to enable JIT for multitasked apps, you’ll need a JIT enabler that supports attaching by PID. (StikDebug)

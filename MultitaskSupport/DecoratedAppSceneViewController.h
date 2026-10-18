@@ -11,9 +11,14 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) UIView* contentView;
 
 @property(nonatomic) BOOL isMaximized;
+@property(nonatomic) BOOL isInGridLayout;
 @property(nonatomic) CGFloat scaleRatio;
 - (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID rootVC:(UIViewController*)rootVC;
 - (void)minimizeWindow;
+- (void)closeWindow;
+- (void)maximizeWindow;
+- (void)updateContentScale:(CGFloat)scale;
+- (void)togglePictureInPicture;
 - (void)minimizeWindowPiP;
 - (void)unminimizeWindowPiP;
 - (void)applyGridFrame:(CGRect)frame;

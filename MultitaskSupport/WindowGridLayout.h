@@ -5,6 +5,9 @@
 #include <math.h>
 #include <stddef.h>
 
+static const double LCWindowGridSpacing = 2;
+static const double LCWindowGridMinimumHeight = 88;
+
 typedef struct {
     double x, y, width, height;
 } LCWindowGridRect;

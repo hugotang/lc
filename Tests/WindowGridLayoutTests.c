@@ -73,17 +73,39 @@ static void assertUsableLayout(size_t count, double width, double height, double
 
 static void testSizesAndWindowCounts(void) {
     const double sizes[][2] = {
-        {304, 508}, {359, 631}, {374, 734}, {414, 814}, // iPhones after safe-area padding
+        {320, 524}, {375, 647}, {390, 750}, {430, 830}, // iPhone safe-area sizes
         {750, 354}, {932, 430}, {768, 980}, {1008, 700},
         {1, 1}, {50, 45}, {143.5, 197.25}
     };
     for (size_t s = 0; s < sizeof(sizes) / sizeof(sizes[0]); ++s) {
         for (size_t count = 1; count <= 128; ++count) {
             assertUsableLayout(count, sizes[s][0], sizes[s][1], 8);
+            assertUsableLayout(count, sizes[s][0], sizes[s][1], LCWindowGridSpacing);
             assertUsableLayout(count, sizes[s][0], sizes[s][1], 0);
         }
     }
     assertUsableLayout(16, 320, 200, 1000);
+}
+
+static void testCompactGridUsesSafeArea(void) {
+    LCWindowGridLayout pair = LCWindowGridLayoutMake(2, 390, 750, LCWindowGridSpacing, LCWindowGridMinimumHeight);
+    LCWindowGridRect top = LCWindowGridFrame(pair, 0);
+    LCWindowGridRect bottom = LCWindowGridFrame(pair, 1);
+    assertClose(top.x, 0);
+    assertClose(top.y, 0);
+    assertClose(top.width, 390);
+    assertClose(bottom.y + bottom.height, 750);
+    assertClose(bottom.y - (top.y + top.height), 2);
+    // Previously, 8pt outside margins, an 8pt gap and two 44pt bars consumed this space.
+    double previousContentHeight = (750 - 16 - 8) / 2.0 - 44;
+    assertClose(top.height - previousContentHeight, 55);
+    LCWindowGridLayout four = LCWindowGridLayoutMake(4, 390, 750, LCWindowGridSpacing, LCWindowGridMinimumHeight);
+    LCWindowGridRect first = LCWindowGridFrame(four, 0);
+    LCWindowGridRect last = LCWindowGridFrame(four, 3);
+    assertClose(first.width, 194);
+    assertClose(first.height, 374);
+    assertClose(last.x + last.width, 390);
+    assertClose(last.y + last.height, 750);
 }
 
 static void testInvalidInput(void) {
@@ -102,7 +124,8 @@ static void testInvalidInput(void) {
 int main(void) {
     testCommonLayouts();
     testSizesAndWindowCounts();
+    testCompactGridUsesSafeArea();
     testInvalidInput();
-    puts("Window grid layout tests passed (2,817 size/count/spacing combinations).");
+    puts("Window grid layout tests passed (4,225 size/count/spacing combinations and compact-grid edge checks).");
     return 0;
 }

@@ -42,11 +42,7 @@
             UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
         }],
         [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
-                [PiPManager.shared stopPiP];
-            } else {
-                [PiPManager.shared startPiPWithVC:self.appSceneVC];
-            }
+            [self togglePictureInPicture];
         }],
         [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
             return [self scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:self.scaleRatio stepInterval:0.01];
@@ -225,7 +221,11 @@
 }
 
 - (void)scaleSliderChanged:(_UIPrototypingMenuSlider *)slider {
-    self.scaleRatio = slider.value;
+    [self updateContentScale:slider.value];
+}
+
+- (void)updateContentScale:(CGFloat)scale {
+    self.scaleRatio = MIN(2.0, MAX(0.5, scale));
     self.appSceneVC.scaleRatio = _scaleRatio;
     if(self.appSceneVC.usesHostingControllerAPI) {
         self.appSceneVC.contentView.transform = CGAffineTransformMakeScale(_scaleRatio, _scaleRatio);
@@ -250,6 +250,14 @@
         [_appSceneVC terminate];
     } else {
         [self appSceneVCAppDidExit:self.appSceneVC];
+    }
+}
+
+- (void)togglePictureInPicture {
+    if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
+        [PiPManager.shared stopPiP];
+    } else {
+        [PiPManager.shared startPiPWithVC:self.appSceneVC];
     }
 }
 
@@ -293,15 +301,11 @@
 }
 
 - (void)applyGridFrame:(CGRect)frame {
-    BOOL wasMaximized = self.isMaximized;
     self.isMaximized = NO;
+    self.isInGridLayout = YES;
     self.view.transform = CGAffineTransformIdentity;
     self.view.frame = frame;
-    self.view.layer.borderWidth = 1;
-    self.resizeHandle.alpha = 1;
-    if (wasMaximized || self.navigationBar.hidden) {
-        [self updateVerticalConstraints];
-    }
+    [self updateVerticalConstraints];
     [self updateMaximizeButtonImage];
     [self updateOriginalFrame];
     [self.view layoutIfNeeded];
@@ -324,8 +328,6 @@
         [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self.isMaximized = NO;
             self.view.frame = newFrame;
-            self.view.layer.borderWidth = 1;
-            self.resizeHandle.alpha = 1;
             [self updateVerticalConstraints];
             
             [self.appSceneVC updateSettingsWithBlock:updateSettingsBlock];
@@ -425,7 +427,8 @@
         } else {
             [self updateWindowedFrameWithSettings:settings];
         }
-        CGRect newFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height - self.navigationBar.frame.size.height/self.scaleRatio);
+        CGFloat barHeight = self.navigationBar.hidden ? 0 : self.navigationBar.frame.size.height / self.scaleRatio;
+        CGRect newFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height - barHeight);
         
         if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
             settings.frame = CGRectMake(0, 0, newFrame.size.height, newFrame.size.width);
@@ -496,6 +499,7 @@
 
 - (void)moveWindow:(UIPanGestureRecognizer*)sender {
     if(_isMaximized) return;
+    [self leaveGridLayoutForManualAdjustment];
     
     CGPoint point = [sender translationInView:self.view];
     [sender setTranslation:CGPointZero inView:self.view];
@@ -506,6 +510,7 @@
 
 - (void)resizeWindow:(UIPanGestureRecognizer*)sender {
     if(_isMaximized) return;
+    [self leaveGridLayoutForManualAdjustment];
     
     CGPoint point = [sender translationInView:self.view];
     [sender setTranslation:CGPointZero inView:self.view];
@@ -515,6 +520,13 @@
     frame.size.height = MAX(50, frame.size.height + point.y);
     self.view.frame = frame;
     [self updateOriginalFrame];
+}
+
+- (void)leaveGridLayoutForManualAdjustment {
+    if (!self.isInGridLayout) return;
+    self.isInGridLayout = NO;
+    [self updateVerticalConstraints];
+    [self.view.superview setNeedsLayout];
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
@@ -527,10 +539,16 @@
     [self.view layoutIfNeeded];
     [UIView animateWithDuration:0.3 animations:^{
         BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
-        BOOL hideWindowBar = MultitaskDockManager.shared.isCollapsed && self.isMaximized;
+        BOOL compactGrid = self.isInGridLayout && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars;
+        BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized);
         CGFloat navBarHeight = hideWindowBar ? 0 : 44;
+        [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
         self.navigationBar.alpha = hideWindowBar ? 0 : 1;
         self.navigationBar.hidden = hideWindowBar;
+        self.resizeHandle.hidden = compactGrid;
+        self.resizeHandle.alpha = self.isMaximized ? 0 : 1;
+        self.view.layer.cornerRadius = compactGrid ? 0 : 10;
+        self.view.layer.borderWidth = (compactGrid || self.isMaximized) ? 0 : 1;
         
         // Update safe area insets
         if(self.isMaximized) {
@@ -541,7 +559,6 @@
             }];
         }
         
-        [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
         if(bottomWindowBar) {
             self.activatedVerticalConstraints = @[
                 [self.appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor],

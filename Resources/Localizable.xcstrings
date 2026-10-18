@@ -18677,6 +18677,144 @@
         }
       }
     },
+    "lc.multitask.maximizeWindow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximize Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大化窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大化視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.minimizeAll" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimize All Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小化所有窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小化所有視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.minimizeWindow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimize Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小化窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小化視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.restoreWindow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.showDock" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开 Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展開 Dock"
+          }
+        }
+      }
+    },
+    "lc.multitask.windowControlsHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Long press for window controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "长按以显示窗口控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長按以顯示視窗控制"
+          }
+        }
+      }
+    },
     "lc.multitaskAppWindow.appTerminated" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -23802,6 +23940,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "UDID"
+          }
+        }
+      }
+    },
+    "lc.settings.hideGridWindowBars" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Window Bars in Grid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宫格模式隐藏窗口栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宮格模式隱藏視窗列"
+          }
+        }
+      }
+    },
+    "lc.settings.hideGridWindowBarsDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the collapsed Dock to expand it, then long-press an app icon for window controls. Turn this off to keep window bars visible."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点收起的 Dock 将其展开，然后长按应用图标来控制窗口。关闭此选项可保留窗口栏。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輕點收合的 Dock 將其展開，再長按 App 圖示來控制視窗。關閉此選項可保留視窗列。"
           }
         }
       }

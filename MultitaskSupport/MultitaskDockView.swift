@@ -286,6 +286,7 @@ class AppInfoProvider {
     
     override init() {
         super.init()
+        isCollapsed = windowHostingView.automaticallyTilesWindows
         keyWindow!.rootViewController!.view.subviews.first!.addSubview(self.windowHostingView)
         setupDockView()
         NotificationCenter.default.addObserver(
@@ -665,10 +666,19 @@ class AppInfoProvider {
                     view.alpha = 1.0
                     view.transform = .identity
                     view.frame = origFrame
+                },
+                completion: { _ in
+                    self.windowHostingView.setNeedsLayout()
+                    self.windowHostingView.layoutIfNeeded()
+                    self.collapseDockForGrid()
                 }
             )
         } else {
             bringViewToFront(view, in: window)
+            if decoratedVC?.isInGridLayout == true {
+                collapseDockForGrid()
+                return
+            }
             
             UIView.animate(withDuration: Constants.shortAnimationDuration1, animations: {
                 let scale = Constants.bringToFrontScale
@@ -743,6 +753,14 @@ class AppInfoProvider {
         }
     }
     
+    @objc public func collapseDockForGrid() {
+        DispatchQueue.main.async {
+            guard self.windowHostingView.hasVisibleGridWindows, !self.isCollapsed else { return }
+            self.isCollapsed = true
+            self.notifyDockCollapseChanged()
+        }
+    }
+
     @objc public func toggleDockCollapse() {
         DispatchQueue.main.async {
             self.isCollapsed.toggle()
@@ -755,7 +773,8 @@ class AppInfoProvider {
         self.updateDockFrame()
         // find fullscreen apps and hide its UINavigationBar
         self.apps.forEach { app in
-            if let vc = app.view?._viewDelegate() as? DecoratedAppSceneViewController, vc.isMaximized {
+            if let vc = app.view?._viewDelegate() as? DecoratedAppSceneViewController,
+               vc.isMaximized, !vc.view.isHidden, vc.view.alpha > 0, !vc.appSceneVC.shouldIgnoreSceneUpdates {
                 vc.updateVerticalConstraints()
             }
         }
@@ -848,6 +867,20 @@ public struct MultitaskDockSwiftView: View {
                         .onTapGesture {
                             dockManager.toggleDockCollapse()
                         }
+                        .accessibilityLabel("lc.multitask.showDock".loc)
+                        .accessibilityAddTraits(.isButton)
+                        .contextMenu {
+                            Button {
+                                dockManager.windowHostingView.arrangeWindowsInGrid()
+                            } label: {
+                                Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
+                            }
+                            Button {
+                                dockManager.minimizeAllWindows()
+                            } label: {
+                                Label("lc.multitask.minimizeAll".loc, systemImage: "rectangle.stack.badge.minus")
+                            }
+                        }
                 } else {
                     VStack(spacing: 8) {
                         CollapseButtonView()
@@ -859,6 +892,8 @@ public struct MultitaskDockSwiftView: View {
                             .onTapGesture {
                                 dockManager.minimizeAllWindows()
                             }
+                            .accessibilityLabel("lc.multitask.minimizeAll".loc)
+                            .accessibilityAddTraits(.isButton)
                         
                         ForEach(dockManager.apps) { app in
                             AppIconView(app: app)
@@ -1109,7 +1144,6 @@ class IconCacheManager {
 @available(iOS 16.0, *)
 struct AppIconView: View {
     let app: DockAppModel
-    @State private var isPressed = false
     @State private var appIcon: UIImage?
     @State private var isLoading = true
     @EnvironmentObject var dockManager: MultitaskDockManager
@@ -1120,36 +1154,37 @@ struct AppIconView: View {
     }
     
     var body: some View {
-        Group {
-            if isLoading && appIcon == nil {
-                LoadingIconView()
-            } else if let icon = appIcon {
-                IconImageView(icon: icon)
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gray.opacity(0.3))
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            _ = dockManager.bringMultitaskViewToFront(uuid: app.appUUID)
+            dockManager.collapseDockForGrid()
+        } label: {
+            Group {
+                if isLoading && appIcon == nil {
+                    LoadingIconView()
+                } else if let icon = appIcon {
+                    IconImageView(icon: icon)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.3))
+                }
+            }
+            .frame(width: iconSize, height: iconSize)
+            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(DockIconButtonStyle())
+        .accessibilityLabel(app.appName)
+        .accessibilityHint("lc.multitask.windowControlsHint".loc)
+        .contextMenu {
+            if let vc = app.view?._viewDelegate() as? DecoratedAppSceneViewController {
+                DockWindowActions(app: app, windowController: vc)
             }
         }
-        .frame(width: iconSize, height: iconSize)
-        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 3)
-        .scaleEffect(isPressed ? 1.15 : 1.0)
-        .animation(.easeInOut(duration: 0.1), value: isPressed)
         .animation(.easeInOut(duration: MultitaskDockManager.Constants.standardAnimationDuration), value: dockManager.settingsChanged)
         .onAppear {
             loadAppIcon()
         }
-        .onPressGesture(
-            onPress: { 
-                isPressed = true
-            },
-            onRelease: { location in 
-                isPressed = false
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
-                let _ = dockManager.bringMultitaskViewToFront(uuid: app.appUUID, from: location)
-            }
-        )
-        .contentShape(Rectangle())
     }
     
     private func loadAppIcon() {
@@ -1183,20 +1218,97 @@ struct AppIconView: View {
     }
 }
 
-// MARK: - Press Gesture Helper
-extension View {
-    func onPressGesture(onPress: @escaping () -> Void, onRelease: @escaping (_ location: CGPoint) -> Void) -> some View {
-        self.simultaneousGesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                .onChanged { value in
-                    if value.translation == CGSize.zero {
-                        onPress()
+private struct DockIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 1.1 : 1)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+@available(iOS 16.0, *)
+private struct DockWindowActions: View {
+    let app: DockAppModel
+    let windowController: DecoratedAppSceneViewController
+    @EnvironmentObject var dockManager: MultitaskDockManager
+
+    var body: some View {
+        let vc = windowController
+        let isHidden = vc.view.isHidden || vc.view.alpha < 0.1 || vc.appSceneVC.shouldIgnoreSceneUpdates
+        Text(app.appName)
+        if isHidden {
+            Button {
+                perform { _ = dockManager.bringMultitaskViewToFront(uuid: app.appUUID) }
+            } label: {
+                Label("lc.multitask.restoreWindow".loc, systemImage: "arrow.up.forward.app")
+            }
+        } else {
+            Button {
+                perform {
+                    vc.view.superview?.bringSubviewToFront(vc.view)
+                    vc.maximizeWindow()
+                }
+            } label: {
+                Label((vc.isMaximized ? "lc.multitask.restoreWindow" : "lc.multitask.maximizeWindow").loc,
+                      systemImage: vc.isMaximized ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+            }
+            Button {
+                perform { vc.minimizeWindow() }
+            } label: {
+                Label("lc.multitask.minimizeWindow".loc, systemImage: "minus.circle")
+            }
+        }
+        if vc.appSceneVC.isAppRunning {
+            Button {
+                UIPasteboard.general.string = String(vc.appSceneVC.pid)
+            } label: {
+                Label("lc.multitask.copyPid".loc, systemImage: "doc.on.doc")
+            }
+            if !isHidden {
+                Button {
+                    perform { vc.togglePictureInPicture() }
+                } label: {
+                    Label("lc.multitask.enablePip".loc, systemImage: "pip.enter")
+                }
+                Menu {
+                    ForEach([50, 75, 100, 125, 150, 175, 200], id: \.self) { percent in
+                        Button {
+                            perform { vc.updateContentScale(CGFloat(percent) / 100) }
+                        } label: {
+                            if abs(vc.scaleRatio - CGFloat(percent) / 100) < 0.01 {
+                                Label("\(percent)%", systemImage: "checkmark")
+                            } else {
+                                Text("\(percent)%")
+                            }
+                        }
                     }
+                } label: {
+                    Label("lc.multitask.scale".loc, systemImage: "textformat.size")
                 }
-                .onEnded { value in
-                    onRelease(value.startLocation)
+            }
+        }
+        Button {
+            perform { dockManager.windowHostingView.arrangeWindowsInGrid() }
+        } label: {
+            Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
+        }
+        Divider()
+        Button(role: .destructive) {
+            perform {
+                if PiPManager.shared!.isPiP(withDecoratedVC: vc) {
+                    PiPManager.shared!.stopPiP()
                 }
-        )
+                vc.closeWindow()
+            }
+        } label: {
+            Label("lc.common.close".loc, systemImage: "xmark.circle")
+        }
+    }
+
+    private func perform(_ action: () -> Void) {
+        action()
+        dockManager.settingsChanged.toggle()
+        dockManager.collapseDockForGrid()
     }
 }
 

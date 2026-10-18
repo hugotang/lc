@@ -12,6 +12,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
+    @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
     @AppStorage("LCSkipTerminatedScreen", store: LCUtils.appGroupUserDefault) var skipTerminatedScreen = false
@@ -61,6 +62,7 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $bottomWindowBar) {
                         Text("lc.settings.bottomWindowBar".loc)
                     }
+                    .disabled(autoTileMultitaskWindows && hideGridWindowBars)
                     Toggle(isOn: $redirectURLToHost) {
                         Text("lc.settings.redirectURLToHost".loc)
                     }
@@ -73,13 +75,19 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $autoTileMultitaskWindows) {
                         Text("lc.settings.autoTileMultitaskWindows".loc)
                     }
+                    Toggle(isOn: $hideGridWindowBars) {
+                        Text("lc.settings.hideGridWindowBars".loc)
+                    }
                     Button {
                         MultitaskDockManager.shared.windowHostingView.arrangeWindowsInGrid()
                     } label: {
                         Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
                     }
                 } footer: {
-                    Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
+                        Text("lc.settings.hideGridWindowBarsDesc".loc)
+                    }
                 }
             }
             
