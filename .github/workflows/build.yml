@@ -79,18 +79,20 @@ jobs:
         with:
           name: ${{ env.scheme }}.ipa
           path: ${{ env.scheme }}.ipa
+          if-no-files-found: error
       
       - name: Upload LiveContainer+SideStore
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.scheme }}+SideStore.ipa
           path: ${{ env.scheme }}+SideStore.ipa
+          if-no-files-found: error
 
   release__nightly:
     name: Nightly Release
     permissions:
       contents: write
-    if: inputs.release__nightly || github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: github.event_name == 'workflow_dispatch' && inputs.release__nightly
     runs-on: ubuntu-latest
     needs: [build]
     concurrency:
