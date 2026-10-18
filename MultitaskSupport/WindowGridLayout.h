@@ -4,9 +4,11 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 static const double LCWindowGridSpacing = 2;
 static const double LCWindowGridMinimumHeight = 88;
+static const double LCWindowGridMinimumWidth = 96;
 
 typedef struct {
     double x, y, width, height;
@@ -49,7 +51,67 @@ static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double wid
     return layout;
 }
 
-static inline LCWindowGridRect LCWindowGridFrame(LCWindowGridLayout layout, size_t index) {
+// Divider fractions measure content only, excluding the gaps. A NULL array means equal sizes.
+// Each axis with N tracks owns N - 1 ordered fractions between zero and one.
+static inline double LCWindowGridBoundary(const double *dividers, size_t tracks, size_t boundary) {
+    if (boundary == 0 || tracks == 0) return 0;
+    if (boundary >= tracks) return 1;
+    return dividers ? dividers[boundary - 1] : (double)boundary / tracks;
+}
+
+static inline void LCWindowGridResetDividers(double *dividers, size_t tracks) {
+    if (!dividers) return;
+    for (size_t i = 1; i < tracks; ++i) dividers[i - 1] = (double)i / tracks;
+}
+
+static inline double LCWindowGridMinimumFraction(size_t tracks, double length, double spacing,
+                                                 double minimumSize) {
+    double content = length - spacing * (tracks - 1);
+    return fmin(1.0 / tracks, fmax(0, minimumSize) / content);
+}
+
+// Re-clamp saved proportions when the available space changes. Very small surfaces stay equal.
+static inline void LCWindowGridConstrainDividers(double *dividers, size_t tracks, double length,
+                                                  double spacing, double minimumSize) {
+    if (!dividers || tracks < 2 || !isfinite(length) || !isfinite(spacing) ||
+        !isfinite(minimumSize) || spacing < 0 || length <= spacing * (tracks - 1)) return;
+    double minimum = LCWindowGridMinimumFraction(tracks, length, spacing, minimumSize);
+    double previous = 0;
+    for (size_t i = 1; i < tracks; ++i) {
+        double value = isfinite(dividers[i - 1]) ? dividers[i - 1] : (double)i / tracks;
+        dividers[i - 1] = fmin(1 - minimum * (tracks - i), fmax(previous + minimum, value));
+        previous = dividers[i - 1];
+    }
+}
+
+static inline double LCWindowGridDividerPosition(const double *dividers, size_t tracks, size_t index,
+                                                  double length, double spacing) {
+    if (tracks < 2 || index >= tracks - 1) return 0;
+    double content = length - spacing * (tracks - 1);
+    return LCWindowGridBoundary(dividers, tracks, index + 1) * content + spacing * (index + 0.5);
+}
+
+// Move only the two tracks adjacent to a divider, without crossing either neighbour.
+static inline bool LCWindowGridMoveDivider(double *dividers, size_t tracks, size_t index,
+                                            double position, double length, double spacing, double minimumSize) {
+    if (!dividers || tracks < 2 || index >= tracks - 1 || !isfinite(position) ||
+        !isfinite(length) || !isfinite(spacing) || !isfinite(minimumSize) ||
+        spacing < 0 || length <= spacing * (tracks - 1)) return false;
+    LCWindowGridConstrainDividers(dividers, tracks, length, spacing, minimumSize);
+    double content = length - spacing * (tracks - 1);
+    double minimum = LCWindowGridMinimumFraction(tracks, length, spacing, minimumSize);
+    double lower = LCWindowGridBoundary(dividers, tracks, index) + minimum;
+    double upper = LCWindowGridBoundary(dividers, tracks, index + 2) - minimum;
+    double fraction = (position - spacing * (index + 0.5)) / content;
+    double value = fmin(upper, fmax(lower, fraction));
+    if (fabs(dividers[index] - value) < 1e-12) return false;
+    dividers[index] = value;
+    return true;
+}
+
+static inline LCWindowGridRect LCWindowGridFrameWithDividers(LCWindowGridLayout layout, size_t index,
+                                                             const double *rowDividers, const double *columnDividers,
+                                                             const double *lastRowDividers) {
     LCWindowGridRect frame = {0};
     if (index >= layout.count || layout.rows == 0 || layout.columns == 0) {
         return frame;
@@ -59,12 +121,23 @@ static inline LCWindowGridRect LCWindowGridFrame(LCWindowGridLayout layout, size
     size_t column = index % layout.columns;
     size_t remaining = layout.count - row * layout.columns;
     size_t columnsInRow = remaining < layout.columns ? remaining : layout.columns;
-    // Let an incomplete final row use the available width.
-    frame.width = (layout.width - layout.spacing * (columnsInRow - 1)) / columnsInRow;
-    frame.height = (layout.height - layout.spacing * (layout.rows - 1)) / layout.rows;
-    frame.x = column * (frame.width + layout.spacing);
-    frame.y = row * (frame.height + layout.spacing);
+    // Full rows share vertical dividers. An incomplete last row still spans the whole width.
+    const double *horizontal = columnsInRow == layout.columns ? columnDividers : lastRowDividers;
+    double contentWidth = layout.width - layout.spacing * (columnsInRow - 1);
+    double contentHeight = layout.height - layout.spacing * (layout.rows - 1);
+    double left = LCWindowGridBoundary(horizontal, columnsInRow, column);
+    double right = LCWindowGridBoundary(horizontal, columnsInRow, column + 1);
+    double top = LCWindowGridBoundary(rowDividers, layout.rows, row);
+    double bottom = LCWindowGridBoundary(rowDividers, layout.rows, row + 1);
+    frame.width = (right - left) * contentWidth;
+    frame.height = (bottom - top) * contentHeight;
+    frame.x = left * contentWidth + column * layout.spacing;
+    frame.y = top * contentHeight + row * layout.spacing;
     return frame;
+}
+
+static inline LCWindowGridRect LCWindowGridFrame(LCWindowGridLayout layout, size_t index) {
+    return LCWindowGridFrameWithDividers(layout, index, NULL, NULL, NULL);
 }
 
 #endif

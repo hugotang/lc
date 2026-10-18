@@ -87,6 +87,7 @@ struct LCMultitaskSettingView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
                         Text("lc.settings.hideGridWindowBarsDesc".loc)
+                        Text("lc.settings.gridDividersDesc".loc)
                     }
                 }
             }

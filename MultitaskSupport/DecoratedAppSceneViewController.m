@@ -245,6 +245,7 @@
 }
 
 - (void)closeWindow {
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     _isAppTerminationRequested = true;
     if([_appSceneVC isAppRunning]) {
         [_appSceneVC terminate];
@@ -254,6 +255,7 @@
 }
 
 - (void)togglePictureInPicture {
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
         [PiPManager.shared stopPiP];
     } else {
@@ -263,6 +265,7 @@
 
 - (void)minimizeWindow {
     if (self.view.hidden) return;
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
         self.view.transform = CGAffineTransformMakeScale(0.1, 0.1);
@@ -276,6 +279,7 @@
 }
 
 - (void)minimizeWindowPiP {
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
     } completion:^(BOOL finished) {
@@ -301,14 +305,25 @@
 }
 
 - (void)applyGridFrame:(CGRect)frame {
+    [self applyGridFrame:frame updateSceneImmediately:NO];
+}
+
+- (void)applyGridFrame:(CGRect)frame updateSceneImmediately:(BOOL)immediate {
+    BOOL changedPresentation = !self.isInGridLayout || self.isMaximized;
+    if (!changedPresentation && !immediate && CGRectEqualToRect(self.view.frame, frame) &&
+        CGAffineTransformIsIdentity(self.view.transform)) return;
     self.isMaximized = NO;
     self.isInGridLayout = YES;
     self.view.transform = CGAffineTransformIdentity;
     self.view.frame = frame;
-    [self updateVerticalConstraints];
-    [self updateMaximizeButtonImage];
+    // Interactive divider movement must not rebuild constraints or start a chrome animation every frame.
+    if (changedPresentation) {
+        [self updateVerticalConstraints];
+        [self updateMaximizeButtonImage];
+    }
     [self updateOriginalFrame];
     [self.view layoutIfNeeded];
+    if (immediate) self.appSceneVC.shouldSkipDebounceOnce = YES;
     [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
         settings.peripheryInsets = UIEdgeInsetsZero;
         settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
@@ -316,6 +331,7 @@
 }
 
 - (void)maximizeWindow {
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     void (^updateSettingsBlock)(UIMutableApplicationSceneSettings *settings);
     
     [self.view layoutIfNeeded];
@@ -524,6 +540,7 @@
 
 - (void)leaveGridLayoutForManualAdjustment {
     if (!self.isInGridLayout) return;
+    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
     self.isInGridLayout = NO;
     [self updateVerticalConstraints];
     [self.view.superview setNeedsLayout];

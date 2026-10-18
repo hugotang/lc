@@ -135,6 +135,8 @@ class AppInfoProvider {
     @Published @objc var isCollapsed: Bool = false
     @Published var isDockHidden: Bool = false
     @Published var settingsChanged: Bool = false
+    @Published private(set) var isAdjustingGridDividers: Bool = false
+    @Published private(set) var canAdjustGridDividers: Bool = false
 
     @objc public var windowHostingView = VirtualWindowsHostView()
     internal var hostingController: UIHostingController<AnyView>?
@@ -246,9 +248,10 @@ class AppInfoProvider {
     }
 
     private func expandedDockBaseHeight(for width: CGFloat, buttonSize: CGFloat) -> CGFloat {
-        let spacingCount = max(self.apps.count + 1, 0)
+        let controlCount = 3 // Collapse, window layout, minimize all.
+        let spacingCount = max(self.apps.count + controlCount - 1, 0)
         let totalSpacingHeight = CGFloat(spacingCount) * Constants.dockContentSpacing
-        return Constants.dockVerticalPadding + buttonSize * 2 + totalSpacingHeight
+        return Constants.dockVerticalPadding + buttonSize * CGFloat(controlCount) + totalSpacingHeight
     }
 
     private func expandedDockHeight(for width: CGFloat, iconSize: CGFloat) -> CGFloat {
@@ -496,6 +499,7 @@ class AppInfoProvider {
         guard isVisible, let hostingController = hostingController else { return }
         
         DispatchQueue.main.async {
+            self.windowHostingView.finishGridDividerAdjustment()
             UIView.animate(
                 withDuration: Constants.standardAnimationDuration,
                 delay: 0,
@@ -761,6 +765,24 @@ class AppInfoProvider {
         }
     }
 
+    @objc public func gridLayoutDidChange() {
+        // The host calls this during UIKit layout. Publish after that layout pass completes.
+        DispatchQueue.main.async {
+            let canAdjust = self.windowHostingView.canAdjustGridDividers
+            if self.canAdjustGridDividers != canAdjust {
+                self.canAdjustGridDividers = canAdjust
+            }
+            let adjusting = self.windowHostingView.isAdjustingGridDividers
+            guard self.isAdjustingGridDividers != adjusting else { return }
+            self.isAdjustingGridDividers = adjusting
+            if adjusting {
+                self.isDockHidden = false
+                self.isCollapsed = true
+                self.notifyDockCollapseChanged()
+            }
+        }
+    }
+
     @objc public func toggleDockCollapse() {
         DispatchQueue.main.async {
             self.isCollapsed.toggle()
@@ -783,6 +805,7 @@ class AppInfoProvider {
     // Toggle dock hide/show state
     @objc public func toggleDockVisibility() {
         DispatchQueue.main.async {
+            self.windowHostingView.finishGridDividerAdjustment()
             self.isDockHidden.toggle()
             self.updateDockFrame()
         }
@@ -798,6 +821,7 @@ class AppInfoProvider {
     
     @objc public func hideDockToSide() {
         DispatchQueue.main.async {
+            self.windowHostingView.finishGridDividerAdjustment()
             self.isDockHidden = true
             self.updateDockFrame()
             self.setupEdgeGestureRecognizers()
@@ -865,16 +889,16 @@ public struct MultitaskDockSwiftView: View {
                 if dockManager.isCollapsed {
                     CollapsedDockView(isHidden: dockManager.isDockHidden)
                         .onTapGesture {
-                            dockManager.toggleDockCollapse()
+                            if dockManager.isAdjustingGridDividers {
+                                dockManager.windowHostingView.finishGridDividerAdjustment()
+                            } else {
+                                dockManager.toggleDockCollapse()
+                            }
                         }
-                        .accessibilityLabel("lc.multitask.showDock".loc)
+                        .accessibilityLabel((dockManager.isAdjustingGridDividers ? "lc.multitask.doneAdjustingGrid" : "lc.multitask.showDock").loc)
                         .accessibilityAddTraits(.isButton)
                         .contextMenu {
-                            Button {
-                                dockManager.windowHostingView.arrangeWindowsInGrid()
-                            } label: {
-                                Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
-                            }
+                            DockGridActions()
                             Button {
                                 dockManager.minimizeAllWindows()
                             } label: {
@@ -887,6 +911,14 @@ public struct MultitaskDockSwiftView: View {
                             .onTapGesture {
                                 dockManager.toggleDockCollapse()
                             }
+
+                        Menu {
+                            DockGridActions()
+                        } label: {
+                            GridLayoutButtonView()
+                        }
+                        .buttonStyle(DockIconButtonStyle())
+                        .accessibilityLabel("lc.multitask.gridControls".loc)
                         
                         MinimizeAllButtonView()
                             .onTapGesture {
@@ -1031,13 +1063,14 @@ struct CollapsedDockView: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
     
     var body: some View {
+        let accent: Color = dockManager.isAdjustingGridDividers ? .green : .blue
         ZStack {
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     LinearGradient(
                         gradient: Gradient(colors: [
-                            Color.blue.opacity(isHidden ? 0.4 : 0.8),
-                            Color.blue.opacity(isHidden ? 0.3 : 0.6)
+                            accent.opacity(isHidden ? 0.4 : 0.8),
+                            accent.opacity(isHidden ? 0.3 : 0.6)
                         ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -1046,7 +1079,11 @@ struct CollapsedDockView: View {
                 .frame(width: dockManager.adaptiveIconSize, height: dockManager.adaptiveIconSize)
             
             Group {
-                if isHidden {
+                if dockManager.isAdjustingGridDividers {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.white)
+                        .font(.system(size: dockManager.adaptiveIconSize * 0.4, weight: .bold))
+                } else if isHidden {
                     Image(systemName: "eye.slash")
                         .foregroundColor(.white.opacity(0.8))
                         .font(.system(size: dockManager.adaptiveIconSize * 0.35, weight: .bold))
@@ -1066,6 +1103,52 @@ struct CollapsedDockView: View {
         .scaleEffect(isHidden ? 0.9 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isHidden)
         .animation(.spring(response: MultitaskDockManager.Constants.longAnimationDuration, dampingFraction: MultitaskDockManager.Constants.standardSpringDamping), value: dockManager.adaptiveIconSize)
+    }
+}
+
+@available(iOS 16.0, *)
+private struct GridLayoutButtonView: View {
+    @EnvironmentObject var dockManager: MultitaskDockManager
+
+    var body: some View {
+        Image(systemName: "square.grid.2x2")
+            .font(.system(size: dockManager.adaptiveIconSize * 0.4, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: dockManager.adaptiveIconSize, height: dockManager.adaptiveIconSize)
+            .background(Color.blue.opacity(0.8), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.2), lineWidth: 1))
+    }
+}
+
+@available(iOS 16.0, *)
+private struct DockGridActions: View {
+    @EnvironmentObject var dockManager: MultitaskDockManager
+
+    var body: some View {
+        Button {
+            perform { dockManager.windowHostingView.arrangeWindowsInGrid() }
+        } label: {
+            Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
+        }
+        Button {
+            perform { dockManager.windowHostingView.toggleGridDividerAdjustment() }
+        } label: {
+            Label((dockManager.isAdjustingGridDividers ? "lc.multitask.doneAdjustingGrid" : "lc.multitask.adjustGridDividers").loc,
+                  systemImage: dockManager.isAdjustingGridDividers ? "checkmark" : "slider.horizontal.3")
+        }
+        .disabled(!dockManager.canAdjustGridDividers && !dockManager.isAdjustingGridDividers)
+        Button {
+            perform { dockManager.windowHostingView.resetGridProportions() }
+        } label: {
+            Label("lc.multitask.resetGridProportions".loc, systemImage: "arrow.counterclockwise")
+        }
+        .disabled(!dockManager.canAdjustGridDividers)
+    }
+
+    private func perform(_ action: () -> Void) {
+        action()
+        dockManager.settingsChanged.toggle()
+        dockManager.collapseDockForGrid()
     }
 }
 
@@ -1287,11 +1370,7 @@ private struct DockWindowActions: View {
                 }
             }
         }
-        Button {
-            perform { dockManager.windowHostingView.arrangeWindowsInGrid() }
-        } label: {
-            Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
-        }
+        DockGridActions()
         Divider()
         Button(role: .destructive) {
             perform {

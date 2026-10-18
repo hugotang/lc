@@ -2,6 +2,7 @@
 #include "../MultitaskSupport/WindowGridLayout.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdint.h>
 
 static const double epsilon = 0.000001;
 
@@ -121,11 +122,189 @@ static void testInvalidInput(void) {
     assertClose(LCWindowGridFrame(grid, 4).width, 0);
 }
 
+static void testAdjustablePair(void) {
+    LCWindowGridLayout layout = LCWindowGridLayoutMake(2, 390, 750, 2, 88);
+    double rows[1];
+    LCWindowGridResetDividers(rows, 2);
+    double original = LCWindowGridDividerPosition(rows, 2, 0, 750, 2);
+    assertClose(original, 375);
+    assert(LCWindowGridMoveDivider(rows, 2, 0, original + 73, 750, 2, 88));
+    LCWindowGridRect top = LCWindowGridFrameWithDividers(layout, 0, rows, NULL, NULL);
+    LCWindowGridRect bottom = LCWindowGridFrameWithDividers(layout, 1, rows, NULL, NULL);
+    assertClose(top.height, 374 + 73);
+    assertClose(bottom.height, 374 - 73);
+    assertClose(bottom.y - top.height, 2);
+    assertClose(bottom.y + bottom.height, 750);
+    assertClose(top.width, 390);
+    // A touch anywhere in the wide hit target uses translation, so a zero delta never jumps.
+    double position = LCWindowGridDividerPosition(rows, 2, 0, 750, 2);
+    assert(!LCWindowGridMoveDivider(rows, 2, 0, position, 750, 2, 88));
+    assert(LCWindowGridMoveDivider(rows, 2, 0, -1000, 750, 2, 88));
+    assertClose(LCWindowGridFrameWithDividers(layout, 0, rows, NULL, NULL).height, 88);
+    assert(LCWindowGridMoveDivider(rows, 2, 0, 1000, 750, 2, 88));
+    assertClose(LCWindowGridFrameWithDividers(layout, 1, rows, NULL, NULL).height, 88);
+    LCWindowGridResetDividers(rows, 2);
+    assertClose(rows[0], 0.5);
+
+    LCWindowGridLayout landscape = LCWindowGridLayoutMake(2, 750, 390, 2, 88);
+    double columns[] = {0.5};
+    LCWindowGridMoveDivider(columns, 2, 0, 450, 750, 2, LCWindowGridMinimumWidth);
+    assertClose(LCWindowGridFrameWithDividers(landscape, 0, NULL, columns, NULL).width, 449);
+    LCWindowGridMoveDivider(columns, 2, 0, -1000, 750, 2, LCWindowGridMinimumWidth);
+    assertClose(LCWindowGridFrameWithDividers(landscape, 0, NULL, columns, NULL).width, 96);
+}
+
+static void testAlignedFourAndThree(void) {
+    LCWindowGridLayout four = LCWindowGridLayoutMake(4, 390, 750, 2, 88);
+    double rows[] = {0.4};
+    double columns[] = {0.35};
+    LCWindowGridRect a = LCWindowGridFrameWithDividers(four, 0, rows, columns, NULL);
+    LCWindowGridRect b = LCWindowGridFrameWithDividers(four, 1, rows, columns, NULL);
+    LCWindowGridRect c = LCWindowGridFrameWithDividers(four, 2, rows, columns, NULL);
+    LCWindowGridRect d = LCWindowGridFrameWithDividers(four, 3, rows, columns, NULL);
+    assertClose(a.width, 388 * 0.35);
+    assertClose(a.height, 748 * 0.4);
+    assertClose(a.width, c.width);
+    assertClose(b.x, d.x);
+    assertClose(a.height, b.height);
+    assertClose(c.y, d.y);
+    assertClose(d.x + d.width, 390);
+    assertClose(d.y + d.height, 750);
+    // The central intersection performs the same independent moves on both shared axes.
+    LCWindowGridMoveDivider(rows, 2, 0, a.height + 1 + 37, 750, 2, 88);
+    LCWindowGridMoveDivider(columns, 2, 0, a.width + 1 - 29, 390, 2, 96);
+    LCWindowGridRect moved = LCWindowGridFrameWithDividers(four, 0, rows, columns, NULL);
+    assertClose(moved.height, a.height + 37);
+    assertClose(moved.width, a.width - 29);
+    assertClose(LCWindowGridFrameWithDividers(four, 2, rows, columns, NULL).width, moved.width);
+    assertClose(LCWindowGridFrameWithDividers(four, 1, rows, columns, NULL).height, moved.height);
+
+    LCWindowGridLayout three = LCWindowGridLayoutMake(3, 390, 750, 2, 88);
+    LCWindowGridRect last = LCWindowGridFrameWithDividers(three, 2, rows, columns, NULL);
+    assertClose(last.x, 0);
+    assertClose(last.width, 390);
+    assertClose(last.y, moved.height + 2);
+    assertClose(last.y + last.height, 750);
+}
+
+static void testAdjacentTracksAndPartialRow(void) {
+    LCWindowGridLayout layout = LCWindowGridLayoutMake(8, 390, 750, 2, 88);
+    assert(layout.rows == 3 && layout.columns == 3);
+    double rows[] = {0.25, 0.7};
+    double columns[] = {0.3, 0.7};
+    double tail[] = {0.4};
+    LCWindowGridRect last = LCWindowGridFrameWithDividers(layout, 7, rows, columns, tail);
+    LCWindowGridRect first = LCWindowGridFrameWithDividers(layout, 0, rows, columns, tail);
+    assertClose(last.x, 388 * 0.4 + 2);
+    assertClose(last.x + last.width, 390);
+    // Moving a divider does not move the third row or cross the next boundary.
+    LCWindowGridMoveDivider(rows, 3, 0, 2000, 750, 2, 88);
+    LCWindowGridRect middle = LCWindowGridFrameWithDividers(layout, 3, rows, columns, tail);
+    assertClose(middle.height, 88);
+    LCWindowGridRect after = LCWindowGridFrameWithDividers(layout, 7, rows, columns, tail);
+    assertClose(after.y, last.y);
+    assertClose(after.height, last.height);
+    LCWindowGridMoveDivider(columns, 3, 0, 145, 390, 2, 96);
+    after = LCWindowGridFrameWithDividers(layout, 7, rows, columns, tail);
+    assertClose(after.x, last.x);
+    assertClose(after.width, last.width);
+    double fullRowWidth = LCWindowGridFrameWithDividers(layout, 0, rows, columns, tail).width;
+    assert(fullRowWidth != first.width);
+    LCWindowGridMoveDivider(tail, 2, 0, 210, 390, 2, 96);
+    assertClose(LCWindowGridFrameWithDividers(layout, 0, rows, columns, tail).width, fullRowWidth);
+    assertClose(LCWindowGridFrameWithDividers(layout, 6, rows, columns, tail).width, 209);
+}
+
+static void testReclampingAndInvalidDividers(void) {
+    double columns[] = {0.1, 0.9};
+    LCWindowGridConstrainDividers(columns, 3, 390, 2, 96);
+    assertClose(columns[0] * 386, 96);
+    assertClose((1 - columns[1]) * 386, 96);
+    double saved = columns[0];
+    LCWindowGridConstrainDividers(columns, 3, 900, 2, 96);
+    assertClose(columns[0], saved);
+    assert(!LCWindowGridMoveDivider(columns, 3, 0, NAN, 390, 2, 96));
+    assert(!LCWindowGridMoveDivider(columns, 3, 0, INFINITY, 390, 2, 96));
+    assert(!LCWindowGridMoveDivider(columns, 3, 3, 50, 390, 2, 96));
+    assert(!LCWindowGridMoveDivider(columns, 3, 0, 50, 0, 2, 96));
+    assert(!LCWindowGridMoveDivider(NULL, 3, 0, 50, 390, 2, 96));
+    assertClose(columns[0], saved);
+    columns[0] = NAN;
+    columns[1] = -10;
+    LCWindowGridConstrainDividers(columns, 3, 390, 2, 96);
+    assert(isfinite(columns[0]) && isfinite(columns[1]));
+    assert((columns[1] - columns[0]) * 386 >= 96 - epsilon);
+    // On a surface too small for the preferred minimum, every track keeps an equal positive share.
+    LCWindowGridConstrainDividers(columns, 3, 20, 2, 96);
+    assertClose(columns[0], 1.0 / 3);
+    assertClose(columns[1], 2.0 / 3);
+    LCWindowGridResetDividers(NULL, 0);
+    LCWindowGridConstrainDividers(NULL, 0, 0, 0, 0);
+}
+
+static uint32_t randomState = 42;
+static double randomPosition(double length) {
+    randomState = randomState * 1664525u + 1013904223u;
+    return ((double)randomState / UINT32_MAX * 1.4 - 0.2) * length;
+}
+
+static void testAdjustedSizesAndCounts(void) {
+    const double sizes[][2] = {
+        {320, 524}, {375, 647}, {390, 750}, {430, 830},
+        {750, 354}, {932, 430}, {768, 980}, {1008, 700},
+        {1, 1}, {50, 45}, {143.5, 197.25}
+    };
+    for (size_t s = 0; s < sizeof(sizes) / sizeof(sizes[0]); ++s) {
+        for (size_t count = 1; count <= 128; ++count) {
+            for (size_t gap = 0; gap <= 2; gap += 2) {
+                LCWindowGridLayout layout = LCWindowGridLayoutMake(count, sizes[s][0], sizes[s][1], gap, 88);
+                size_t tailCount = count - (layout.rows - 1) * layout.columns;
+                double rows[128], columns[128], tail[128];
+                LCWindowGridResetDividers(rows, layout.rows);
+                LCWindowGridResetDividers(columns, layout.columns);
+                LCWindowGridResetDividers(tail, tailCount);
+                for (size_t step = 0; step < 20; ++step) {
+                    if (layout.rows > 1) LCWindowGridMoveDivider(rows, layout.rows, step % (layout.rows - 1),
+                        randomPosition(layout.height), layout.height, layout.spacing, 88);
+                    if (layout.columns > 1) LCWindowGridMoveDivider(columns, layout.columns, step % (layout.columns - 1),
+                        randomPosition(layout.width), layout.width, layout.spacing, 96);
+                    if (tailCount > 1) LCWindowGridMoveDivider(tail, tailCount, step % (tailCount - 1),
+                        randomPosition(layout.width), layout.width, layout.spacing, 96);
+                }
+                double totalArea = 0;
+                for (size_t i = 0; i < count; ++i) {
+                    LCWindowGridRect a = LCWindowGridFrameWithDividers(layout, i, rows, columns, tail);
+                    assert(isfinite(a.x) && isfinite(a.y) && isfinite(a.width) && isfinite(a.height));
+                    assert(a.x >= 0 && a.y >= 0 && a.width > 0 && a.height > 0);
+                    assert(a.x + a.width <= layout.width + epsilon);
+                    assert(a.y + a.height <= layout.height + epsilon);
+                    size_t tracks = i / layout.columns == layout.rows - 1 ? tailCount : layout.columns;
+                    double minWidth = fmin(96, (layout.width - layout.spacing * (tracks - 1)) / tracks);
+                    double minHeight = fmin(88, (layout.height - layout.spacing * (layout.rows - 1)) / layout.rows);
+                    assert(a.width >= minWidth - epsilon && a.height >= minHeight - epsilon);
+                    totalArea += a.width * a.height;
+                    for (size_t j = 0; j < i; ++j) {
+                        LCWindowGridRect b = LCWindowGridFrameWithDividers(layout, j, rows, columns, tail);
+                        assert(a.x + a.width <= b.x + epsilon || b.x + b.width <= a.x + epsilon ||
+                               a.y + a.height <= b.y + epsilon || b.y + b.height <= a.y + epsilon);
+                    }
+                }
+                if (gap == 0) assertClose(totalArea, layout.width * layout.height);
+            }
+        }
+    }
+}
+
 int main(void) {
     testCommonLayouts();
     testSizesAndWindowCounts();
     testCompactGridUsesSafeArea();
     testInvalidInput();
-    puts("Window grid layout tests passed (4,225 size/count/spacing combinations and compact-grid edge checks).");
+    testAdjustablePair();
+    testAlignedFourAndThree();
+    testAdjacentTracksAndPartialRow();
+    testReclampingAndInvalidDividers();
+    testAdjustedSizesAndCounts();
+    puts("Window grid layout tests passed (7,041 size/count/spacing combinations, divider drags, alignment and clamping checks).");
     return 0;
 }

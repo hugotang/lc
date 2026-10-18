@@ -22,6 +22,7 @@ API_AVAILABLE(ios(16.0))
 - (void)minimizeWindowPiP;
 - (void)unminimizeWindowPiP;
 - (void)applyGridFrame:(CGRect)frame;
+- (void)applyGridFrame:(CGRect)frame updateSceneImmediately:(BOOL)immediate;
 - (void)updateVerticalConstraints;
 @property(nonatomic, copy) void (^pidAvailableHandler)(NSNumber *pid, NSError *error);
 @end
