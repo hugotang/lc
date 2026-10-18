@@ -7,6 +7,7 @@
 #import "DecoratedAppSceneViewController.h"
 #import "VirtualWindowsHostView.h"
 #import "WindowGridLayout.h"
+#import "WindowGridOrder.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
@@ -35,14 +36,20 @@
 }
 @end
 
-// This overlay only intercepts the 44pt touch targets around the visible dividers.
-@interface LCGridDividerOverlay : UIView
+// Only the controls intercept touches; uncovered space still reaches the app windows.
+@interface LCGridControlsOverlay : UIView
+@property(nonatomic, copy) void (^escapeHandler)(void);
 @end
 
-@implementation LCGridDividerOverlay
+@implementation LCGridControlsOverlay
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *hit = [super hitTest:point withEvent:event];
     return hit == self ? nil : hit;
+}
+- (BOOL)accessibilityPerformEscape {
+    if (!self.escapeHandler) return NO;
+    self.escapeHandler();
+    return YES;
 }
 @end
 
@@ -114,7 +121,7 @@
 @end
 
 @interface VirtualWindowsHostView ()
-@property(nonatomic) NSMutableArray<UIView *> *windowsInOpeningOrder;
+@property(nonatomic, strong) LCWindowGridOrder *windowOrder;
 @property(nonatomic) NSArray<UIView *> *lastArrangedWindows;
 @property(nonatomic) CGRect lastArrangementBounds;
 @property(nonatomic) BOOL wasAutomaticallyTiling;
@@ -122,10 +129,14 @@
 @property(nonatomic, readwrite) BOOL hasVisibleGridWindows;
 @property(nonatomic) BOOL isArrangingWindows;
 @property(nonatomic, readwrite) BOOL isAdjustingGridDividers;
+@property(nonatomic, readwrite) BOOL isChoosingGridSwap;
 @property(nonatomic) LCWindowGridLayout gridLayout;
 @property(nonatomic, strong) LCGridProportions *gridProportions;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, LCGridProportions *> *savedGridProportions;
-@property(nonatomic, strong) LCGridDividerOverlay *dividerOverlay;
+@property(nonatomic, strong) LCGridControlsOverlay *dividerOverlay;
+@property(nonatomic, strong) LCGridControlsOverlay *swapOverlay;
+@property(nonatomic, copy) NSArray<UIView *> *swapCandidates;
+@property(nonatomic, weak) UIView *selectedSwapWindow;
 @property(nonatomic, weak) LCGridDividerView *activeDivider;
 @property(nonatomic) CGPoint dragStartDividerPosition;
 @property(nonatomic) CFTimeInterval lastInteractiveSceneUpdate;
@@ -137,7 +148,7 @@
     self = [super initWithFrame:frame];
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.shouldForwardTapAction = YES;
-    self.windowsInOpeningOrder = [NSMutableArray array];
+    self.windowOrder = [LCWindowGridOrder new];
     self.savedGridProportions = [NSMutableDictionary dictionary];
     self.lastArrangementBounds = CGRectNull;
     self.wasAutomaticallyTiling = self.automaticallyTilesWindows;
@@ -164,7 +175,7 @@
 
 - (NSArray<UIView *> *)visibleWindows {
     NSMutableArray<UIView *> *visible = [NSMutableArray array];
-    for (UIView *view in self.windowsInOpeningOrder) {
+    for (UIView *view in self.windowOrder.windows) {
         DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
         if (!view.hidden && view.alpha > 0 && [vc isKindOfClass:DecoratedAppSceneViewController.class] &&
             !vc.appSceneVC.shouldIgnoreSceneUpdates) {
@@ -175,11 +186,15 @@
 }
 
 - (BOOL)canAdjustGridDividers {
-    return self.visibleWindows.count > 1;
+    return self.window && self.visibleWindows.count > 1;
+}
+
+- (BOOL)canUndoGridSwap {
+    return self.window && [self.windowOrder canUndoSwapWithVisibleWindows:self.visibleWindows];
 }
 
 - (void)applicationWillResignActive:(NSNotification *)notification {
-    [self finishGridDividerAdjustment];
+    [self finishGridEditing];
 }
 
 - (void)defaultsDidChange:(NSNotification *)notification {
@@ -187,11 +202,11 @@
         BOOL enabled = self.automaticallyTilesWindows;
         BOOL hideBars = self.shouldHideGridWindowBars;
         BOOL stoppedTiling = self.wasAutomaticallyTiling && !enabled;
-        if (stoppedTiling) [self finishGridDividerAdjustment];
+        if (stoppedTiling) [self finishGridEditing];
         if (enabled != self.wasAutomaticallyTiling || hideBars != self.wasHidingGridWindowBars) {
             self.wasAutomaticallyTiling = enabled;
             self.wasHidingGridWindowBars = hideBars;
-            for (UIView *view in self.windowsInOpeningOrder) {
+            for (UIView *view in self.windowOrder.windows) {
                 DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
                 if ([vc isKindOfClass:DecoratedAppSceneViewController.class] && vc.isInGridLayout) {
                     if (stoppedTiling) vc.isInGridLayout = NO;
@@ -207,20 +222,20 @@
 
 - (void)didAddSubview:(UIView *)subview {
     [super didAddSubview:subview];
-    if ([subview isKindOfClass:LCGridDividerOverlay.class]) return;
-    if (![self.windowsInOpeningOrder containsObject:subview]) {
-        [self.windowsInOpeningOrder addObject:subview];
-    }
-    if (self.dividerOverlay.superview == self) [super bringSubviewToFront:self.dividerOverlay];
+    if ([subview isKindOfClass:LCGridControlsOverlay.class]) return;
+    [self cancelGridWindowSwap];
+    [self.windowOrder addWindow:subview];
+    [self bringGridControlsToFront];
     [self setNeedsLayout];
 }
 
 - (void)willRemoveSubview:(UIView *)subview {
-    if ([subview isKindOfClass:LCGridDividerOverlay.class]) {
+    if ([subview isKindOfClass:LCGridControlsOverlay.class]) {
         [super willRemoveSubview:subview];
         return;
     }
-    [self.windowsInOpeningOrder removeObject:subview];
+    [self cancelGridWindowSwap];
+    [self.windowOrder removeWindow:subview];
     self.lastArrangedWindows = nil;
     [super willRemoveSubview:subview];
     [self setNeedsLayout];
@@ -228,9 +243,17 @@
 
 - (void)bringSubviewToFront:(UIView *)view {
     [super bringSubviewToFront:view];
-    if (view != self.dividerOverlay && self.dividerOverlay.superview == self) {
-        [super bringSubviewToFront:self.dividerOverlay];
-    }
+    [self bringGridControlsToFront];
+}
+
+- (void)bringGridControlsToFront {
+    if (self.dividerOverlay.superview == self) [super bringSubviewToFront:self.dividerOverlay];
+    if (self.swapOverlay.superview == self) [super bringSubviewToFront:self.swapOverlay];
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    if (!self.window) [self finishGridEditing];
 }
 
 - (void)safeAreaInsetsDidChange {
@@ -240,20 +263,21 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers) {
+    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers || self.isChoosingGridSwap) {
         [self arrangeVisibleWindowsInGrid:NO];
     }
     [self updateGridBackdrop];
 }
 
 - (void)setNeedsGridLayout {
-    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers) {
+    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers || self.isChoosingGridSwap) {
         self.lastArrangementBounds = CGRectNull;
         [self setNeedsLayout];
     }
 }
 
 - (void)arrangeWindowsInGrid {
+    [self cancelGridWindowSwap];
     [self arrangeVisibleWindowsInGrid:YES];
 }
 
@@ -262,11 +286,16 @@
 
     CGRect availableBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
     if (availableBounds.size.width <= 0 || availableBounds.size.height <= 44) {
-        [self finishGridDividerAdjustment];
+        [self finishGridEditing];
         return;
     }
 
     NSArray<UIView *> *visibleWindows = self.visibleWindows;
+    // A picker is tied to a specific set of windows and screen geometry.
+    if (self.isChoosingGridSwap &&
+        (!CGRectEqualToRect(availableBounds, self.lastArrangementBounds) || ![visibleWindows isEqualToArray:self.swapCandidates])) {
+        [self cancelGridWindowSwap];
+    }
     // Reflow only when the visible windows or available space change.
     if (!force && CGRectEqualToRect(availableBounds, self.lastArrangementBounds) &&
         [visibleWindows isEqualToArray:self.lastArrangedWindows]) return;
@@ -277,7 +306,7 @@
                                                       availableBounds.size.height, LCWindowGridSpacing, LCWindowGridMinimumHeight);
     self.gridLayout = layout;
     if (layout.count == 0) {
-        [self finishGridDividerAdjustment];
+        [self finishGridEditing];
         [self updateGridBackdrop];
         return;
     }
@@ -328,7 +357,7 @@
 
 - (void)updateGridBackdrop {
     BOOL visible = NO;
-    for (UIView *view in self.windowsInOpeningOrder) {
+    for (UIView *view in self.windowOrder.windows) {
         DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
         if (!view.hidden && view.alpha > 0 && [vc isKindOfClass:DecoratedAppSceneViewController.class] &&
             vc.isInGridLayout && !vc.appSceneVC.shouldIgnoreSceneUpdates) {
@@ -338,7 +367,7 @@
     }
     self.hasVisibleGridWindows = visible;
     self.backgroundColor = visible ? UIColor.blackColor : UIColor.clearColor;
-    if (!visible) [self finishGridDividerAdjustment];
+    if (!visible) [self finishGridEditing];
     [MultitaskDockManager.shared gridLayoutDidChange];
 }
 
@@ -366,6 +395,142 @@
     [MultitaskDockManager.shared gridLayoutDidChange];
 }
 
+- (void)finishGridEditing {
+    [self finishGridDividerAdjustment];
+    [self cancelGridWindowSwap];
+}
+
+- (void)beginGridWindowSwap {
+    [self beginGridWindowSwapFromWindow:nil];
+}
+
+- (void)beginGridWindowSwapFromWindow:(UIView *)window {
+    [self finishGridEditing];
+    if (!self.canAdjustGridDividers) return;
+    if (window && [self.visibleWindows indexOfObjectIdenticalTo:window] == NSNotFound) return;
+    [self arrangeWindowsInGrid];
+    if (![self hasCurrentAdjustableGrid]) return;
+    NSArray<UIView *> *candidates = self.visibleWindows;
+    if (window && [candidates indexOfObjectIdenticalTo:window] == NSNotFound) return;
+    // With two windows there is only one possible pair, so exchange them immediately.
+    if (candidates.count == 2) {
+        [self swapGridWindow:candidates[0] withWindow:candidates[1]];
+        return;
+    }
+    self.swapCandidates = candidates;
+    self.selectedSwapWindow = window;
+    self.isChoosingGridSwap = YES;
+    if (!self.swapOverlay) {
+        self.swapOverlay = [LCGridControlsOverlay new];
+        self.swapOverlay.accessibilityViewIsModal = YES;
+        __weak typeof(self) weakSelf = self;
+        self.swapOverlay.escapeHandler = ^{ [weakSelf cancelGridWindowSwap]; };
+        [self addSubview:self.swapOverlay];
+    }
+    self.swapOverlay.frame = self.lastArrangementBounds;
+    self.swapOverlay.hidden = NO;
+    for (UIView *view in self.swapOverlay.subviews) [view removeFromSuperview];
+    for (NSUInteger index = 0; index < candidates.count; ++index) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+        button.tag = index;
+        button.exclusiveTouch = YES;
+        [button addTarget:self action:@selector(selectGridSwapWindow:) forControlEvents:UIControlEventTouchUpInside];
+        [self.swapOverlay addSubview:button];
+    }
+    [self updateSwapTargets];
+    [self bringGridControlsToFront];
+    [MultitaskDockManager.shared gridLayoutDidChange];
+    UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, self.swapOverlay.subviews.firstObject);
+}
+
+- (void)updateSwapTargets {
+    LCWindowGridLayout layout = self.gridLayout;
+    for (UIButton *button in self.swapOverlay.subviews) {
+        NSUInteger index = button.tag;
+        UIView *window = self.swapCandidates[index];
+        DecoratedAppSceneViewController *vc = (id)window._viewDelegate;
+        LCWindowGridRect tile = LCWindowGridFrameWithDividers(layout, index, self.gridProportions.rows.bytes,
+                                                              self.gridProportions.columns.bytes, self.gridProportions.lastRowColumns.bytes);
+        button.frame = CGRectMake(tile.x, tile.y, tile.width, tile.height);
+        BOOL selected = window == self.selectedSwapWindow;
+        NSString *action = (selected ? @"lc.multitask.swapDeselect" :
+                            self.selectedSwapWindow ? @"lc.multitask.swapHere" : @"lc.multitask.swapSelect").loc;
+        NSString *title = [NSString stringWithFormat:@"%lu · %@", (unsigned long)index + 1, vc.title ?: @""];
+        UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
+        configuration.title = title;
+        configuration.subtitle = action;
+        configuration.titleLineBreakMode = NSLineBreakByTruncatingMiddle;
+        configuration.baseForegroundColor = UIColor.whiteColor;
+        configuration.background.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:selected ? 0.6 : 0.4];
+        configuration.background.strokeColor = selected ? UIColor.systemBlueColor : [UIColor.whiteColor colorWithAlphaComponent:0.6];
+        configuration.background.strokeWidth = selected ? 4 : 1;
+        configuration.background.cornerRadius = 0;
+        configuration.cornerStyle = UIButtonConfigurationCornerStyleFixed;
+        configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 8, 8, 8);
+        configuration.image = [UIImage systemImageNamed:selected ? @"checkmark.circle.fill" : @"arrow.left.arrow.right"];
+        configuration.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:20 weight:UIImageSymbolWeightSemibold];
+        configuration.imagePlacement = NSDirectionalRectEdgeTop;
+        configuration.imagePadding = 6;
+        button.configuration = configuration;
+        button.accessibilityLabel = [NSString stringWithFormat:@"%@, %@", title, action];
+        button.accessibilityTraits = UIAccessibilityTraitButton | (selected ? UIAccessibilityTraitSelected : 0);
+    }
+}
+
+- (void)selectGridSwapWindow:(UIButton *)button {
+    if (!self.isChoosingGridSwap || button.superview != self.swapOverlay) return;
+    if (![self hasCurrentAdjustableGrid] || ![self.swapCandidates isEqualToArray:self.visibleWindows] ||
+        button.tag < 0 || (NSUInteger)button.tag >= self.swapCandidates.count) {
+        [self cancelGridWindowSwap];
+        return;
+    }
+    UIView *window = self.swapCandidates[button.tag];
+    if (self.selectedSwapWindow && self.selectedSwapWindow != window) {
+        [self swapGridWindow:self.selectedSwapWindow withWindow:window];
+    } else {
+        self.selectedSwapWindow = self.selectedSwapWindow == window ? nil : window;
+        [self updateSwapTargets];
+        [[[UISelectionFeedbackGenerator alloc] init] selectionChanged];
+        if (self.selectedSwapWindow) {
+            UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, @"lc.multitask.swapChooseSecond".loc);
+        }
+    }
+}
+
+- (void)cancelGridWindowSwap {
+    if (!self.isChoosingGridSwap) return;
+    self.isChoosingGridSwap = NO;
+    self.selectedSwapWindow = nil;
+    self.swapCandidates = nil;
+    self.swapOverlay.hidden = YES;
+    for (UIView *view in self.swapOverlay.subviews) [view removeFromSuperview];
+    [MultitaskDockManager.shared gridLayoutDidChange];
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+}
+
+- (void)swapGridWindow:(UIView *)first withWindow:(UIView *)second {
+    if (![self hasCurrentAdjustableGrid]) {
+        [self cancelGridWindowSwap];
+        return;
+    }
+    NSArray<UIView *> *visible = self.visibleWindows;
+    [self finishGridEditing];
+    if (![self.windowOrder swapWindow:first withWindow:second visibleWindows:visible]) return;
+    // The same grid configuration reuses its proportions; only the occupants change.
+    [self arrangeVisibleWindowsInGrid:YES];
+    [[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
+    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, @"lc.multitask.swapCompleted".loc);
+}
+
+- (void)undoLastGridWindowSwap {
+    if (!self.canUndoGridSwap) return;
+    [self finishGridEditing];
+    if ([self.windowOrder undoSwapWithVisibleWindows:self.visibleWindows]) {
+        [self arrangeVisibleWindowsInGrid:YES];
+        [[[UISelectionFeedbackGenerator alloc] init] selectionChanged];
+    }
+}
+
 - (void)resetGridProportions {
     if (!self.canAdjustGridDividers) return;
     [self arrangeWindowsInGrid];
@@ -380,7 +545,7 @@
 }
 
 - (BOOL)hasCurrentAdjustableGrid {
-    if (self.gridLayout.count < 2 ||
+    if (!self.window || self.gridLayout.count < 2 ||
         !CGRectEqualToRect(self.lastArrangementBounds, UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets)) ||
         ![self.lastArrangedWindows isEqualToArray:self.visibleWindows]) return NO;
     for (UIView *view in self.lastArrangedWindows) {
@@ -430,7 +595,9 @@
 - (void)rebuildDividerHandles {
     self.activeDivider = nil;
     if (!self.dividerOverlay) {
-        self.dividerOverlay = [[LCGridDividerOverlay alloc] initWithFrame:self.lastArrangementBounds];
+        self.dividerOverlay = [[LCGridControlsOverlay alloc] initWithFrame:self.lastArrangementBounds];
+        __weak typeof(self) weakSelf = self;
+        self.dividerOverlay.escapeHandler = ^{ [weakSelf finishGridDividerAdjustment]; };
         [self addSubview:self.dividerOverlay];
     }
     for (UIView *view in self.dividerOverlay.subviews) [view removeFromSuperview];
@@ -574,7 +741,8 @@
         // Grid separators and safe-area padding should not activate the host UI underneath.
         return self.hasVisibleGridWindows ? self : nil;
     } else {
-        self.shouldForwardTapAction = !(self.dividerOverlay && [hitView isDescendantOfView:self.dividerOverlay]);
+        self.shouldForwardTapAction = !((self.dividerOverlay && [hitView isDescendantOfView:self.dividerOverlay]) ||
+                                        (self.swapOverlay && [hitView isDescendantOfView:self.swapOverlay]));
         return hitView;
     }
 }

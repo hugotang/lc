@@ -88,6 +88,7 @@ struct LCMultitaskSettingView: View {
                         Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
                         Text("lc.settings.hideGridWindowBarsDesc".loc)
                         Text("lc.settings.gridDividersDesc".loc)
+                        Text("lc.settings.gridSwapDesc".loc)
                     }
                 }
             }

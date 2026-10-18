@@ -34,6 +34,10 @@ jobs:
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowGridLayoutTests.c -lm -o "$RUNNER_TEMP/window-grid-tests"
           "$RUNNER_TEMP/window-grid-tests"
+      - name: Test window grid swapping
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
+          "$RUNNER_TEMP/window-grid-order-tests"
       - name: Set Scheme
         id: scheme
         run: |

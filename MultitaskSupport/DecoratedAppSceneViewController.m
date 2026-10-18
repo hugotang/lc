@@ -245,7 +245,7 @@
 }
 
 - (void)closeWindow {
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     _isAppTerminationRequested = true;
     if([_appSceneVC isAppRunning]) {
         [_appSceneVC terminate];
@@ -255,7 +255,7 @@
 }
 
 - (void)togglePictureInPicture {
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
         [PiPManager.shared stopPiP];
     } else {
@@ -265,7 +265,7 @@
 
 - (void)minimizeWindow {
     if (self.view.hidden) return;
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
         self.view.transform = CGAffineTransformMakeScale(0.1, 0.1);
@@ -279,7 +279,7 @@
 }
 
 - (void)minimizeWindowPiP {
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
     } completion:^(BOOL finished) {
@@ -331,7 +331,7 @@
 }
 
 - (void)maximizeWindow {
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     void (^updateSettingsBlock)(UIMutableApplicationSceneSettings *settings);
     
     [self.view layoutIfNeeded];
@@ -540,7 +540,7 @@
 
 - (void)leaveGridLayoutForManualAdjustment {
     if (!self.isInGridLayout) return;
-    [MultitaskDockManager.shared.windowHostingView finishGridDividerAdjustment];
+    [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     self.isInGridLayout = NO;
     [self updateVerticalConstraints];
     [self.view.superview setNeedsLayout];

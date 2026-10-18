@@ -275,6 +275,8 @@
 				"UIKitPrivate+MultitaskSupport.h",
 				VirtualWindowsHostView.h,
 				VirtualWindowsHostView.m,
+				WindowGridOrder.h,
+				WindowGridOrder.m,
 			);
 			target = 17413FB42D9C0BAE00F3F928 /* LiveContainerSwiftUI */;
 		};
