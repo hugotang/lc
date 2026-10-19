@@ -6,6 +6,7 @@
 //
 
 #import "FoundationPrivate.h"
+#import "LCAppLanguage.h"
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
 #import "utils.h"
@@ -73,17 +74,21 @@ void NUDGuestHooksInit(void) {
 
 #if !TARGET_OS_SIMULATOR
     NSString* selectedLanguage = NSUserDefaults.guestAppInfo[@"LCSelectedLanguage"];
-    if(selectedLanguage) {
-        [newStandardUserDefaults setObject:@[selectedLanguage] forKey:@"AppleLanguages"];
+    NSArray<NSString *> *preferredLanguages = [LCAppLanguage preferredLanguagesForSelection:selectedLanguage];
+    if(preferredLanguages.count > 0) {
+        [newStandardUserDefaults setObject:preferredLanguages forKey:@"AppleLanguages"];
         CFMutableArrayRef* _CFBundleUserLanguages = getCachedSymbol(@"__CFBundleUserLanguages", coreFoundationHeader);
         if(!_CFBundleUserLanguages) {
             _CFBundleUserLanguages = litehook_find_dsc_symbol(coreFoundationPath, "__CFBundleUserLanguages");
-            uint64_t offset = (uint64_t)((void*)_CFBundleUserLanguages - (void*)coreFoundationHeader);
-            saveCachedSymbol(@"__CFBundleUserLanguages", coreFoundationHeader, offset);
+            if(_CFBundleUserLanguages) {
+                uint64_t offset = (uint64_t)((void*)_CFBundleUserLanguages - (void*)coreFoundationHeader);
+                saveCachedSymbol(@"__CFBundleUserLanguages", coreFoundationHeader, offset);
+            }
         }
-        // set _CFBundleUserLanguages to selected languages
-        NSMutableArray* newUserLanguages = [NSMutableArray arrayWithObjects:selectedLanguage, nil];
-        *_CFBundleUserLanguages = (__bridge CFMutableArrayRef)newUserLanguages;
+        if(_CFBundleUserLanguages) {
+            // Keep a retained copy alive after the launch autorelease pool drains.
+            *_CFBundleUserLanguages = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, (__bridge CFArrayRef)preferredLanguages);
+        }
     } else {
         [newStandardUserDefaults removeObjectForKey:@"AppleLanguages"];
     }

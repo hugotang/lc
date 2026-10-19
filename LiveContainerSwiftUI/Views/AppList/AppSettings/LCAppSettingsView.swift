@@ -254,29 +254,35 @@ struct LCAppSettingsView: View {
             
             Section {
                 NavigationLink {
-                    if let supportedLanguage = model.supportedLanguages {
+                    if let supportedLanguages = model.supportedLanguages {
                         Form {
-                            Picker(selection: $model.uiSelectedLanguage) {
-                                Text("lc.common.auto".loc).tag("")
-                                
-                                ForEach(supportedLanguage, id:\.self) { language in
-                                    if language != "Base" {
+                            Section {
+                                Picker(selection: $model.uiSelectedLanguage) {
+                                    Text("lc.common.auto".loc).tag("")
+
+                                    ForEach(supportedLanguages, id: \.self) { language in
                                         VStack(alignment: .leading) {
-                                            Text(Locale(identifier: language).localizedString(forIdentifier: language) ?? language)
-                                            Text("\(Locale.current.localizedString(forIdentifier: language) ?? "") - \(language)")
+                                            Text(languageDisplayName(language, native: true))
+                                            Text("\(languageDisplayName(language)) - \(language)")
                                                 .font(.footnote)
                                                 .foregroundStyle(.gray)
                                         }
                                         .tag(language)
                                     }
-
+                                } label: {
+                                    Text("lc.common.language".loc)
                                 }
-                            } label: {
-                                Text("lc.common.language".loc)
+                                .pickerStyle(.inline)
+                            } footer: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("lc.appSettings.language.restart".loc)
+                                    if LCAppLanguage.isTraditionalCantonese(model.uiSelectedLanguage) {
+                                        Text("lc.appSettings.language.cantoneseFallback".loc)
+                                    }
+                                }
                             }
-                            .pickerStyle(.inline)
                         }
-
+                        .navigationTitle("lc.common.language".loc)
                     } else {
                         Text("lc.common.loading".loc)
                             .onAppear() {
@@ -291,7 +297,7 @@ struct LCAppSettingsView: View {
                             Text("lc.common.auto".loc)
                                 .foregroundStyle(.gray)
                         } else {
-                            Text(Locale.current.localizedString(forIdentifier: model.uiSelectedLanguage) ?? model.uiSelectedLanguage)
+                            Text(languageDisplayName(model.uiSelectedLanguage))
                                 .foregroundStyle(.gray)
                         }
                     }
@@ -728,6 +734,14 @@ struct LCAppSettingsView: View {
         
     }
     
+    private func languageDisplayName(_ language: String, native: Bool = false) -> String {
+        if Locale.canonicalLanguageIdentifier(from: language) == LCAppLanguage.traditionalCantoneseIdentifier {
+            return native ? "廣東話（繁體）" : "lc.appSettings.language.cantoneseTraditional".loc
+        }
+        let locale = native ? Locale(identifier: language) : Locale.current
+        return locale.localizedString(forIdentifier: language) ?? language
+    }
+
     func loadSupportedLanguages() {
         do {
             try model.loadSupportedLanguages()

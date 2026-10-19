@@ -111,6 +111,9 @@ Choose **"Swap Positions"** in the Dock's layout menu to exchange windows while 
 ### [Multiple Containers/External Containers](https://livecontainer.github.io/docs/guides/containers-and-external-data)
 ### [Hiding Apps](https://livecontainer.github.io/docs/guides/lock-app)
 
+### Per-App Language
+Open an app's **Settings → Language** from the **Apps** tab. The list includes the app's bundled and declared languages, plus **Cantonese (Traditional)** (`yue-Hant`). This preference uses Cantonese translations when available, then tries Traditional Chinese (Hong Kong) and Traditional Chinese. It cannot add translations that the app does not provide. **Auto** follows the system language preferences. Close and reopen the guest app after changing its language; minimizing or restoring an existing window does not restart it. This setting applies to both regular and multitasking launches.
+
 ### Fix File Picker & Local Notification
 Some apps may experience issues with their file pickers or not be able to apply for notification permission in LiveContainer. To resolve this, enable "Fix File Picker" & "Fix Local Notifications" accordingly in the app-specific settings.
 

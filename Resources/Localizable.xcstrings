@@ -8096,6 +8096,75 @@
         }
       }
     },
+    "lc.appSettings.language.cantoneseFallback" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses the app's Cantonese translation when available, then falls back to Traditional Chinese (Hong Kong) or Traditional Chinese. The app must provide these translations."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先使用 App 的粤语翻译，没有时会尝试香港繁体中文及繁体中文。可用翻译由 App 提供。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "優先使用 App 的廣東話翻譯，沒有時會嘗試香港繁體中文及繁體中文。可用翻譯由 App 提供。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.language.cantoneseTraditional" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cantonese (Traditional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粤语（繁体）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "廣東話（繁體）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.language.restart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close and reopen the app to apply the language setting."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭并重新打开 App 后，语言设置才会生效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉並重新開啟 App 後，語言設定才會生效。"
+          }
+        }
+      }
+    },
     "lc.appSettings.launchWithJit" : {
       "extractionState" : "manual",
       "localizations" : {

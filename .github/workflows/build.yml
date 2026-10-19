@@ -38,6 +38,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
           "$RUNNER_TEMP/window-grid-order-tests"
+      - name: Test app language selection
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"
+          "$RUNNER_TEMP/app-language-tests"
       - name: Set Scheme
         id: scheme
         run: |

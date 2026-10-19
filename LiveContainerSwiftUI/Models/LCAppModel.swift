@@ -501,20 +501,16 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     func loadSupportedLanguages() throws {
-        let fm = FileManager.default
         if supportedLanguages != nil {
             return
         }
-        supportedLanguages = []
-        let fileURLs = try fm.contentsOfDirectory(at: URL(fileURLWithPath: appInfo.bundlePath()!) , includingPropertiesForKeys: nil)
-        for fileURL in fileURLs {
-            let attributes = try fm.attributesOfItem(atPath: fileURL.path)
-            let fileType = attributes[.type] as? FileAttributeType
-            if(fileType == .typeDirectory && fileURL.lastPathComponent.hasSuffix(".lproj")) {
-                supportedLanguages?.append(fileURL.deletingPathExtension().lastPathComponent)
-            }
+        guard let bundlePath = appInfo.bundlePath() else {
+            throw CocoaError(.fileNoSuchFile)
         }
-        
+        guard let bundle = Bundle(path: bundlePath) else {
+            throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: bundlePath])
+        }
+        supportedLanguages = LCAppLanguage.availableLanguages(in: bundle, selectedLanguage: uiSelectedLanguage)
     }
     
     private func bringExistingMultitaskWindowIfNeeded(dataUUID: String, urlScheme: String?) async -> Bool {
