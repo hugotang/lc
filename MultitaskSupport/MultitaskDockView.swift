@@ -731,14 +731,11 @@ class AppInfoProvider {
     @objc public func addRunningAppWithInfo(_ appInfo: LCAppInfo?, appUUID: String, view: UIView?) {
         guard isDockEnabled() else { return }
         
-        if apps.contains(where: { $0.appUUID == appUUID }) {
-            return
-        }
-        
         let appName = appInfo?.displayName() ?? "Unknown App"
         let appModel = DockAppModel(appName: appName, appUUID: appUUID, appInfo: appInfo, view: view)
         
         DispatchQueue.main.async {
+            guard !self.apps.contains(where: { $0.appUUID == appUUID }) else { return }
             self.apps.append(appModel)
             
             if self.apps.count == 1 {
@@ -1178,6 +1175,8 @@ private struct DockGridActions: View {
             Label("lc.multitask.undoGridSwap".loc, systemImage: "arrow.uturn.backward")
         }
         .disabled(!dockManager.canUndoGridSwap)
+        Divider()
+        MultitaskWorkspaceActions()
     }
 
     private func perform(_ action: () -> Void) {

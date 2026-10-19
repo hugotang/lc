@@ -10,6 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)swapWindow:(nullable id)first withWindow:(nullable id)second visibleWindows:(NSArray *)visibleWindows;
 - (BOOL)canUndoSwapWithVisibleWindows:(NSArray *)visibleWindows;
 - (BOOL)undoSwapWithVisibleWindows:(NSArray *)visibleWindows;
+// Move known windows to the beginning in the supplied order; retain all other windows.
+- (void)restoreOrderWithWindows:(NSArray *)windows;
 @end
 
 NS_ASSUME_NONNULL_END

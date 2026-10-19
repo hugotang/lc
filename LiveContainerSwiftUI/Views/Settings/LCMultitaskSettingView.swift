@@ -15,6 +15,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
+    @AppStorage("LCMultitaskAvoidKeyboard", store: LCUtils.appGroupUserDefault) var avoidKeyboard = true
     @AppStorage("LCSkipTerminatedScreen", store: LCUtils.appGroupUserDefault) var skipTerminatedScreen = false
     @AppStorage("LCRestartTerminatedApp", store: LCUtils.appGroupUserDefault) var restartTerminatedApp = false
     @AppStorage("LCMaxOneAppOnStage", store: LCUtils.appGroupUserDefault) var onlyOneAppOnStage = false
@@ -71,6 +72,18 @@ struct LCMultitaskSettingView: View {
             }
 
             if multitaskMode == .virtualWindow, #available(iOS 16.0, *) {
+                Section {
+                    Toggle("lc.settings.avoidKeyboard".loc, isOn: $avoidKeyboard)
+                } footer: {
+                    Text("lc.settings.avoidKeyboardDesc".loc)
+                }
+                Section {
+                    MultitaskWorkspaceActions()
+                } header: {
+                    Text("lc.workspace.title".loc)
+                } footer: {
+                    Text("lc.workspace.description".loc)
+                }
                 Section {
                     Toggle(isOn: $autoTileMultitaskWindows) {
                         Text("lc.settings.autoTileMultitaskWindows".loc)

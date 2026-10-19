@@ -2,6 +2,7 @@
 #import "FoundationPrivate.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
+#import <notify.h>
 @import MachO;
 
 extern NSUserDefaults *lcUserDefaults;
@@ -12,6 +13,42 @@ NSString* FBSOpenApplicationOptionKeyActivateAsClassic = @"__ActivateAsClassic";
 NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 
 @implementation LCSharedUtils
+
++ (void)registerGuestKeyboardDismissalForContainer:(NSString *)dataUUID {
+    if (dataUUID.length == 0) return;
+    static int dismissalToken = NOTIFY_TOKEN_INVALID;
+    static BOOL softwareKeyboardVisible = NO;
+    static id frameObserver, hideObserver;
+    if (dismissalToken != NOTIFY_TOKEN_INVALID) notify_cancel(dismissalToken);
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    if (frameObserver) [center removeObserver:frameObserver];
+    if (hideObserver) [center removeObserver:hideObserver];
+    softwareKeyboardVisible = NO;
+    frameObserver = [center addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        NSNumber *local = note.userInfo[UIKeyboardIsLocalUserInfoKey];
+        if (local && !local.boolValue) return;
+        CGRect frame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+        softwareKeyboardVisible = frame.size.height > 80 && CGRectIntersectsRect(UIScreen.mainScreen.bounds, frame);
+    }];
+    hideObserver = [center addObserverForName:UIKeyboardDidHideNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        softwareKeyboardVisible = NO;
+    }];
+    NSString *name = [@"com.livecontainer.dismiss-keyboard." stringByAppendingString:dataUUID];
+    notify_register_dispatch(name.UTF8String, &dismissalToken, dispatch_get_main_queue(), ^(int token) {
+        // Keep hardware keyboard / controller focus when no software keyboard is showing.
+        if (!softwareKeyboardVisible) return;
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:UIWindowScene.class]) continue;
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) [window endEditing:YES];
+        }
+    });
+}
+
++ (void)requestKeyboardDismissalForContainer:(NSString *)dataUUID {
+    if (dataUUID.length == 0) return;
+    NSString *name = [@"com.livecontainer.dismiss-keyboard." stringByAppendingString:dataUUID];
+    notify_post(name.UTF8String);
+}
 
 + (NSString*) teamIdentifier {
     static NSString* ans = nil;

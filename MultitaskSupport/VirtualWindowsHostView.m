@@ -8,16 +8,33 @@
 #import "VirtualWindowsHostView.h"
 #import "WindowGridLayout.h"
 #import "WindowGridOrder.h"
+#import "WindowKeyboardGeometry.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
 #import <QuartzCore/QuartzCore.h>
+
+static LCWindowGridRect LCKeyboardRect(CGRect rect) {
+    return (LCWindowGridRect){rect.origin.x, rect.origin.y, rect.size.width, rect.size.height};
+}
+static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
+    return CGRectMake(rect.x, rect.y, rect.width, rect.height);
+}
+
+@interface LCKeyboardWindowFrame : NSObject
+@property(nonatomic) CGRect frame;
+@property(nonatomic) CGRect hostBounds;
+@end
+@implementation LCKeyboardWindowFrame
+@end
 
 @interface LCGridProportions : NSObject
 @property(nonatomic, strong) NSMutableData *rows;
 @property(nonatomic, strong) NSMutableData *columns;
 @property(nonatomic, strong) NSMutableData *lastRowColumns;
 - (instancetype)initWithLayout:(LCWindowGridLayout)layout;
+- (instancetype)initWithPropertyList:(NSDictionary<NSString *, NSArray<NSNumber *> *> *)values;
+- (NSDictionary *)propertyList;
 @end
 
 @implementation LCGridProportions
@@ -33,6 +50,35 @@
         LCWindowGridResetDividers(_lastRowColumns.mutableBytes, lastRowCount);
     }
     return self;
+}
+- (instancetype)initWithPropertyList:(NSDictionary<NSString *, NSArray<NSNumber *> *> *)values {
+    self = [super init];
+    if (self) {
+        NSMutableArray *buffers = [NSMutableArray array];
+        for (NSString *key in @[@"rows", @"columns", @"lastRowColumns"]) {
+            NSArray<NSNumber *> *numbers = values[key];
+            NSMutableData *data = [NSMutableData dataWithLength:numbers.count * sizeof(double)];
+            double *fractions = data.mutableBytes;
+            for (NSUInteger i = 0; i < numbers.count; ++i) fractions[i] = numbers[i].doubleValue;
+            [buffers addObject:data];
+        }
+        _rows = buffers[0];
+        _columns = buffers[1];
+        _lastRowColumns = buffers[2];
+    }
+    return self;
+}
+- (NSDictionary *)propertyList {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    NSArray *keys = @[@"rows", @"columns", @"lastRowColumns"];
+    NSArray<NSData *> *buffers = @[self.rows, self.columns, self.lastRowColumns];
+    for (NSUInteger i = 0; i < keys.count; ++i) {
+        const double *fractions = buffers[i].bytes;
+        NSMutableArray *numbers = [NSMutableArray array];
+        for (NSUInteger j = 0; j < buffers[i].length / sizeof(double); ++j) [numbers addObject:@(fractions[j])];
+        result[keys[i]] = numbers.copy;
+    }
+    return result.copy;
 }
 @end
 
@@ -140,6 +186,12 @@
 @property(nonatomic, weak) LCGridDividerView *activeDivider;
 @property(nonatomic) CGPoint dragStartDividerPosition;
 @property(nonatomic) CFTimeInterval lastInteractiveSceneUpdate;
+@property(nonatomic) CGRect keyboardScreenFrame;
+@property(nonatomic) BOOL wasAvoidingKeyboard;
+@property(nonatomic) BOOL wasKeyboardAvoidanceEnabled;
+@property(nonatomic, strong) NSMapTable<UIView *, LCKeyboardWindowFrame *> *keyboardOriginalFrames;
+@property(nonatomic, readonly) BOOL keyboardAvoidanceEnabled, isAvoidingKeyboard, allVisibleWindowsAreInGrid;
+@property(nonatomic, readonly) CGRect gridAvailableBounds;
 @end
 
 @implementation VirtualWindowsHostView
@@ -153,10 +205,17 @@
     self.lastArrangementBounds = CGRectNull;
     self.wasAutomaticallyTiling = self.automaticallyTilesWindows;
     self.wasHidingGridWindowBars = self.shouldHideGridWindowBars;
+    self.keyboardScreenFrame = CGRectNull;
+    self.keyboardOriginalFrames = [NSMapTable weakToStrongObjectsMapTable];
+    self.wasKeyboardAvoidanceEnabled = self.keyboardAvoidanceEnabled;
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(defaultsDidChange:)
                                                name:NSUserDefaultsDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationWillResignActive:)
                                                name:UIApplicationWillResignActiveNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardFrameDidChange:)
+                                               name:UIKeyboardWillChangeFrameNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardFrameDidChange:)
+                                               name:UIKeyboardWillHideNotification object:nil];
     return self;
 }
 
@@ -186,7 +245,79 @@
 }
 
 - (BOOL)canAdjustGridDividers {
-    return self.window && self.visibleWindows.count > 1;
+    return self.window && self.visibleWindows.count > 1 && !self.isAvoidingKeyboard;
+}
+
+- (BOOL)keyboardAvoidanceEnabled {
+    NSNumber *value = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCMultitaskAvoidKeyboard"];
+    return value ? value.boolValue : YES;
+}
+
+- (CGRect)gridAvailableBounds {
+    CGRect bounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    if (!self.keyboardAvoidanceEnabled || !self.window || CGRectIsNull(self.keyboardScreenFrame)) return bounds;
+    CGRect keyboard = [self convertRect:self.keyboardScreenFrame fromCoordinateSpace:self.window.screen.coordinateSpace];
+    return LCCGKeyboardRect(LCKeyboardAvailableRect(LCKeyboardRect(bounds), LCKeyboardRect(keyboard)));
+}
+
+- (BOOL)isAvoidingKeyboard {
+    return !CGRectEqualToRect(self.gridAvailableBounds, UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets));
+}
+
+- (BOOL)allVisibleWindowsAreInGrid {
+    NSArray<UIView *> *visible = self.visibleWindows;
+    if (visible.count == 0) return NO;
+    for (UIView *view in visible) {
+        if (!((DecoratedAppSceneViewController *)view._viewDelegate).isInGridLayout) return NO;
+    }
+    return YES;
+}
+
+- (void)keyboardFrameDidChange:(NSNotification *)notification {
+    NSValue *frame = notification.userInfo[UIKeyboardFrameEndUserInfoKey];
+    self.keyboardScreenFrame = [notification.name isEqualToString:UIKeyboardWillHideNotification] || !frame ? CGRectNull : frame.CGRectValue;
+    [self finishGridEditing];
+    self.lastArrangementBounds = CGRectNull;
+    NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    UIViewAnimationOptions curve = [notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] unsignedIntegerValue] << 16;
+    [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : duration delay:0
+                        options:curve | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                     animations:^{ [self setNeedsLayout]; [self layoutIfNeeded]; } completion:nil];
+}
+
+- (void)forgetKeyboardFrameForWindow:(UIView *)window {
+    [self.keyboardOriginalFrames removeObjectForKey:window];
+}
+
+- (CGRect)unobscuredFrameForWindow:(UIView *)window {
+    LCKeyboardWindowFrame *original = [self.keyboardOriginalFrames objectForKey:window];
+    if (!original) return window.frame;
+    CGRect normalBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    return LCCGKeyboardRect(LCKeyboardRestoreWindow(LCKeyboardRect(original.frame), LCKeyboardRect(original.hostBounds), LCKeyboardRect(normalBounds)));
+}
+
+- (CGRect)frameByAvoidingKeyboard:(CGRect)frame forWindow:(DecoratedAppSceneViewController *)vc {
+    CGRect normalBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    CGRect available = self.gridAvailableBounds;
+    if (vc.isMaximized) {
+        [self forgetKeyboardFrameForWindow:vc.view];
+        return self.isAvoidingKeyboard ? LCCGKeyboardRect(LCKeyboardFitWindow(LCKeyboardRect(frame), LCKeyboardRect(available))) : frame;
+    }
+    LCKeyboardWindowFrame *original = [self.keyboardOriginalFrames objectForKey:vc.view];
+    if (original) {
+        frame = [self unobscuredFrameForWindow:vc.view];
+    }
+    if (!self.isAvoidingKeyboard) {
+        [self forgetKeyboardFrameForWindow:vc.view];
+        return frame;
+    }
+    if (!original) {
+        original = [LCKeyboardWindowFrame new];
+        original.frame = frame;
+        original.hostBounds = normalBounds;
+        [self.keyboardOriginalFrames setObject:original forKey:vc.view];
+    }
+    return LCCGKeyboardRect(LCKeyboardFitWindow(LCKeyboardRect(frame), LCKeyboardRect(available)));
 }
 
 - (BOOL)canUndoGridSwap {
@@ -201,9 +332,12 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         BOOL enabled = self.automaticallyTilesWindows;
         BOOL hideBars = self.shouldHideGridWindowBars;
+        BOOL keyboardEnabled = self.keyboardAvoidanceEnabled;
         BOOL stoppedTiling = self.wasAutomaticallyTiling && !enabled;
         if (stoppedTiling) [self finishGridEditing];
-        if (enabled != self.wasAutomaticallyTiling || hideBars != self.wasHidingGridWindowBars) {
+        if (enabled != self.wasAutomaticallyTiling || hideBars != self.wasHidingGridWindowBars ||
+            keyboardEnabled != self.wasKeyboardAvoidanceEnabled) {
+            self.wasKeyboardAvoidanceEnabled = keyboardEnabled;
             self.wasAutomaticallyTiling = enabled;
             self.wasHidingGridWindowBars = hideBars;
             for (UIView *view in self.windowOrder.windows) {
@@ -236,6 +370,7 @@
     }
     [self cancelGridWindowSwap];
     [self.windowOrder removeWindow:subview];
+    [self forgetKeyboardFrameForWindow:subview];
     self.lastArrangedWindows = nil;
     [super willRemoveSubview:subview];
     [self setNeedsLayout];
@@ -263,17 +398,32 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers || self.isChoosingGridSwap) {
+    BOOL avoidingKeyboard = self.isAvoidingKeyboard;
+    if (self.automaticallyTilesWindows || self.isAdjustingGridDividers || self.isChoosingGridSwap ||
+        ((avoidingKeyboard || self.wasAvoidingKeyboard) && self.allVisibleWindowsAreInGrid)) {
         [self arrangeVisibleWindowsInGrid:NO];
+    } else if (avoidingKeyboard || self.wasAvoidingKeyboard || self.keyboardOriginalFrames.count > 0) {
+        for (UIView *view in self.windowOrder.windows) {
+            DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+            if ([vc isKindOfClass:DecoratedAppSceneViewController.class] && !vc.appSceneVC.shouldIgnoreSceneUpdates &&
+                CGAffineTransformIsIdentity(view.transform)) {
+                [vc updateFrameForKeyboard];
+            }
+        }
     }
+    for (UIView *view in self.visibleWindows) {
+        DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+        if (vc.isAppTerminated && vc.isMaximized) [vc updateFrameForKeyboard];
+    }
+    self.wasAvoidingKeyboard = avoidingKeyboard;
     [self updateGridBackdrop];
 }
 
 - (void)setNeedsGridLayout {
     if (self.automaticallyTilesWindows || self.isAdjustingGridDividers || self.isChoosingGridSwap) {
         self.lastArrangementBounds = CGRectNull;
-        [self setNeedsLayout];
     }
+    [self setNeedsLayout];
 }
 
 - (void)arrangeWindowsInGrid {
@@ -281,10 +431,55 @@
     [self arrangeVisibleWindowsInGrid:YES];
 }
 
+- (DecoratedAppSceneViewController *)windowForContainer:(NSString *)dataUUID {
+    for (UIView *view in self.windowOrder.windows) {
+        DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+        if ([vc isKindOfClass:DecoratedAppSceneViewController.class] && [vc.appSceneVC.dataUUID isEqualToString:dataUUID]) return vc;
+    }
+    return nil;
+}
+
+- (LCWindowWorkspace *)captureWorkspace {
+    [self finishGridEditing];
+    NSMutableArray *windows = [NSMutableArray array];
+    for (UIView *view in self.visibleWindows) {
+        DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+        if (vc.isAppTerminated || !vc.appSceneVC.isAppRunning) continue;
+        LCWorkspaceWindow *entry = [[LCWorkspaceWindow alloc] initWithBundleName:vc.appSceneVC.bundleId
+                                                                       dataUUID:vc.appSceneVC.dataUUID scale:vc.scaleRatio];
+        if (entry) [windows addObject:entry];
+    }
+    NSMutableDictionary *proportions = [NSMutableDictionary dictionary];
+    for (NSString *key in self.savedGridProportions) proportions[key] = self.savedGridProportions[key].propertyList;
+    return [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions];
+}
+
+- (void)applyWorkspace:(LCWindowWorkspace *)workspace {
+    [self finishGridEditing];
+    NSMutableArray *ordered = [NSMutableArray array];
+    for (LCWorkspaceWindow *entry in workspace.windows) {
+        DecoratedAppSceneViewController *vc = [self windowForContainer:entry.dataUUID];
+        if (!vc || vc.isAppTerminated || !vc.appSceneVC.isAppRunning || vc.appSceneVC.shouldIgnoreSceneUpdates ||
+            ![vc.appSceneVC.bundleId isEqualToString:entry.bundleName]) continue;
+        [vc.view.layer removeAllAnimations];
+        vc.view.hidden = NO;
+        vc.view.alpha = 1;
+        vc.view.transform = CGAffineTransformIdentity;
+        [vc updateContentScale:entry.scale];
+        [ordered addObject:vc.view];
+    }
+    [self.windowOrder restoreOrderWithWindows:ordered];
+    for (NSString *key in workspace.proportions) {
+        self.savedGridProportions[key] = [[LCGridProportions alloc] initWithPropertyList:workspace.proportions[key]];
+    }
+    [self arrangeVisibleWindowsInGrid:YES];
+}
+
 - (void)arrangeVisibleWindowsInGrid:(BOOL)force {
     if (self.isArrangingWindows || !self.window) return;
 
-    CGRect availableBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    CGRect normalBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    CGRect availableBounds = self.gridAvailableBounds;
     if (availableBounds.size.width <= 0 || availableBounds.size.height <= 44) {
         [self finishGridEditing];
         return;
@@ -302,8 +497,11 @@
 
     self.lastArrangementBounds = availableBounds;
     self.lastArrangedWindows = visibleWindows.copy;
-    LCWindowGridLayout layout = LCWindowGridLayoutMake(visibleWindows.count, availableBounds.size.width,
-                                                      availableBounds.size.height, LCWindowGridSpacing, LCWindowGridMinimumHeight);
+    LCWindowGridLayout layout = LCWindowGridLayoutMake(visibleWindows.count, normalBounds.size.width,
+                                                      normalBounds.size.height, LCWindowGridSpacing, LCWindowGridMinimumHeight);
+    BOOL portrait = layout.height >= layout.width;
+    layout.width = availableBounds.size.width;
+    layout.height = availableBounds.size.height;
     self.gridLayout = layout;
     if (layout.count == 0) {
         [self finishGridEditing];
@@ -312,9 +510,14 @@
     }
     // Keep each grid shape and orientation's proportions for this host's lifetime.
     NSString *key = [NSString stringWithFormat:@"%zu:%zu:%zu:%d", layout.count, layout.rows, layout.columns,
-                                               layout.height >= layout.width];
+                                               portrait];
     if (!self.savedGridProportions[key]) self.savedGridProportions[key] = [[LCGridProportions alloc] initWithLayout:layout];
     self.gridProportions = self.savedGridProportions[key];
+    if (self.isAvoidingKeyboard) {
+        // Constraining the temporary keyboard layout must not overwrite the user's normal proportions.
+        self.gridProportions = [[LCGridProportions alloc] initWithPropertyList:self.gridProportions.propertyList];
+    }
+    [self.keyboardOriginalFrames removeAllObjects];
     LCWindowGridConstrainDividers(self.gridProportions.rows.mutableBytes, layout.rows, layout.height,
                                    layout.spacing, LCWindowGridMinimumHeight);
     LCWindowGridConstrainDividers(self.gridProportions.columns.mutableBytes, layout.columns, layout.width,
@@ -546,7 +749,7 @@
 
 - (BOOL)hasCurrentAdjustableGrid {
     if (!self.window || self.gridLayout.count < 2 ||
-        !CGRectEqualToRect(self.lastArrangementBounds, UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets)) ||
+        !CGRectEqualToRect(self.lastArrangementBounds, self.gridAvailableBounds) ||
         ![self.lastArrangedWindows isEqualToArray:self.visibleWindows]) return NO;
     for (UIView *view in self.lastArrangedWindows) {
         DecoratedAppSceneViewController *vc = (id)view._viewDelegate;

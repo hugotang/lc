@@ -18626,6 +18626,29 @@
         }
       }
     },
+    "lc.multitask.startFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveProcess did not return a valid process identifier, so the app could not start. If a LiveProcess crash report is available in iOS Settings → Privacy & Security → Analytics & Improvements → Analytics Data, include it when reporting this problem."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveProcess 未返回有效的进程标识符，无法启动 App。如果 iOS 设置 → 隐私与安全性 → 分析与改进 → 分析数据中有 LiveProcess 崩溃报告，请在报告此问题时附上。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveProcess 未傳回有效的程序識別碼，無法啟動 App。如果 iOS 設定 → 隱私權與安全性 → 分析與改進 → 分析資料中有 LiveProcess 當機報告，請在回報此問題時附上。"
+          }
+        }
+      }
+    },
     "lc.multitask.swapChooseSecond" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20174,6 +20197,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開啟、關閉、縮小、還原視窗或旋轉螢幕時，自動排列可見視窗。啟用後會優先使用宮格排列，取代預設最大化。"
+          }
+        }
+      }
+    },
+    "lc.settings.avoidKeyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize Windows Above Keyboard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整窗口以避开键盘"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "調整視窗以避開鍵盤"
+          }
+        }
+      }
+    },
+    "lc.settings.avoidKeyboardDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temporarily fit virtual windows above a docked onscreen keyboard, then restore their layout when it closes. Floating keyboards and hardware keyboard toolbars do not change the grid."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕键盘停靠在底部时，暂时调整虚拟窗口，让内容显示在键盘上方；收起键盘后恢复布局。浮动键盘和实体键盘工具栏不会改变网格。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "螢幕鍵盤停駐在底部時，暫時調整虛擬視窗，讓內容顯示在鍵盤上方；收起鍵盤後恢復佈局。浮動鍵盤和實體鍵盤工具列不會改變網格。"
           }
         }
       }
@@ -29600,6 +29669,29 @@
         }
       }
     },
+    "lc.sources.downloadSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download size: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载大小：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載大小：%@"
+          }
+        }
+      }
+    },
     "lc.sources.empty" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -33384,6 +33476,305 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "執行程式"
+          }
+        }
+      }
+    },
+    "lc.workspace.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save visible running apps, their containers, order, scale and grid proportions. Saving replaces the previous workspace. Restore reopens available apps, enables automatic tiling and keeps other open windows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存当前可见且正在运行的 App、容器、顺序、缩放和网格比例。保存会替换上一次的工作区。恢复时重新打开可用的 App，启用自动平铺，并保留其他已打开的窗口。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存目前可見且正在執行的 App、容器、順序、縮放和網格比例。儲存會取代上一次的工作區。還原時重新開啟可用的 App，啟用自動平鋪，並保留其他已開啟的視窗。"
+          }
+        }
+      }
+    },
+    "lc.workspace.missingApp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: the app is no longer installed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：此 App 已不再安装。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：此 App 已不再安裝。"
+          }
+        }
+      }
+    },
+    "lc.workspace.missingContainer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: the saved data container is no longer available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：已保存的数据容器不再可用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：已儲存的資料容器已無法使用。"
+          }
+        }
+      }
+    },
+    "lc.workspace.noWindows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open at least one app in a virtual window before saving. Minimized, Picture-in-Picture and terminated windows are excluded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先在虚拟窗口中打开至少一个 App，再保存工作区。最小化、画中画和已终止的窗口不会保存。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請先在虛擬視窗中開啟至少一個 App，再儲存工作區。最小化、子母畫面和已終止的視窗不會儲存。"
+          }
+        }
+      }
+    },
+    "lc.workspace.restore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.restored" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored %ld of %ld windows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已恢复 %ld / %ld 个窗口。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已還原 %ld / %ld 個視窗。"
+          }
+        }
+      }
+    },
+    "lc.workspace.restoring" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring Workspace…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在恢复工作区…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在還原工作區…"
+          }
+        }
+      }
+    },
+    "lc.workspace.save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved %ld windows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存 %ld 个窗口。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存 %ld 個視窗。"
+          }
+        }
+      }
+    },
+    "lc.workspace.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved workspace is unavailable. Save a workspace in virtual window mode first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的工作区不可用。请先在虚拟窗口模式下保存工作区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的工作區無法使用。請先在虛擬視窗模式下儲存工作區。"
+          }
+        }
+      }
+    },
+    "lc.workspace.unsupportedApp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: its compatibility mode cannot run in virtual windows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：此兼容模式无法在虚拟窗口中运行。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@：此相容模式無法在虛擬視窗中執行。"
+          }
+        }
+      }
+    },
+    "lc.workspace.windowUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app did not open a usable virtual window. Check its launch settings and retry."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 未打开可用的虚拟窗口。请检查启动设置后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 未開啟可用的虛擬視窗。請檢查啟動設定後再試。"
           }
         }
       }

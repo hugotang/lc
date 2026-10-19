@@ -100,12 +100,27 @@ static void testAllPairs(void) {
     }
 }
 
+static void testRestoringOrder(void) {
+    id a = [EqualWindow new], b = [EqualWindow new], c = [EqualWindow new], unknown = [EqualWindow new];
+    LCWindowGridOrder *order = makeOrder(@[a, b, c]);
+    assert(([order swapWindow:a withWindow:b visibleWindows:@[a, b, c]]));
+    [order restoreOrderWithWindows:@[c, unknown, c, a]];
+    assertOrder(order, @[c, a, b]);
+    assert((![order canUndoSwapWithVisibleWindows:@[a, b, c]]));
+    [order restoreOrderWithWindows:@[]];
+    assertOrder(order, @[c, a, b]);
+    [order removeWindow:c];
+    [order restoreOrderWithWindows:@[c, b]];
+    assertOrder(order, @[b, a]);
+}
+
 int main(void) {
     @autoreleasepool {
         testHiddenWindowsAndUndo();
         testInvalidChoicesAndLastSwapOnly();
         testWindowLifecycleAndIdentity();
         testAllPairs();
+        testRestoringOrder();
         puts("Window grid order tests passed (5,456 swap/undo pairs, hidden windows, identity and lifecycle checks).");
     }
     return 0;

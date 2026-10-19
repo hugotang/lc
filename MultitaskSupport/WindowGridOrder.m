@@ -64,4 +64,18 @@
     self.lastSwapSecondWindow = nil;
     return YES;
 }
+
+- (void)restoreOrderWithWindows:(NSArray *)windows {
+    NSMutableArray *ordered = [NSMutableArray array];
+    for (id window in windows) {
+        if ([self.mutableWindows indexOfObjectIdenticalTo:window] != NSNotFound &&
+            [ordered indexOfObjectIdenticalTo:window] == NSNotFound) [ordered addObject:window];
+    }
+    for (id window in self.mutableWindows) {
+        if ([ordered indexOfObjectIdenticalTo:window] == NSNotFound) [ordered addObject:window];
+    }
+    self.mutableWindows = ordered;
+    self.lastSwapFirstWindow = nil;
+    self.lastSwapSecondWindow = nil;
+}
 @end

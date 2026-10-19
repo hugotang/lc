@@ -27,6 +27,7 @@
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSExtension* extension;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
+@property(nonatomic) BOOL didCompleteInitialization;
 @end
 
 @implementation AppSceneViewController
@@ -49,9 +50,12 @@
     // init extension
     NSError* error = nil;
     _extension = [NSExtension extensionWithIdentifier:LCUtils.liveProcessBundleIdentifier error:&error];
-    if(error) {
-        [delegate appSceneVC:self didInitializeWithError:error];
-        return nil;
+    if(error || !_extension) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self completeInitializationWithError:error ?: [self startupError]];
+            [self appTerminationCleanUp];
+        });
+        return self;
     }
     _extension.preferredLanguages = @[];
     
@@ -94,28 +98,49 @@
     
     __weak typeof(self) weakSelf = self;
     [_extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *error) {
-        [weakSelf appTerminationCleanUp];
-        [weakSelf.delegate appSceneVC:weakSelf didInitializeWithError:error];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            AppSceneViewController *vc = weakSelf;
+            [vc completeInitializationWithError:error ?: [vc startupError]];
+            [vc appTerminationCleanUp];
+        });
     }];
     [_extension setRequestInterruptionBlock:^(NSUUID *uuid) {
-        [weakSelf appTerminationCleanUp];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf appTerminationCleanUp];
+        });
     }];
     [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
-        if(identifier) {
-            [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
-            self.identifier = identifier;
-            self.pid = [self.extension pidForRequestIdentifier:self.identifier];
-            [delegate appSceneVC:self didInitializeWithError:nil];
-            dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
+            self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
+            if (identifier && self.pid > 0) {
+                [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
+                self.identifier = identifier;
+                [self completeInitializationWithError:nil];
                 [self setUpAppPresenter];
-            });
-        } else {
-            NSError* error = [NSError errorWithDomain:@"LiveProcess" code:2 userInfo:@{NSLocalizedDescriptionKey: @"Failed to start app. Child process has unexpectedly crashed"}];
-            [delegate appSceneVC:self didInitializeWithError:error];
-        }
+            } else {
+                [self completeInitializationWithError:[self startupError]];
+                [self appTerminationCleanUp];
+            }
+        });
     }];
     
     return self;
+}
+
+- (NSError *)startupError {
+    NSString *message = [NSString stringWithFormat:@"%@\n%@", @"lc.multitask.startFailed".loc,
+                         NSProcessInfo.processInfo.operatingSystemVersionString];
+    return [NSError errorWithDomain:@"LiveProcess" code:2 userInfo:@{NSLocalizedDescriptionKey: message}];
+}
+
+// Extension completion, cancellation and interruption can all arrive for the same request.
+// Deliver exactly once on the main queue, including failures, to resume Swift continuations safely.
+- (void)completeInitializationWithError:(NSError *)error {
+    NSAssert(NSThread.isMainThread, @"Launch completion must run on the main thread");
+    if (self.didCompleteInitialization) return;
+    self.didCompleteInitialization = YES;
+    [self.delegate appSceneVC:self didInitializeWithError:error];
 }
 
 - (void)setUpAppPresenter {
@@ -339,10 +364,16 @@
 }
 
 - (void)appTerminationCleanUp {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self appTerminationCleanUp]; });
+        return;
+    }
     if(_isAppTerminationCleanUpCalled) {
         return;
     }
     _isAppTerminationCleanUpCalled = true;
+    if (!self.didCompleteInitialization) [self completeInitializationWithError:[self startupError]];
+    [PiPManager.shared stopPiPForVC:self];
     dispatch_async(dispatch_get_main_queue(), ^{
         if(self.sceneID) {
             [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];

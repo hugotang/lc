@@ -5,6 +5,8 @@
 //  Created by Duy Tran on 22/2/26.
 //
 @import UIKit;
+#import "WindowWorkspace.h"
+@class DecoratedAppSceneViewController;
 
 API_AVAILABLE(ios(16.0))
 @interface VirtualWindowsHostView: UIView
@@ -26,5 +28,11 @@ API_AVAILABLE(ios(16.0))
 - (void)cancelGridWindowSwap;
 - (void)undoLastGridWindowSwap;
 - (void)finishGridEditing;
+- (LCWindowWorkspace * _Nullable)captureWorkspace NS_SWIFT_NAME(captureWorkspace());
+- (void)applyWorkspace:(LCWindowWorkspace * _Nonnull)workspace NS_SWIFT_NAME(applyWorkspace(_:));
+- (DecoratedAppSceneViewController * _Nullable)windowForContainer:(NSString * _Nonnull)dataUUID NS_SWIFT_NAME(window(forContainer:));
+- (CGRect)frameByAvoidingKeyboard:(CGRect)frame forWindow:(DecoratedAppSceneViewController * _Nonnull)window;
+- (void)forgetKeyboardFrameForWindow:(UIView * _Nonnull)window;
+- (CGRect)unobscuredFrameForWindow:(UIView * _Nonnull)window;
 - (BOOL)handleStatusBarTapAction:(UIAction *)action;
 @end

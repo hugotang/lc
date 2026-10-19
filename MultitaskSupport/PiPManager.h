@@ -17,6 +17,7 @@ API_AVAILABLE(ios(16.0))
 - (BOOL)isPiPWithVC:(AppSceneViewController*)vc;
 - (BOOL)isPiPWithDecoratedVC:(UIViewController*)vc;
 - (void)stopPiP;
+- (void)stopPiPForVC:(AppSceneViewController *)vc;
 - (void)startPiPWithVC:(AppSceneViewController*)vc;
 
 @end

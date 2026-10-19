@@ -42,6 +42,18 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"
           "$RUNNER_TEMP/app-language-tests"
+      - name: Test keyboard geometry
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowKeyboardGeometryTests.c -lm -o "$RUNNER_TEMP/window-keyboard-tests"
+          "$RUNNER_TEMP/window-keyboard-tests"
+      - name: Test workspace persistence
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
+          "$RUNNER_TEMP/window-workspace-tests"
+      - name: Test symbol cache validation
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/SymbolCacheTests.m -o "$RUNNER_TEMP/symbol-cache-tests"
+          "$RUNNER_TEMP/symbol-cache-tests"
       - name: Set Scheme
         id: scheme
         run: |

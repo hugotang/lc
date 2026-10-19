@@ -17,4 +17,6 @@
 + (NSString*)findDefaultContainerWithBundleId:(NSString*)bundleId;
 + (NSArray<NSString*>*)lcUnorderedUrlSchemes;
 + (NSArray<NSString*>*)lcUrlSchemes;
++ (void)registerGuestKeyboardDismissalForContainer:(NSString *)dataUUID;
++ (void)requestKeyboardDismissalForContainer:(NSString *)dataUUID;
 @end

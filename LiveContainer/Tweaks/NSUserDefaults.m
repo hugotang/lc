@@ -56,13 +56,20 @@ void NUDGuestHooksInit(void) {
     mach_header_u* coreFoundationHeader = LCGetLoadedImageHeader(2, coreFoundationPath);
     
 #if !TARGET_OS_SIMULATOR
+    if (!coreFoundationHeader) {
+        [NSException raise:NSInternalInconsistencyException format:@"LiveContainer could not initialize app preferences: CoreFoundation is not loaded."];
+    }
     CFStringRef* _CFPrefsCurrentAppIdentifierCache = getCachedSymbol(@"__CFPrefsCurrentAppIdentifierCache", coreFoundationHeader);
     if(!_CFPrefsCurrentAppIdentifierCache) {
         _CFPrefsCurrentAppIdentifierCache = litehook_find_dsc_symbol(coreFoundationPath, "__CFPrefsCurrentAppIdentifierCache");
+        if (!_CFPrefsCurrentAppIdentifierCache) {
+            [NSException raise:NSInternalInconsistencyException format:@"LiveContainer could not initialize app preferences on %@. Missing system symbol: __CFPrefsCurrentAppIdentifierCache. Update LiveContainer and reset symbol offsets in Developer Settings before retrying.", NSProcessInfo.processInfo.operatingSystemVersionString];
+        }
         uint64_t offset = (uint64_t)((void*)_CFPrefsCurrentAppIdentifierCache - (void*)coreFoundationHeader);
         saveCachedSymbol(@"__CFPrefsCurrentAppIdentifierCache", coreFoundationHeader, offset);
     }
-    [NSUserDefaults.lcUserDefaults _setIdentifier:(__bridge NSString*)CFStringCreateCopy(nil, *_CFPrefsCurrentAppIdentifierCache)];
+    NSString *hostIdentifier = *_CFPrefsCurrentAppIdentifierCache ? [(__bridge NSString *)*_CFPrefsCurrentAppIdentifierCache copy] : NSUserDefaults.lcMainBundle.bundleIdentifier;
+    [NSUserDefaults.lcUserDefaults _setIdentifier:hostIdentifier];
     *_CFPrefsCurrentAppIdentifierCache = (__bridge CFStringRef)NSUserDefaults.lcGuestAppId;
 #else
     // FIXME: for now we skip overwriting _CFPrefsCurrentAppIdentifierCache on simulator, since there is no way to find private symbol

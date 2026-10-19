@@ -15,6 +15,7 @@
 @property(nonatomic) CGRect originalFrame;
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 @property(nonatomic) bool isAppTerminationRequested;
+@property(nonatomic, readwrite) BOOL isAppTerminated;
 @end
 
 @implementation DecoratedAppSceneViewController
@@ -309,6 +310,7 @@
 }
 
 - (void)applyGridFrame:(CGRect)frame updateSceneImmediately:(BOOL)immediate {
+    [MultitaskDockManager.shared.windowHostingView forgetKeyboardFrameForWindow:self.view];
     BOOL changedPresentation = !self.isInGridLayout || self.isMaximized;
     if (!changedPresentation && !immediate && CGRectEqualToRect(self.view.frame, frame) &&
         CGAffineTransformIsIdentity(self.view.transform)) return;
@@ -377,6 +379,8 @@
 }
 
 - (void)appSceneVCAppDidExit:(AppSceneViewController*)vc {
+    BOOL wasTerminated = self.isAppTerminated;
+    self.isAppTerminated = YES;
     BOOL skipTerminationScreen = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCSkipTerminatedScreen"];
     BOOL isManual = _isAppTerminationRequested;
     if(isManual || skipTerminationScreen) {
@@ -395,21 +399,30 @@
         if(skipTerminationScreen) {
             [MultitaskRelaunchManager scheduleRelaunchIfNeededWithBundleId:self.appSceneVC.bundleId dataUUID:self.dataUUID isManualTermination:isManual];
         }
-    } else {
+    } else if (!wasTerminated) {
         UILabel *label = [[UILabel alloc] initWithFrame:self.view.bounds];
         label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         label.lineBreakMode = NSLineBreakByWordWrapping;
         label.numberOfLines = 0;
         label.text = NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", @"");
         label.textAlignment = NSTextAlignmentCenter;
-        [self.view insertSubview:label atIndex:0];
+        label.frame = self.appSceneVC.view.bounds;
+        [self.appSceneVC.view addSubview:label];
+        [self updateVerticalConstraints];
     }
 }
 
 - (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
+        void (^handler)(NSNumber *, NSError *) = self.pidAvailableHandler;
+        self.pidAvailableHandler = nil;
         if(error) {
+            self.isAppTerminationRequested = YES;
             [vc appTerminationCleanUp];
+            if (handler) {
+                handler(nil, error);
+                return;
+            }
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
@@ -419,9 +432,7 @@
         } else {
             self.pid = vc.pid;
             [self updateOriginalFrame];
-            if (self.pidAvailableHandler) {
-                self.pidAvailableHandler(@(self.pid), nil);
-            }
+            if (handler) handler(@(self.pid), nil);
         }
     });
 }
@@ -521,6 +532,7 @@
     [sender setTranslation:CGPointZero inView:self.view];
 
     self.view.center = CGPointMake(self.view.center.x + point.x, self.view.center.y + point.y);
+    [MultitaskDockManager.shared.windowHostingView forgetKeyboardFrameForWindow:self.view];
     [self updateOriginalFrame];
 }
 
@@ -535,6 +547,7 @@
     frame.size.width = MAX(50, frame.size.width + point.x);
     frame.size.height = MAX(50, frame.size.height + point.y);
     self.view.frame = frame;
+    [MultitaskDockManager.shared.windowHostingView forgetKeyboardFrameForWindow:self.view];
     [self updateOriginalFrame];
 }
 
@@ -556,8 +569,8 @@
     [self.view layoutIfNeeded];
     [UIView animateWithDuration:0.3 animations:^{
         BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
-        BOOL compactGrid = self.isInGridLayout && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars;
-        BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized);
+        BOOL compactGrid = self.isInGridLayout && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars && !self.isAppTerminated;
+        BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized && !self.isAppTerminated);
         CGFloat navBarHeight = hideWindowBar ? 0 : 44;
         [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
         self.navigationBar.alpha = hideWindowBar ? 0 : 1;
@@ -569,11 +582,16 @@
         
         // Update safe area insets
         if(self.isMaximized) {
-            self.appSceneVC.shouldSkipDebounceOnce = YES;
-            __weak typeof(self) weakSelf = self;
-            [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
-                [weakSelf updateMaximizedFrameWithSettings:settings];
-            }];
+            if (self.isAppTerminated) {
+                // The guest presenter has already been destroyed; update the host frame directly.
+                [self updateMaximizedFrameWithSettings:[UIMutableApplicationSceneSettings new]];
+            } else {
+                self.appSceneVC.shouldSkipDebounceOnce = YES;
+                __weak typeof(self) weakSelf = self;
+                [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
+                    [weakSelf updateMaximizedFrameWithSettings:settings];
+                }];
+            }
         }
         
         if(bottomWindowBar) {
@@ -630,7 +648,7 @@
 
 - (void)updateMaximizedFrameWithSettings:(UIMutableApplicationSceneSettings *)settings {
     CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, [self updateMaximizedSafeAreaWithSettings:settings]);
-    self.view.frame = maxFrame;
+    self.view.frame = [MultitaskDockManager.shared.windowHostingView frameByAvoidingKeyboard:maxFrame forWindow:self];
 }
 
 - (void)updateWindowedFrameWithSettings:(UIMutableApplicationSceneSettings *)settings {
@@ -653,16 +671,33 @@
     CGFloat oobOffset = MAX(30, frame.size.width - 30);
     frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
     frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));
+    frame = [MultitaskDockManager.shared.windowHostingView frameByAvoidingKeyboard:frame forWindow:self];
     [UIView animateWithDuration:0.3 animations:^{
         self.view.frame = frame;
+    }];
+}
+
+- (void)updateFrameForKeyboard {
+    CGRect previousFrame = self.view.frame;
+    if (self.isMaximized) {
+        [self updateMaximizedFrameWithSettings:[UIMutableApplicationSceneSettings new]];
+    } else {
+        self.view.frame = [MultitaskDockManager.shared.windowHostingView frameByAvoidingKeyboard:previousFrame forWindow:self];
+    }
+    if (CGRectEqualToRect(previousFrame, self.view.frame)) return;
+    [self.view layoutIfNeeded];
+    [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
+        if (self.isMaximized) [self updateMaximizedSafeAreaWithSettings:settings];
     }];
 }
 
 - (void)updateOriginalFrame {
     if(_isMaximized) return;
     CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
+    if (maxFrame.size.width <= 0 || maxFrame.size.height <= 0) return;
+    CGRect frame = [MultitaskDockManager.shared.windowHostingView unobscuredFrameForWindow:self.view];
     // save origin as normalized coordinates
-    self.originalFrame = CGRectMake(self.view.frame.origin.x / maxFrame.size.width, self.view.frame.origin.y / maxFrame.size.height, self.view.frame.size.width, self.view.frame.size.height);
+    self.originalFrame = CGRectMake(frame.origin.x / maxFrame.size.width, frame.origin.y / maxFrame.size.height, frame.size.width, frame.size.height);
 }
 
 @end

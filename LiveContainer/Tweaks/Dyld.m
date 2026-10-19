@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #import "../../litehook/src/litehook.h"
 #import "LCMachOUtils.h"
+#include "LCSymbolCache.h"
 #include "mach_excServer.h"
 #import "../utils.h"
 #import "../dyld_bypass_validation.h"
@@ -151,30 +152,23 @@ void* getDSCAddr(void) {
 }
 
 void* getCachedSymbol(NSString* symbolName, mach_header_u* header) {
-    NSDictionary* symbolOffsetDict = [NSUserDefaults.lcSharedDefaults objectForKey:@"symbolOffsetCache"][symbolName];
-    if(!symbolOffsetDict) {
-        return NULL;
-    }
-    NSData* cachedSymbolUUID = symbolOffsetDict[@"uuid"];
-    if(!cachedSymbolUUID) {
-        return NULL;
-    }
-    const uint8_t* uuid = LCGetMachOUUID(header);
-    if(!uuid || memcmp(uuid, [cachedSymbolUUID bytes], 16)) {
-        return NULL;
-    }
-    
-    return (void*)header + [symbolOffsetDict[@"offset"] unsignedLongLongValue];
+    if (!header) return NULL;
+    id cache = [NSUserDefaults.lcSharedDefaults objectForKey:@"symbolOffsetCache"];
+    if (![cache isKindOfClass:NSDictionary.class]) return NULL;
+    NSNumber *offset = LCCachedSymbolOffset(cache[symbolName], LCGetMachOUUID(header));
+    if (!offset || offset.unsignedLongLongValue > UINTPTR_MAX - (uintptr_t)header) return NULL;
+    return (void *)((uintptr_t)header + offset.unsignedLongLongValue);
 }
 
 void saveCachedSymbol(NSString* symbolName, mach_header_u* header, uint64_t offset) {
-    NSMutableDictionary* allSymbolOffsetDict = [[NSUserDefaults.lcSharedDefaults objectForKey:@"symbolOffsetCache"] mutableCopy];
-    if(!allSymbolOffsetDict) {
-        allSymbolOffsetDict = [[NSMutableDictionary alloc] init];
-    }
+    if (!header || !LCSymbolOffsetIsValid(offset)) return;
+    const uint8_t *uuid = LCGetMachOUUID(header);
+    if (!uuid) return;
+    id cache = [NSUserDefaults.lcSharedDefaults objectForKey:@"symbolOffsetCache"];
+    NSMutableDictionary *allSymbolOffsetDict = [cache isKindOfClass:NSDictionary.class] ? [cache mutableCopy] : [NSMutableDictionary dictionary];
     
     allSymbolOffsetDict[symbolName] = @{
-        @"uuid": [NSData dataWithBytes:LCGetMachOUUID(header) length:16],
+        @"uuid": [NSData dataWithBytes:uuid length:16],
         @"offset": @(offset),
     };
     [NSUserDefaults.lcSharedDefaults setObject:allSymbolOffsetDict forKey:@"symbolOffsetCache"];

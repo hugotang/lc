@@ -330,7 +330,8 @@ class LCAppModel: ObservableObject, Hashable {
         if let urlStr {
             UserDefaults.standard.setValue(urlStr, forKey: "launchAppUrlScheme")
         }
-        UserDefaults.standard.set(uiSelectedContainer?.folderName, forKey: "selectedContainer")
+        // Signing can suspend while the user changes selection; launch the requested container.
+        UserDefaults.standard.set(currentDataFolder, forKey: "selectedContainer")
         
         var jitNeeded = appInfo.isJITNeeded || appInfo.is32bit
         if let forceJIT {

@@ -975,6 +975,11 @@ private struct LCSourceAppBanner: View {
         }
         return "\(latest.version) • \(app.bundleIdentifier)"
     }
+
+    private var downloadSizeText: String? {
+        guard let size = app.latestVersion?.size, size > 0 else { return nil }
+        return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+    }
     
     private var subtitleText: String {
         if let subtitle = app.subtitle, !subtitle.isEmpty {
@@ -1009,6 +1014,12 @@ private struct LCSourceAppBanner: View {
                         .font(.system(size: 12))
                         .foregroundColor(textColor)
                         .lineLimit(1)
+                    if let downloadSizeText {
+                        Label(downloadSizeText, systemImage: "arrow.down.circle")
+                            .font(.system(size: 12))
+                            .foregroundColor(textColor)
+                            .accessibilityLabel("lc.sources.downloadSize".localizeWithFormat(downloadSizeText))
+                    }
                     if !subtitleText.isEmpty {
                         Text(subtitleText)
                             .font(.system(size: 11))

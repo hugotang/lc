@@ -518,6 +518,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     if(isLiveProcess) {
         NSURLSCGuestHooksInit();
+        [LCSharedUtils registerGuestKeyboardDismissalForContainer:dataUUID];
     }
     // ignore setting handler from guest app
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);

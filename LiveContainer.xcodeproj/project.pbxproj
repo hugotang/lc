@@ -270,6 +270,7 @@
 				MultitaskAppWindow.swift,
 				MultitaskDockView.swift,
 				MultitaskManager.swift,
+				MultitaskWorkspace.swift,
 				PiPManager.h,
 				PiPManager.m,
 				ResizeHandleView.h,
@@ -280,6 +281,8 @@
 				VirtualWindowsHostView.m,
 				WindowGridOrder.h,
 				WindowGridOrder.m,
+				WindowWorkspace.h,
+				WindowWorkspace.m,
 			);
 			target = 17413FB42D9C0BAE00F3F928 /* LiveContainerSwiftUI */;
 		};
