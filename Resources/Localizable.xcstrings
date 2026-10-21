@@ -18580,6 +18580,75 @@
         }
       }
     },
+    "lc.multitask.landscapeLayout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landscape Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏排列"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向排列"
+          }
+        }
+      }
+    },
+    "lc.multitask.landscapeLayout.automatic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic Grid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动网格"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動網格"
+          }
+        }
+      }
+    },
+    "lc.multitask.landscapeLayout.singleRow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single Row"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏单行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向單列"
+          }
+        }
+      }
+    },
     "lc.multitask.arrangeWindowsInGrid" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20151,6 +20220,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默認以多任務模式啟動"
+          }
+        }
+      }
+    },
+    "lc.settings.landscapeLayoutDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single Row places windows from left to right in landscape and keeps the automatic grid in portrait. Best for a few portrait apps. Save the workspace to remember this choice when restoring."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏单行会在横屏时将窗口从左到右排成一行，竖屏时保留自动网格。适合少量竖屏 App。保存工作区即可在恢复时保留此选择。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向單列會在橫向時將視窗由左至右排成一排，直向時保留自動網格。適合少量直向 App。儲存工作區即可在還原時保留此選擇。"
           }
         }
       }
@@ -33509,19 +33601,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save visible running apps, their containers, order, scale and grid proportions. Saving replaces the previous workspace. Restore reopens available apps, enables automatic tiling and keeps other open windows."
+            "value" : "Save visible running apps, their containers, order, scale, grid proportions and landscape layout. Saving replaces the previous workspace. Restore reopens available apps, enables automatic tiling and keeps other open windows."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存当前可见且正在运行的 App、容器、顺序、缩放和网格比例。保存会替换上一次的工作区。恢复时重新打开可用的 App，启用自动平铺，并保留其他已打开的窗口。"
+            "value" : "保存当前可见且正在运行的 App、容器、顺序、缩放、网格比例和横屏排列。保存会替换上一次的工作区。恢复时重新打开可用的 App，启用自动平铺，并保留其他已打开的窗口。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "儲存目前可見且正在執行的 App、容器、順序、縮放和網格比例。儲存會取代上一次的工作區。還原時重新開啟可用的 App，啟用自動平鋪，並保留其他已開啟的視窗。"
+            "value" : "儲存目前可見且正在執行的 App、容器、順序、縮放、網格比例和橫向排列。儲存會取代上一次的工作區。還原時重新開啟可用的 App，啟用自動平鋪，並保留其他已開啟的視窗。"
           }
         }
       }

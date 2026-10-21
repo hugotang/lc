@@ -10,8 +10,47 @@ static LCWindowWorkspace *decode(NSArray *windows, NSDictionary *proportions) {
     return [[LCWindowWorkspace alloc] initWithPropertyList:@{@"version": @1, @"windows": windows, @"proportions": proportions}];
 }
 
+static void testLandscapePreference(void) {
+    NSMutableArray *windows = [NSMutableArray array];
+    for (NSString *container in @[@"A", @"B", @"C", @"D"]) {
+        [windows addObject:[[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:container scale:1.25]];
+    }
+    NSDictionary *portrait = @{@"rows": @[@0.4], @"columns": @[@0.6], @"lastRowColumns": @[@0.6]};
+    NSDictionary *landscape = @{@"rows": @[@0.5], @"columns": @[@0.7], @"lastRowColumns": @[@0.7]};
+    NSDictionary *singleRow = @{@"rows": @[], @"columns": @[@0.2, @0.5, @0.8], @"lastRowColumns": @[@0.2, @0.5, @0.8]};
+    NSDictionary *proportions = @{@"4:2:2:1": portrait, @"4:2:2:0": landscape, @"4:1:4:0": singleRow};
+    for (NSNumber *enabled in @[@NO, @YES]) {
+        LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
+                                                            singleRowInLandscape:enabled.boolValue];
+        assert(workspace.singleRowInLandscape == enabled.boolValue);
+        NSError *error = nil;
+        NSData *data = [NSPropertyListSerialization dataWithPropertyList:workspace.propertyList format:NSPropertyListBinaryFormat_v1_0
+                                                               options:0 error:&error];
+        assert(data && !error);
+        id plist = [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:&error];
+        LCWindowWorkspace *restored = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+        assert(restored && restored.singleRowInLandscape == enabled.boolValue);
+        assert([restored.propertyList isEqual:workspace.propertyList]);
+        assert([restored.proportions isEqual:proportions]);
+        for (NSUInteger i = 0; i < 4; ++i) {
+            assert([restored.windows[i].dataUUID isEqualToString:[windows[i] dataUUID]]);
+            assert(restored.windows[i].scale == 1.25);
+        }
+    }
+    // An absent or malformed optional preference must not break an otherwise usable old save.
+    NSMutableDictionary *old = [@{@"version": @1, @"windows": @[window(@"A")], @"proportions": proportions} mutableCopy];
+    assert(![[LCWindowWorkspace alloc] initWithPropertyList:old].singleRowInLandscape);
+    for (id value in @[NSNull.null, @"true", @2, @-1, @(NAN), @[], @{}]) {
+        old[@"singleRowInLandscape"] = value;
+        LCWindowWorkspace *restored = [[LCWindowWorkspace alloc] initWithPropertyList:old];
+        assert(restored && !restored.singleRowInLandscape);
+        assert([restored.proportions isEqual:proportions]);
+    }
+}
+
 int main(void) {
     @autoreleasepool {
+        testLandscapePreference();
         NSDictionary *validGrid = @{@"rows": @[@0.4], @"columns": @[@0.65], @"lastRowColumns": @[]};
         LCWindowWorkspace *workspace = decode(@[window(@"A"), window(@"B")], @{@"3:2:2:1": validGrid});
         assert(workspace.windows.count == 2);
@@ -64,7 +103,7 @@ int main(void) {
         LCWindowWorkspace *immutable = decode(@[mutableEntry], @{@"3:2:2:1": validGrid});
         mutableEntry[@"dataUUID"] = @"Changed";
         assert([immutable.windows[0].dataUUID isEqualToString:@"A"]);
-        puts("Workspace tests passed (property-list round trip, multiple containers, invalid snapshots and divider validation).");
+        puts("Workspace tests passed (landscape preference, old saves, property-list round trip, multiple containers, invalid snapshots and divider validation).");
     }
     return 0;
 }

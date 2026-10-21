@@ -49,9 +49,11 @@ static void testCommonLayouts(void) {
     assert(sixLandscape.rows == 2 && sixLandscape.columns == 3);
 }
 
-static void assertUsableLayout(size_t count, double width, double height, double spacing) {
-    LCWindowGridLayout layout = LCWindowGridLayoutMake(count, width, height, spacing, 88);
+static void assertUsableLayout(size_t count, double width, double height, double spacing, bool singleRowInLandscape) {
+    LCWindowGridLayout layout = LCWindowGridLayoutMakeWithLandscapePreference(count, width, height, spacing, 88,
+                                                                               singleRowInLandscape);
     assert(layout.count == count);
+    if (singleRowInLandscape && width > height) assert(layout.rows == 1 && layout.columns == count);
     double totalArea = 0;
     for (size_t i = 0; i < count; ++i) {
         LCWindowGridRect a = LCWindowGridFrame(layout, i);
@@ -72,7 +74,7 @@ static void assertUsableLayout(size_t count, double width, double height, double
     if (spacing == 0) assertClose(totalArea, width * height);
 }
 
-static void testSizesAndWindowCounts(void) {
+static void testSizesAndWindowCounts(bool singleRowInLandscape) {
     const double sizes[][2] = {
         {320, 524}, {375, 647}, {390, 750}, {430, 830}, // iPhone safe-area sizes
         {750, 354}, {932, 430}, {768, 980}, {1008, 700},
@@ -80,12 +82,60 @@ static void testSizesAndWindowCounts(void) {
     };
     for (size_t s = 0; s < sizeof(sizes) / sizeof(sizes[0]); ++s) {
         for (size_t count = 1; count <= 128; ++count) {
-            assertUsableLayout(count, sizes[s][0], sizes[s][1], 8);
-            assertUsableLayout(count, sizes[s][0], sizes[s][1], LCWindowGridSpacing);
-            assertUsableLayout(count, sizes[s][0], sizes[s][1], 0);
+            assertUsableLayout(count, sizes[s][0], sizes[s][1], 8, singleRowInLandscape);
+            assertUsableLayout(count, sizes[s][0], sizes[s][1], LCWindowGridSpacing, singleRowInLandscape);
+            assertUsableLayout(count, sizes[s][0], sizes[s][1], 0, singleRowInLandscape);
         }
     }
-    assertUsableLayout(16, 320, 200, 1000);
+    assertUsableLayout(16, 320, 200, 1000, singleRowInLandscape);
+}
+
+static void testLandscapeSingleRow(void) {
+    LCWindowGridRect content = LCWindowGridContentBounds((LCWindowGridRect){0, 0, 874, 402},
+                                                         (LCWindowGridRect){62, 0, 750, 382});
+    LCWindowGridLayout automatic = LCWindowGridLayoutMakeWithLandscapePreference(4, content.width, content.height, 2, 88, false);
+    assert(automatic.rows == 2 && automatic.columns == 2);
+    LCWindowGridLayout singleRow = LCWindowGridLayoutMakeWithLandscapePreference(4, content.width, content.height, 2, 88, true);
+    assert(singleRow.rows == 1 && singleRow.columns == 4);
+    for (size_t i = 0; i < 4; ++i) {
+        LCWindowGridRect frame = LCWindowGridFrame(singleRow, i);
+        assertClose(frame.x, i * 188);
+        assertClose(frame.y, 0);
+        assertClose(frame.width, 186);
+        assertClose(frame.height, 402);
+        assertClose(content.y + frame.y + frame.height, 402);
+    }
+
+    // Returning to portrait uses the same row-major order and geometry as automatic mode.
+    LCWindowGridLayout portrait = LCWindowGridLayoutMakeWithLandscapePreference(4, 402, 812, 2, 88, true);
+    LCWindowGridLayout original = LCWindowGridLayoutMake(4, 402, 812, 2, 88);
+    assert(portrait.rows == 2 && portrait.columns == 2);
+    for (size_t i = 0; i < 4; ++i) {
+        LCWindowGridRect a = LCWindowGridFrame(portrait, i), b = LCWindowGridFrame(original, i);
+        assertClose(a.x, b.x);
+        assertClose(a.y, b.y);
+        assertClose(a.width, b.width);
+        assertClose(a.height, b.height);
+    }
+    LCWindowGridLayout square = LCWindowGridLayoutMakeWithLandscapePreference(4, 700, 700, 2, 88, true);
+    assert(square.rows == 2 && square.columns == 2);
+    assert(LCWindowGridLayoutMakeWithLandscapePreference(0, 874, 402, 2, 88, true).count == 0);
+    assert(LCWindowGridLayoutMakeWithLandscapePreference(4, INFINITY, 402, 2, 88, true).count == 0);
+    assert(LCWindowGridLayoutMakeWithLandscapePreference(4, 874, 402, NAN, 88, true).count == 0);
+
+    // Landscape columns and portrait dividers are separate, reusable proportions.
+    double columns[] = {0.2, 0.5, 0.8};
+    double rows[] = {0.4}, portraitColumns[] = {0.6};
+    LCWindowGridRect before = LCWindowGridFrameWithDividers(portrait, 0, rows, portraitColumns, NULL);
+    assert(LCWindowGridMoveDivider(columns, 4, 1, 410, 750, 2, 96));
+    LCWindowGridRect a = LCWindowGridFrameWithDividers(singleRow, 1, NULL, columns, NULL);
+    LCWindowGridRect b = LCWindowGridFrameWithDividers(singleRow, 2, NULL, columns, NULL);
+    assertClose(b.x - (a.x + a.width), 2);
+    assertClose(a.height, 402);
+    assertClose(b.height, 402);
+    LCWindowGridRect after = LCWindowGridFrameWithDividers(portrait, 0, rows, portraitColumns, NULL);
+    assertClose(before.width, after.width);
+    assertClose(before.height, after.height);
 }
 
 static void testCompactGridUsesSafeArea(void) {
@@ -288,7 +338,7 @@ static double randomPosition(double length) {
     return ((double)randomState / UINT32_MAX * 1.4 - 0.2) * length;
 }
 
-static void testAdjustedSizesAndCounts(void) {
+static void testAdjustedSizesAndCounts(bool singleRowInLandscape) {
     const double sizes[][2] = {
         {320, 524}, {375, 647}, {390, 750}, {430, 830},
         {750, 354}, {932, 430}, {768, 980}, {1008, 700},
@@ -297,7 +347,8 @@ static void testAdjustedSizesAndCounts(void) {
     for (size_t s = 0; s < sizeof(sizes) / sizeof(sizes[0]); ++s) {
         for (size_t count = 1; count <= 128; ++count) {
             for (size_t gap = 0; gap <= 2; gap += 2) {
-                LCWindowGridLayout layout = LCWindowGridLayoutMake(count, sizes[s][0], sizes[s][1], gap, 88);
+                LCWindowGridLayout layout = LCWindowGridLayoutMakeWithLandscapePreference(count, sizes[s][0], sizes[s][1],
+                                                                                          gap, 88, singleRowInLandscape);
                 size_t tailCount = count - (layout.rows - 1) * layout.columns;
                 double rows[128], columns[128], tail[128];
                 LCWindowGridResetDividers(rows, layout.rows);
@@ -337,7 +388,9 @@ static void testAdjustedSizesAndCounts(void) {
 
 int main(void) {
     testCommonLayouts();
-    testSizesAndWindowCounts();
+    testSizesAndWindowCounts(false);
+    testSizesAndWindowCounts(true);
+    testLandscapeSingleRow();
     testCompactGridUsesSafeArea();
     testGridContentBounds();
     testInvalidInput();
@@ -345,7 +398,8 @@ int main(void) {
     testAlignedFourAndThree();
     testAdjacentTracksAndPartialRow();
     testReclampingAndInvalidDividers();
-    testAdjustedSizesAndCounts();
-    puts("Window grid layout tests passed (7,041 size/count/spacing combinations, bottom safe-area coverage, divider drags, alignment and clamping checks).");
+    testAdjustedSizesAndCounts(false);
+    testAdjustedSizesAndCounts(true);
+    puts("Window grid layout tests passed (14,082 size/count/spacing combinations, landscape single row, bottom safe-area coverage, divider drags, alignment and clamping checks).");
     return 0;
 }

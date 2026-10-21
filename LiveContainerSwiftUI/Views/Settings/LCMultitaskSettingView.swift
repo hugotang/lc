@@ -12,6 +12,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
+    @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) var singleRowInLandscape = false
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
@@ -88,6 +89,10 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $autoTileMultitaskWindows) {
                         Text("lc.settings.autoTileMultitaskWindows".loc)
                     }
+                    Picker("lc.multitask.landscapeLayout".loc, selection: $singleRowInLandscape) {
+                        Text("lc.multitask.landscapeLayout.automatic".loc).tag(false)
+                        Text("lc.multitask.landscapeLayout.singleRow".loc).tag(true)
+                    }
                     Toggle(isOn: $hideGridWindowBars) {
                         Text("lc.settings.hideGridWindowBars".loc)
                     }
@@ -99,6 +104,7 @@ struct LCMultitaskSettingView: View {
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
+                        Text("lc.settings.landscapeLayoutDesc".loc)
                         Text("lc.settings.hideGridWindowBarsDesc".loc)
                         Text("lc.settings.gridDividersDesc".loc)
                         Text("lc.settings.gridSwapDesc".loc)

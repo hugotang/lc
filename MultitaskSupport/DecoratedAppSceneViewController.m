@@ -680,7 +680,7 @@
         settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
     }
 
-    if (MultitaskDockManager.shared.windowHostingView.automaticallyTilesWindows) {
+    if (MultitaskDockManager.shared.windowHostingView.maintainsGridLayout) {
         // The host lays out the grid using its bounds after rotation has finished.
         [self.view.superview setNeedsLayout];
         return;

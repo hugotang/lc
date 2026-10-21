@@ -7,7 +7,38 @@ static bool sameRect(LCWindowGridRect a, LCWindowGridRect b) {
            fabs(a.width - b.width) < 1e-8 && fabs(a.height - b.height) < 1e-8;
 }
 
+static void testLandscapePreferenceWithKeyboard(void) {
+    LCWindowGridRect surfaces[] = {{62, 0, 750, 402}, {0, 62, 402, 812}};
+    LCWindowGridRect keyboards[] = {{0, 216, 874, 186}, {0, 420, 402, 454}};
+    double columns[] = {0.2, 0.5, 0.8};
+    for (size_t s = 0; s < 2; ++s) {
+        LCWindowGridRect normal = surfaces[s];
+        LCWindowGridRect available = LCKeyboardAvailableRect(normal, keyboards[s]);
+        LCWindowGridLayout layout = LCWindowGridLayoutMakeWithLandscapePreference(4, normal.width, normal.height, 2, 88, true);
+        assert(layout.rows == (s == 0 ? 1 : 2));
+        assert(layout.columns == (s == 0 ? 4 : 2));
+        LCWindowGridLayout resized = layout;
+        resized.height = available.height;
+        const double *dividers = s == 0 ? columns : NULL;
+        // The portrait keyboard makes the remaining surface wider than tall; it must stay 2x2.
+        assert(available.width > available.height);
+        for (size_t i = 0; i < 4; ++i) {
+            LCWindowGridRect before = LCWindowGridFrameWithDividers(layout, i, NULL, dividers, NULL);
+            LCWindowGridRect during = LCWindowGridFrameWithDividers(resized, i, NULL, dividers, NULL);
+            assert(before.x == during.x && before.width == during.width);
+            assert(during.height > 0 && during.height < before.height);
+            if (i / layout.columns == layout.rows - 1) {
+                assert(fabs(available.y + during.y + during.height - keyboards[s].y) < 1e-8);
+            }
+            resized.height = LCKeyboardAvailableRect(normal, (LCWindowGridRect){0}).height;
+            assert(sameRect(before, LCWindowGridFrameWithDividers(resized, i, NULL, dividers, NULL)));
+            resized.height = available.height;
+        }
+    }
+}
+
 int main(void) {
+    testLandscapePreferenceWithKeyboard();
     LCWindowGridRect desktop = {0, 24, 1024, 720};
     LCWindowGridRect keyboard = {0, 500, 1024, 268};
     LCWindowGridRect available = LCKeyboardAvailableRect(desktop, keyboard);

@@ -89,17 +89,23 @@ static NSDictionary *LCWorkspaceProportions(id value) {
     if (self) {
         _windows = windows.copy;
         _proportions = LCWorkspaceProportions(propertyList[@"proportions"]);
+        // This optional v1 field defaults to the original layout for older saves.
+        id singleRow = propertyList[@"singleRowInLandscape"];
+        _singleRowInLandscape = [singleRow isKindOfClass:NSNumber.class] && [singleRow isEqual:@YES];
     }
     return self;
 }
-- (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions {
+- (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
+          singleRowInLandscape:(BOOL)singleRowInLandscape {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in windows) [entries addObject:window.propertyList];
-    return [self initWithPropertyList:@{@"version": @1, @"windows": entries, @"proportions": proportions}];
+    return [self initWithPropertyList:@{@"version": @1, @"windows": entries, @"proportions": proportions,
+                                       @"singleRowInLandscape": @(singleRowInLandscape)}];
 }
 - (NSDictionary *)propertyList {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in self.windows) [entries addObject:window.propertyList];
-    return @{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions};
+    return @{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
+             @"singleRowInLandscape": @(self.singleRowInLandscape)};
 }
 @end

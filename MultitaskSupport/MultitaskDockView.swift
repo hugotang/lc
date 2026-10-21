@@ -1135,6 +1135,7 @@ private struct GridLayoutButtonView: View {
 @available(iOS 16.0, *)
 private struct DockGridActions: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
+    @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) private var singleRowInLandscape = false
     var swapSourceWindow: UIView? = nil
 
     var body: some View {
@@ -1143,6 +1144,13 @@ private struct DockGridActions: View {
         } label: {
             Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
         }
+        Picker(selection: $singleRowInLandscape) {
+            Text("lc.multitask.landscapeLayout.automatic".loc).tag(false)
+            Text("lc.multitask.landscapeLayout.singleRow".loc).tag(true)
+        } label: {
+            Label("lc.multitask.landscapeLayout".loc, systemImage: "rectangle.split.3x1")
+        }
+        .pickerStyle(.menu)
         Button {
             perform { dockManager.windowHostingView.toggleGridDividerAdjustment() }
         } label: {

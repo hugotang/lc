@@ -33,8 +33,9 @@ static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds
     return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bounds.y + bounds.height - top)};
 }
 
-static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double width, double height,
-                                                       double spacing, double minimumHeight) {
+static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(size_t count, double width, double height,
+                                                                                double spacing, double minimumHeight,
+                                                                                bool singleRowInLandscape) {
     LCWindowGridLayout layout = {0};
     if (count == 0 || !isfinite(width) || !isfinite(height) || width <= 0 || height <= 0 ||
         !isfinite(spacing) || !isfinite(minimumHeight)) {
@@ -44,6 +45,7 @@ static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double wid
     // Put the longer side of the grid along the longer side of the screen.
     size_t side = (size_t)ceil(sqrt((double)count));
     size_t rows = height >= width ? side : 1 + (count - 1) / side;
+    if (singleRowInLandscape && width > height) rows = 1;
     spacing = fmax(0, spacing);
     if (minimumHeight > 0) {
         double maximumRows = fmax(1, floor((height + spacing) / (minimumHeight + spacing)));
@@ -63,6 +65,11 @@ static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double wid
     layout.height = height;
     layout.spacing = spacing;
     return layout;
+}
+
+static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double width, double height,
+                                                       double spacing, double minimumHeight) {
+    return LCWindowGridLayoutMakeWithLandscapePreference(count, width, height, spacing, minimumHeight, false);
 }
 
 // Divider fractions measure content only, excluding the gaps. A NULL array means equal sizes.
