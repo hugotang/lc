@@ -19,6 +19,20 @@ typedef struct {
     double width, height, spacing;
 } LCWindowGridLayout;
 
+// Draw the grid beneath the home indicator; each guest still receives its own
+// bottom safe area for controls. Keep the top and side exclusions for system UI.
+static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds,
+                                                        LCWindowGridRect safeBounds) {
+    if (!isfinite(bounds.x) || !isfinite(bounds.y) || !isfinite(bounds.width) || !isfinite(bounds.height) ||
+        !isfinite(safeBounds.x) || !isfinite(safeBounds.y) || !isfinite(safeBounds.width) ||
+        !isfinite(safeBounds.height) || bounds.width <= 0 || bounds.height <= 0 ||
+        safeBounds.width <= 0 || safeBounds.height <= 0) return (LCWindowGridRect){0};
+    double left = fmax(bounds.x, safeBounds.x);
+    double right = fmin(bounds.x + bounds.width, safeBounds.x + safeBounds.width);
+    double top = fmax(bounds.y, safeBounds.y);
+    return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bounds.y + bounds.height - top)};
+}
+
 static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double width, double height,
                                                        double spacing, double minimumHeight) {
     LCWindowGridLayout layout = {0};

@@ -122,6 +122,46 @@ static void testInvalidInput(void) {
     assertClose(LCWindowGridFrame(grid, 4).width, 0);
 }
 
+static void testGridContentBounds(void) {
+    const LCWindowGridRect bounds[] = {
+        {0, 0, 874, 402}, {0, 0, 874, 402}, {0, 0, 402, 874},
+        {12, 24, 1024, 768}, {0, 0, 667, 375}
+    };
+    const LCWindowGridRect safe[] = {
+        {62, 0, 750, 382},    // Landscape: the old grid left a 20pt black strip.
+        {62, 0, 812, 382},    // Asymmetric side exclusions.
+        {0, 62, 402, 778},    // Portrait: preserve the top exclusion.
+        {12, 48, 1024, 724},  // A host with a nonzero origin.
+        {0, 0, 667, 375}      // No bottom inset.
+    };
+    for (size_t s = 0; s < sizeof(bounds) / sizeof(bounds[0]); ++s) {
+        LCWindowGridRect content = LCWindowGridContentBounds(bounds[s], safe[s]);
+        assertClose(content.x, safe[s].x);
+        assertClose(content.y, safe[s].y);
+        assertClose(content.width, safe[s].width);
+        assertClose(content.y + content.height, bounds[s].y + bounds[s].height);
+        for (size_t count = 1; count <= 12; ++count) {
+            LCWindowGridLayout layout = LCWindowGridLayoutMake(count, content.width, content.height,
+                                                               LCWindowGridSpacing, LCWindowGridMinimumHeight);
+            for (size_t index = 0; index < count; ++index) {
+                LCWindowGridRect tile = LCWindowGridFrame(layout, index);
+                assert(content.x + tile.x >= safe[s].x - epsilon);
+                assert(content.x + tile.x + tile.width <= safe[s].x + safe[s].width + epsilon);
+                if (index / layout.columns == layout.rows - 1) {
+                    assertClose(content.y + tile.y + tile.height, bounds[s].y + bounds[s].height);
+                }
+            }
+        }
+    }
+    LCWindowGridRect clipped = LCWindowGridContentBounds(bounds[0], (LCWindowGridRect){-20, -20, 1000, 450});
+    assertClose(clipped.x, 0);
+    assertClose(clipped.y, 0);
+    assertClose(clipped.width, 874);
+    assertClose(clipped.height, 402);
+    assertClose(LCWindowGridContentBounds(bounds[0], (LCWindowGridRect){0}).width, 0);
+    assertClose(LCWindowGridContentBounds((LCWindowGridRect){NAN, 0, 874, 402}, safe[0]).height, 0);
+}
+
 static void testAdjustablePair(void) {
     LCWindowGridLayout layout = LCWindowGridLayoutMake(2, 390, 750, 2, 88);
     double rows[1];
@@ -299,12 +339,13 @@ int main(void) {
     testCommonLayouts();
     testSizesAndWindowCounts();
     testCompactGridUsesSafeArea();
+    testGridContentBounds();
     testInvalidInput();
     testAdjustablePair();
     testAlignedFourAndThree();
     testAdjacentTracksAndPartialRow();
     testReclampingAndInvalidDividers();
     testAdjustedSizesAndCounts();
-    puts("Window grid layout tests passed (7,041 size/count/spacing combinations, divider drags, alignment and clamping checks).");
+    puts("Window grid layout tests passed (7,041 size/count/spacing combinations, bottom safe-area coverage, divider drags, alignment and clamping checks).");
     return 0;
 }

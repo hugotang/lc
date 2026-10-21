@@ -32,6 +32,21 @@ int main(void) {
     assert(sameRect(LCKeyboardFitWindow(tall, available), (LCWindowGridRect){100, 24, 500, 476}));
     assert(sameRect(tall, LCKeyboardRestoreWindow(tall, desktop, desktop)));
 
+    LCWindowGridRect screen = {0, 0, 874, 402};
+    LCWindowGridRect safe = {62, 0, 750, 382};
+    LCWindowGridRect grid = LCWindowGridContentBounds(screen, safe);
+    LCWindowGridRect landscapeKeyboard = {0, 216, 874, 186};
+    assert(sameRect(grid, (LCWindowGridRect){62, 0, 750, 402}));
+    // Both layouts stop at the keyboard, but dismissing it restores their own bottom boundaries.
+    assert(sameRect(LCKeyboardAvailableRect(grid, landscapeKeyboard), (LCWindowGridRect){62, 0, 750, 216}));
+    assert(sameRect(LCKeyboardAvailableRect(safe, landscapeKeyboard), (LCWindowGridRect){62, 0, 750, 216}));
+    assert(sameRect(LCKeyboardAvailableRect(grid, (LCWindowGridRect){0}), grid));
+    assert(sameRect(LCKeyboardAvailableRect(safe, (LCWindowGridRect){0}), safe));
+    LCWindowGridLayout pair = LCWindowGridLayoutMake(2, grid.width, grid.height, 2, 88);
+    pair.height = LCKeyboardAvailableRect(grid, landscapeKeyboard).height;
+    LCWindowGridRect tile = LCWindowGridFrame(pair, 1);
+    assert(fabs(tile.y + tile.height - landscapeKeyboard.y) < 1e-8);
+
     size_t cases = 0;
     for (int width = 320; width <= 1600; width += 160) {
         for (int height = 400; height <= 1600; height += 120) {

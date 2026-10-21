@@ -191,7 +191,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic) BOOL wasKeyboardAvoidanceEnabled;
 @property(nonatomic, strong) NSMapTable<UIView *, LCKeyboardWindowFrame *> *keyboardOriginalFrames;
 @property(nonatomic, readonly) BOOL keyboardAvoidanceEnabled, isAvoidingKeyboard, allVisibleWindowsAreInGrid;
-@property(nonatomic, readonly) CGRect gridAvailableBounds;
+@property(nonatomic, readonly) CGRect unobscuredGridBounds, gridAvailableBounds;
 @end
 
 @implementation VirtualWindowsHostView
@@ -253,15 +253,25 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     return value ? value.boolValue : YES;
 }
 
-- (CGRect)gridAvailableBounds {
-    CGRect bounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+- (CGRect)unobscuredGridBounds {
+    CGRect safeBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    return LCCGKeyboardRect(LCWindowGridContentBounds(LCKeyboardRect(self.bounds), LCKeyboardRect(safeBounds)));
+}
+
+- (CGRect)boundsByAvoidingKeyboard:(CGRect)bounds {
     if (!self.keyboardAvoidanceEnabled || !self.window || CGRectIsNull(self.keyboardScreenFrame)) return bounds;
     CGRect keyboard = [self convertRect:self.keyboardScreenFrame fromCoordinateSpace:self.window.screen.coordinateSpace];
     return LCCGKeyboardRect(LCKeyboardAvailableRect(LCKeyboardRect(bounds), LCKeyboardRect(keyboard)));
 }
 
+- (CGRect)gridAvailableBounds {
+    return [self boundsByAvoidingKeyboard:self.unobscuredGridBounds];
+}
+
 - (BOOL)isAvoidingKeyboard {
-    return !CGRectEqualToRect(self.gridAvailableBounds, UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets));
+    CGRect floatingBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    return !CGRectEqualToRect([self boundsByAvoidingKeyboard:floatingBounds], floatingBounds) ||
+        !CGRectEqualToRect(self.gridAvailableBounds, self.unobscuredGridBounds);
 }
 
 - (BOOL)allVisibleWindowsAreInGrid {
@@ -298,16 +308,18 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 
 - (CGRect)frameByAvoidingKeyboard:(CGRect)frame forWindow:(DecoratedAppSceneViewController *)vc {
     CGRect normalBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
-    CGRect available = self.gridAvailableBounds;
+    // Floating windows keep their original safe-area placement.
+    CGRect available = [self boundsByAvoidingKeyboard:normalBounds];
+    BOOL avoidingKeyboard = !CGRectEqualToRect(available, normalBounds);
     if (vc.isMaximized) {
         [self forgetKeyboardFrameForWindow:vc.view];
-        return self.isAvoidingKeyboard ? LCCGKeyboardRect(LCKeyboardFitWindow(LCKeyboardRect(frame), LCKeyboardRect(available))) : frame;
+        return avoidingKeyboard ? LCCGKeyboardRect(LCKeyboardFitWindow(LCKeyboardRect(frame), LCKeyboardRect(available))) : frame;
     }
     LCKeyboardWindowFrame *original = [self.keyboardOriginalFrames objectForKey:vc.view];
     if (original) {
         frame = [self unobscuredFrameForWindow:vc.view];
     }
-    if (!self.isAvoidingKeyboard) {
+    if (!avoidingKeyboard) {
         [self forgetKeyboardFrameForWindow:vc.view];
         return frame;
     }
@@ -393,6 +405,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 
 - (void)safeAreaInsetsDidChange {
     [super safeAreaInsetsDidChange];
+    // A bottom inset change affects guest controls even when the grid frame is unchanged.
+    self.lastArrangementBounds = CGRectNull;
     [self setNeedsLayout];
 }
 
@@ -478,7 +492,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (void)arrangeVisibleWindowsInGrid:(BOOL)force {
     if (self.isArrangingWindows || !self.window) return;
 
-    CGRect normalBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
+    CGRect normalBounds = self.unobscuredGridBounds;
     CGRect availableBounds = self.gridAvailableBounds;
     if (availableBounds.size.width <= 0 || availableBounds.size.height <= 44) {
         [self finishGridEditing];

@@ -16,6 +16,8 @@
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 @property(nonatomic) bool isAppTerminationRequested;
 @property(nonatomic, readwrite) BOOL isAppTerminated;
+@property(nonatomic) UIEdgeInsets lastGridSafeAreaInsets;
+- (void)updateGridSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings;
 @end
 
 @implementation DecoratedAppSceneViewController
@@ -237,6 +239,8 @@
     [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
         if(weakSelf.isMaximized) {
             [weakSelf updateMaximizedSafeAreaWithSettings:settings];
+        } else if (weakSelf.isInGridLayout) {
+            [weakSelf updateGridSafeAreaWithSettings:settings];
         } else {
             // it seems some apps don't honor these settings so we don't cover the top of the app
             settings.peripheryInsets = UIEdgeInsetsZero;
@@ -313,6 +317,7 @@
     [MultitaskDockManager.shared.windowHostingView forgetKeyboardFrameForWindow:self.view];
     BOOL changedPresentation = !self.isInGridLayout || self.isMaximized;
     if (!changedPresentation && !immediate && CGRectEqualToRect(self.view.frame, frame) &&
+        UIEdgeInsetsEqualToEdgeInsets(self.lastGridSafeAreaInsets, self.appSceneVC.view.safeAreaInsets) &&
         CGAffineTransformIsIdentity(self.view.transform)) return;
     self.isMaximized = NO;
     self.isInGridLayout = YES;
@@ -325,11 +330,25 @@
     }
     [self updateOriginalFrame];
     [self.view layoutIfNeeded];
+    self.lastGridSafeAreaInsets = self.appSceneVC.view.safeAreaInsets;
     if (immediate) self.appSceneVC.shouldSkipDebounceOnce = YES;
     [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
-        settings.peripheryInsets = UIEdgeInsetsZero;
-        settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
+        [self updateGridSafeAreaWithSettings:settings];
     }];
+}
+
+- (void)updateGridSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings {
+    // On iOS 18+, UIKitHooks forwards the hosting view's parent safe area.
+    // The legacy presenter needs those insets explicitly, in guest coordinates.
+    if (self.appSceneVC.usesHostingControllerAPI) return;
+    UIEdgeInsets insets = self.appSceneVC.view.safeAreaInsets;
+    CGFloat scale = self.scaleRatio > 0 ? self.scaleRatio : 1;
+    insets = UIEdgeInsetsMake(insets.top / scale, insets.left / scale,
+                             insets.bottom / scale, insets.right / scale);
+    settings.peripheryInsets = insets;
+    UIInterfaceOrientation orientation = self.view.window.windowScene.interfaceOrientation;
+    settings.safeAreaInsetsPortrait = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ?
+        insets : LCUIEdgeInsetsRotateToOrientation(insets, orientation);
 }
 
 - (void)maximizeWindow {
@@ -654,8 +673,12 @@
 - (void)updateWindowedFrameWithSettings:(UIMutableApplicationSceneSettings *)settings {
     UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
     CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
-    settings.peripheryInsets = UIEdgeInsetsZero;
-    settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
+    if (self.isInGridLayout) {
+        [self updateGridSafeAreaWithSettings:settings];
+    } else {
+        settings.peripheryInsets = UIEdgeInsetsZero;
+        settings.safeAreaInsetsPortrait = UIEdgeInsetsZero;
+    }
 
     if (MultitaskDockManager.shared.windowHostingView.automaticallyTilesWindows) {
         // The host lays out the grid using its bounds after rotation has finished.
