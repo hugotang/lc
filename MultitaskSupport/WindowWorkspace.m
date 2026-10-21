@@ -264,6 +264,30 @@ static NSString *LCWorkspaceDisplayName(id value) {
     return YES;
 }
 
+- (BOOL)setLayoutPreference:(LCWorkspaceLayoutPreference)preference enabled:(BOOL)enabled forWorkspace:(NSString *)identifier {
+    if (![self reload]) return NO;
+    LCNamedWorkspace *existing = [self workspaceWithIdentifier:identifier];
+    if (!identifier || !existing) return NO;
+    LCWindowWorkspace *current = existing.snapshot;
+    BOOL singleRow = current.singleRowInLandscape, top = current.reservePortraitTop, bottom = current.reservePortraitBottom;
+    switch (preference) {
+        case LCWorkspaceLayoutPreferenceSingleRowInLandscape: singleRow = enabled; break;
+        case LCWorkspaceLayoutPreferenceReservePortraitTop: top = enabled; break;
+        case LCWorkspaceLayoutPreferenceReservePortraitBottom: bottom = enabled; break;
+        default: return NO;
+    }
+    if (singleRow == current.singleRowInLandscape && top == current.reservePortraitTop && bottom == current.reservePortraitBottom) return YES;
+    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithWindows:current.windows proportions:current.proportions
+        singleRowInLandscape:singleRow reservePortraitTop:top reservePortraitBottom:bottom];
+    LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
+    if (!updated) return NO;
+    NSMutableArray *entries = self.workspaces.mutableCopy;
+    entries[[entries indexOfObjectIdenticalTo:existing]] = updated;
+    _workspaces = entries.copy;
+    [self persist];
+    return YES;
+}
+
 - (BOOL)removeWorkspace:(NSString *)identifier {
     if (![self reload]) return NO;
     LCNamedWorkspace *entry = [self workspaceWithIdentifier:identifier];

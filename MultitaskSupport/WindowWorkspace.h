@@ -32,7 +32,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, strong, readonly) LCWindowWorkspace *snapshot;
 @end
 
-// Newest saved first. Renaming preserves both identity and ordering.
+typedef NS_ENUM(NSInteger, LCWorkspaceLayoutPreference) {
+    LCWorkspaceLayoutPreferenceSingleRowInLandscape,
+    LCWorkspaceLayoutPreferenceReservePortraitTop,
+    LCWorkspaceLayoutPreferenceReservePortraitBottom,
+};
+
+// Newest saved first. Renaming and preference edits preserve identity and ordering.
 @interface LCWorkspaceLibrary : NSObject
 @property(nonatomic, copy, readonly) NSArray<LCNamedWorkspace *> *workspaces;
 - (nullable instancetype)initWithDefaults:(NSUserDefaults *)defaults legacyName:(NSString *)legacyName;
@@ -42,6 +48,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable LCNamedWorkspace *)saveWorkspace:(LCWindowWorkspace *)snapshot name:(NSString *)name
                        replacingIdentifier:(nullable NSString *)identifier NS_SWIFT_NAME(save(_:name:replacing:));
 - (BOOL)renameWorkspace:(NSString *)identifier name:(NSString *)name NS_SWIFT_NAME(rename(_:name:));
+// Patch one saved preference without capturing live windows or changing library order.
+- (BOOL)setLayoutPreference:(LCWorkspaceLayoutPreference)preference enabled:(BOOL)enabled
+               forWorkspace:(NSString *)identifier NS_SWIFT_NAME(setLayoutPreference(_:enabled:for:));
 - (BOOL)removeWorkspace:(NSString *)identifier NS_SWIFT_NAME(remove(_:));
 @end
 

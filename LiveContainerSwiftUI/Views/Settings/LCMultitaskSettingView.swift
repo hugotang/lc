@@ -103,14 +103,21 @@ struct LCMultitaskSettingView: View {
                     } label: {
                         Label("lc.multitask.arrangeWindowsInGrid".loc, systemImage: "square.grid.2x2")
                     }
-                } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
-                        Text("lc.settings.landscapeLayoutDesc".loc)
-                        Text("lc.settings.hideGridWindowBarsDesc".loc)
-                        Text("lc.settings.gridDividersDesc".loc)
-                        Text("lc.settings.gridSwapDesc".loc)
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("lc.settings.landscapeLayoutDesc".loc)
+                            Text("lc.settings.hideGridWindowBarsDesc".loc)
+                            Text("lc.settings.gridDividersDesc".loc)
+                            Text("lc.settings.gridSwapDesc".loc)
+                        }
+                        .font(.footnote).foregroundStyle(.secondary)
+                    } label: {
+                        Label("lc.settings.gridHelp".loc, systemImage: "questionmark.circle")
                     }
+                } header: {
+                    Text("lc.settings.currentWindowLayout".loc)
+                } footer: {
+                    Text("lc.settings.autoTileMultitaskWindowsDesc".loc)
                 }
                 Section {
                     Toggle("lc.multitask.reservePortraitTop".loc, isOn: $reservePortraitTop)

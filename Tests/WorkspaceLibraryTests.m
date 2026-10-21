@@ -83,6 +83,74 @@ static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
     assert([[defaults stringForKey:@"unrelated"] isEqualToString:@"keep"]);
 }
 
+static void testSavedLayoutEditing(NSUserDefaults *defaults) {
+    LCWorkspaceLibrary *library = openLibrary(defaults);
+    NSArray *windows = @[
+        [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"A" scale:1.25],
+        [[LCWorkspaceWindow alloc] initWithBundleName:@"Music.app" dataUUID:@"B" scale:0.75]
+    ];
+    NSDictionary *proportions = @{@"2:2:1:1": @{@"rows": @[@0.4], @"columns": @[], @"lastRowColumns": @[]}};
+    LCWindowWorkspace *original = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
+        singleRowInLandscape:NO reservePortraitTop:YES reservePortraitBottom:NO];
+    LCNamedWorkspace *entry = [library saveWorkspace:original name:@"Editable" replacingIdentifier:nil];
+    LCNamedWorkspace *other = [library saveWorkspace:snapshot(@"Z", YES) name:@"Other" replacingIdentifier:nil];
+    NSURL *link = LCWorkspaceRestoreURLForIdentifier(@"livecontainer", entry.identifier);
+    NSArray *order = [library.workspaces valueForKey:@"identifier"];
+    [defaults setBool:YES forKey:@"LCGridReservePortraitTop"];
+    [defaults setBool:NO forKey:@"LCGridReservePortraitBottom"];
+    [defaults setBool:NO forKey:@"LCGridSingleRowInLandscape"];
+
+    LCWorkspaceLibrary *staleReader = openLibrary(defaults);
+    assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:entry.identifier]);
+    assert([library renameWorkspace:entry.identifier name:@"Renamed"]);
+    assert([staleReader setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:entry.identifier]);
+    assert([staleReader setLayoutPreference:LCWorkspaceLayoutPreferenceSingleRowInLandscape enabled:YES forWorkspace:entry.identifier]);
+    library = openLibrary(defaults);
+    LCNamedWorkspace *edited = [library workspaceWithIdentifier:LCWorkspaceRestoreIdentifier(link, @"livecontainer")];
+    assert([edited.name isEqualToString:@"Renamed"]);
+    assert(edited.snapshot.singleRowInLandscape && !edited.snapshot.reservePortraitTop && edited.snapshot.reservePortraitBottom);
+    assert([[library.workspaces valueForKey:@"identifier"] isEqual:order]);
+    assert([[library workspaceWithIdentifier:nil].identifier isEqualToString:other.identifier]);
+    assert([[library workspaceWithIdentifier:other.identifier].snapshot.propertyList isEqual:other.snapshot.propertyList]);
+    assert([edited.snapshot.proportions isEqual:original.proportions]);
+    assert([[edited.snapshot.windows valueForKey:@"propertyList"] isEqual:[original.windows valueForKey:@"propertyList"]]);
+    // Editing a saved layout must never apply it to the live windows.
+    assert([defaults boolForKey:@"LCGridReservePortraitTop"]);
+    assert(![defaults boolForKey:@"LCGridReservePortraitBottom"]);
+    assert(![defaults boolForKey:@"LCGridSingleRowInLandscape"]);
+
+    // A repeated toggle is harmless; invalid requests must leave every record unchanged.
+    id before = [defaults objectForKey:@"LCWorkspaceLibrary"];
+    assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:entry.identifier]);
+    assert(![library setLayoutPreference:(LCWorkspaceLayoutPreference)999 enabled:YES forWorkspace:entry.identifier]);
+    assert(![library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:YES forWorkspace:@"bad-id"]);
+    assert(![library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:YES forWorkspace:NSUUID.UUID.UUIDString]);
+    assert([[defaults objectForKey:@"LCWorkspaceLibrary"] isEqual:before]);
+
+    // Patching from an older reader keeps a subsequent replacement's apps and other preferences.
+    LCWindowWorkspace *replacement = snapshot(@"NewContainer", NO);
+    assert([library saveWorkspace:replacement name:@"Renamed" replacingIdentifier:entry.identifier]);
+    assert([staleReader setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:entry.identifier]);
+    edited = [staleReader workspaceWithIdentifier:entry.identifier];
+    assert(!edited.snapshot.singleRowInLandscape && edited.snapshot.reservePortraitTop && edited.snapshot.reservePortraitBottom);
+    assert([[edited.snapshot.windows valueForKey:@"propertyList"] isEqual:[replacement.windows valueForKey:@"propertyList"]]);
+    assert([edited.snapshot.proportions isEqual:replacement.proportions]);
+
+    // A copy starts from the saved snapshot, gets its own link and remains independently editable.
+    LCNamedWorkspace *copy = [library saveWorkspace:edited.snapshot name:@"Copy" replacingIdentifier:nil];
+    assert(copy && ![copy.identifier isEqualToString:entry.identifier]);
+    assert([copy.snapshot.propertyList isEqual:edited.snapshot.propertyList]);
+    assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:copy.identifier]);
+    assert([library workspaceWithIdentifier:entry.identifier].snapshot.reservePortraitTop);
+    assert(![library workspaceWithIdentifier:copy.identifier].snapshot.reservePortraitTop);
+    assert([library removeWorkspace:entry.identifier]);
+    before = [defaults objectForKey:@"LCWorkspaceLibrary"];
+    assert(![staleReader setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:entry.identifier]);
+    assert([[defaults objectForKey:@"LCWorkspaceLibrary"] isEqual:before]);
+    assert([library removeWorkspace:copy.identifier]);
+    assert([library removeWorkspace:other.identifier]);
+}
+
 static void testValidationAndFailedEdits(NSUserDefaults *defaults) {
     LCWorkspaceLibrary *library = openLibrary(defaults);
     LCNamedWorkspace *work = [library saveWorkspace:snapshot(@"A", NO) name:@"  Work  " replacingIdentifier:nil];
@@ -134,6 +202,7 @@ static void testUnreadableDataIsPreserved(NSUserDefaults *defaults) {
         [defaults setObject:corrupt forKey:@"LCWorkspaceLibrary"];
         assert(openLibrary(defaults) == nil);
         assert([existing saveWorkspace:snapshot(@"Z", NO) name:@"New" replacingIdentifier:nil] == nil);
+        assert(![existing setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:entry[@"id"]]);
         assert([[defaults objectForKey:@"LCWorkspaceLibrary"] isEqual:corrupt]);
     }
     [defaults removeObjectForKey:@"LCWorkspaceLibrary"];
@@ -148,10 +217,11 @@ int main(void) {
         NSString *suite = [@"LCWorkspaceLibraryTests." stringByAppendingString:NSUUID.UUID.UUIDString];
         NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
         testMigrationAndNamedLinks(defaults);
+        testSavedLayoutEditing(defaults);
         testValidationAndFailedEdits(defaults);
         testUnreadableDataIsPreserved(defaults);
         [defaults removePersistentDomainForName:suite];
-        puts("Workspace library tests passed (migration, multiple saves, stable links, rename/update/delete, empty libraries and invalid data preservation).");
+        puts("Workspace library tests passed (migration, saved layout edits, independent copies, stable links, rename/update/delete, stale readers and invalid data preservation).");
     }
     return 0;
 }

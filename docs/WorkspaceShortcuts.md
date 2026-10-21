@@ -16,11 +16,29 @@ Each copied link restores that specific workspace. You can add separate Home
 Screen shortcuts for games, music or other app combinations. Renaming a workspace
 keeps its link working.
 
-To change an existing shortcut's arrangement, open **Manage Workspaces**, select
-the workspace and choose **Update with Current Windows**. Saving as a new workspace
-creates a separate arrangement. Updates and deletion ask for confirmation;
+Open **Manage Workspaces** to search your saves and inspect their apps, containers
+and scales. Swipe left to rename or delete, or right to restore. Touch and hold
+a row for **Copy Restore Link** and **Duplicate Workspace**. A duplicate starts
+with the saved arrangement and gets its own name and restore link. Creating a
+save or a duplicate from this list opens its detail page immediately.
+
+In a workspace's detail page, change **Landscape Layout**, **Reserve Top Area**
+or **Reserve Bottom Area** directly. These options save automatically and apply
+the next time you restore that workspace. They retain its apps, containers,
+order, scales, divider proportions and restore link. Renaming and editing these
+options keep the workspace in its existing list position.
+
+To replace an existing workspace's entire arrangement, choose **Update with
+Current Windows** in its detail page. This also captures the current multitasking
+layout options. Saving as a new workspace creates a separate arrangement.
+Replacing the arrangement and deleting a workspace ask for confirmation;
 deleting a workspace makes its dedicated shortcut unavailable without deleting
 apps or their data.
+
+The detail page's **Home Screen Shortcut** section includes instructions that
+you can expand as needed. Successful saves, edits and copies within Manage
+Workspaces use a brief message; failures show an alert. Hidden app details follow
+the app list's unlock state.
 
 Use the copied link if you have multiple LiveContainer installations.
 
@@ -35,7 +53,8 @@ workspace was most recently saved or updated:
 
     livecontainer://workspace-restore
 
-Renaming does not change that order. A dedicated link to a deleted workspace
+Renaming or editing individual layout options does not change that order.
+A dedicated link to a deleted workspace
 reports that it is unavailable; it never opens a different workspace instead.
 
 Choose **Landscape Layout → Single Row** in Settings → Multitasking or the
@@ -43,8 +62,9 @@ Dock's layout menu to place tiled windows from left to right across the full
 height in landscape. Portrait keeps the automatic grid and the same app order.
 This also follows rotation after manually arranging a grid with automatic tiling
 off. **Automatic Grid** remains the default. Both layouts keep their own divider
-proportions. Update the saved workspace after changing this choice so its existing
-Home Screen shortcut restores it. Older snapshots restore Automatic Grid.
+proportions. You can edit this choice directly in an existing workspace's detail
+page, or capture the current layout with **Update with Current Windows**.
+Older snapshots restore Automatic Grid.
 
 In **Portrait Reserved Areas**, independently choose **Reserve Top Area** and
 **Reserve Bottom Area** in Settings → Multitasking or the Dock's layout menu.
@@ -57,13 +77,13 @@ them. These options do not hide the status bar or remove system gestures.
 The choices apply to portrait grids, including manually arranged grids with
 automatic tiling off. Landscape keeps its existing top/side exclusions and
 bottom-edge coverage. Floating and maximized windows keep their own placement.
-Save or update a workspace to have its restore link recall both choices.
-Manage Workspaces shows each saved choice. Older snapshots preserve the original
+Save a workspace to have its restore link recall both choices, or edit them
+directly in Manage Workspaces. Older snapshots preserve the original
 behavior: top reserved, bottom extended.
 
 Locked or hidden apps still require authentication. When a guest is running
 in normal mode, the existing app-switch confirmation applies before returning
-to LiveContainer. Canceling it does not queue a restore. Successful shortcut
-restores need no extra confirmation; failures and partial restores show a result.
+to LiveContainer. Canceling it does not queue a restore. Successful restores open
+the workspace without an extra OK dialog; failures and partial restores show a result.
 
 Workspace restoration requires virtual-window mode on iOS 16 or later.
