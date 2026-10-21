@@ -212,6 +212,61 @@ static void testGridContentBounds(void) {
     assertClose(LCWindowGridContentBounds((LCWindowGridRect){NAN, 0, 874, 402}, safe[0]).height, 0);
 }
 
+static void testPortraitReservedAreas(void) {
+    const LCWindowGridRect bounds = {0, 0, 402, 874};
+    const LCWindowGridRect safe = {0, 62, 402, 778};
+    const LCWindowGridRect expected[] = {
+        {0, 0, 402, 874}, {0, 0, 402, 840},
+        {0, 62, 402, 812}, {0, 62, 402, 778}
+    };
+    for (int top = 0; top <= 1; ++top) {
+        for (int bottom = 0; bottom <= 1; ++bottom) {
+            LCWindowGridRect content = LCWindowGridContentBoundsWithPortraitPreferences(bounds, safe, top, bottom);
+            LCWindowGridRect target = expected[top * 2 + bottom];
+            assertClose(content.x, target.x);
+            assertClose(content.y, target.y);
+            assertClose(content.width, target.width);
+            assertClose(content.height, target.height);
+            for (size_t count = 1; count <= 6; ++count) {
+                LCWindowGridLayout layout = LCWindowGridLayoutMakeForOrientation(count, content.width, content.height, 2, 88, true, true);
+                LCWindowGridRect first = LCWindowGridFrame(layout, 0);
+                LCWindowGridRect last = LCWindowGridFrame(layout, count - 1);
+                assertClose(first.y, 0);
+                assertClose(content.y + last.y + last.height, target.y + target.height);
+                assertClose(last.x + last.width, content.width);
+                if (count == 4) assert(layout.rows == 2 && layout.columns == 2);
+                if (count == 6) assert(layout.rows == 3 && layout.columns == 2);
+            }
+
+            // Reserving space can make a portrait host's content wider than tall.
+            // It must retain portrait rows and its portrait divider storage key.
+            LCWindowGridRect square = {12, 24, 600, 640};
+            LCWindowGridRect squareSafe = {22, 86, 580, 544};
+            content = LCWindowGridContentBoundsWithPortraitPreferences(square, squareSafe, top, bottom);
+            assertClose(content.x, 22);
+            assertClose(content.width, 580);
+            assertClose(content.y, top ? 86 : 24);
+            assertClose(content.y + content.height, bottom ? 630 : 664);
+            LCWindowGridLayout portrait = LCWindowGridLayoutMakeForOrientation(6, content.width, content.height, 2, 88,
+                                                                                square.height >= square.width, true);
+            assert(portrait.rows == 3 && portrait.columns == 2);
+
+            // Portrait choices never change the landscape top/side exclusions or bottom coverage.
+            content = LCWindowGridContentBoundsWithPortraitPreferences((LCWindowGridRect){12, 24, 874, 402},
+                (LCWindowGridRect){74, 44, 812, 362}, top, bottom);
+            assertClose(content.x, 74);
+            assertClose(content.y, 44);
+            assertClose(content.width, 812);
+            assertClose(content.height, 382);
+
+            // No system insets means all four choices produce the same full drawing area.
+            content = LCWindowGridContentBoundsWithPortraitPreferences(bounds, bounds, top, bottom);
+            assertClose(content.y, 0);
+            assertClose(content.height, 874);
+        }
+    }
+}
+
 static void testAdjustablePair(void) {
     LCWindowGridLayout layout = LCWindowGridLayoutMake(2, 390, 750, 2, 88);
     double rows[1];
@@ -393,6 +448,7 @@ int main(void) {
     testLandscapeSingleRow();
     testCompactGridUsesSafeArea();
     testGridContentBounds();
+    testPortraitReservedAreas();
     testInvalidInput();
     testAdjustablePair();
     testAlignedFourAndThree();
@@ -400,6 +456,6 @@ int main(void) {
     testReclampingAndInvalidDividers();
     testAdjustedSizesAndCounts(false);
     testAdjustedSizesAndCounts(true);
-    puts("Window grid layout tests passed (14,082 size/count/spacing combinations, landscape single row, bottom safe-area coverage, divider drags, alignment and clamping checks).");
+    puts("Window grid layout tests passed (14,082 size/count/spacing combinations, landscape single row, portrait reserved areas, safe-area coverage, divider drags, alignment and clamping checks).");
     return 0;
 }

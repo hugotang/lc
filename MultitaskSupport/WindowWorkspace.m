@@ -70,6 +70,14 @@ static NSDictionary *LCWorkspaceProportions(id value) {
     return result.copy;
 }
 
+static BOOL LCWorkspaceBoolean(id value, BOOL fallback) {
+    if ([value isKindOfClass:NSNumber.class]) {
+        if ([value isEqual:@YES]) return YES;
+        if ([value isEqual:@NO]) return NO;
+    }
+    return fallback;
+}
+
 @implementation LCWindowWorkspace
 - (instancetype)initWithPropertyList:(id)propertyList {
     if (![propertyList isKindOfClass:NSDictionary.class] || ![propertyList[@"version"] isEqual:@1]) return nil;
@@ -89,24 +97,34 @@ static NSDictionary *LCWorkspaceProportions(id value) {
     if (self) {
         _windows = windows.copy;
         _proportions = LCWorkspaceProportions(propertyList[@"proportions"]);
-        // This optional v1 field defaults to the original layout for older saves.
-        id singleRow = propertyList[@"singleRowInLandscape"];
-        _singleRowInLandscape = [singleRow isKindOfClass:NSNumber.class] && [singleRow isEqual:@YES];
+        // Optional v1 fields preserve the original layout for older or malformed saves.
+        _singleRowInLandscape = LCWorkspaceBoolean(propertyList[@"singleRowInLandscape"], NO);
+        _reservePortraitTop = LCWorkspaceBoolean(propertyList[@"reservePortraitTop"], YES);
+        _reservePortraitBottom = LCWorkspaceBoolean(propertyList[@"reservePortraitBottom"], NO);
     }
     return self;
 }
 - (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
           singleRowInLandscape:(BOOL)singleRowInLandscape {
+    return [self initWithWindows:windows proportions:proportions singleRowInLandscape:singleRowInLandscape
+             reservePortraitTop:YES reservePortraitBottom:NO];
+}
+- (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
+          singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
+         reservePortraitBottom:(BOOL)reservePortraitBottom {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in windows) [entries addObject:window.propertyList];
     return [self initWithPropertyList:@{@"version": @1, @"windows": entries, @"proportions": proportions,
-                                       @"singleRowInLandscape": @(singleRowInLandscape)}];
+                                       @"singleRowInLandscape": @(singleRowInLandscape),
+                                       @"reservePortraitTop": @(reservePortraitTop),
+                                       @"reservePortraitBottom": @(reservePortraitBottom)}];
 }
 - (NSDictionary *)propertyList {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in self.windows) [entries addObject:window.propertyList];
     return @{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
-             @"singleRowInLandscape": @(self.singleRowInLandscape)};
+             @"singleRowInLandscape": @(self.singleRowInLandscape),
+             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom)};
 }
 @end
 

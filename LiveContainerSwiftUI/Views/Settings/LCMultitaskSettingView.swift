@@ -13,6 +13,8 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
     @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) var singleRowInLandscape = false
+    @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) var reservePortraitTop = true
+    @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) var reservePortraitBottom = false
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
@@ -109,6 +111,14 @@ struct LCMultitaskSettingView: View {
                         Text("lc.settings.gridDividersDesc".loc)
                         Text("lc.settings.gridSwapDesc".loc)
                     }
+                }
+                Section {
+                    Toggle("lc.multitask.reservePortraitTop".loc, isOn: $reservePortraitTop)
+                    Toggle("lc.multitask.reservePortraitBottom".loc, isOn: $reservePortraitBottom)
+                } header: {
+                    Text("lc.multitask.portraitReservedAreas".loc)
+                } footer: {
+                    Text("lc.settings.portraitReservedAreasDesc".loc)
                 }
             }
             

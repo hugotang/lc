@@ -19,23 +19,34 @@ typedef struct {
     double width, height, spacing;
 } LCWindowGridLayout;
 
-// Draw the grid beneath the home indicator; each guest still receives its own
-// bottom safe area for controls. Keep the top and side exclusions for system UI.
-static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds,
-                                                        LCWindowGridRect safeBounds) {
+// These preferences change the grid's drawing area, not the safe areas sent to
+// guests. Use the host's full bounds to identify portrait before applying insets.
+// Landscape always keeps its top/side exclusions and draws beneath the bottom.
+static inline LCWindowGridRect LCWindowGridContentBoundsWithPortraitPreferences(LCWindowGridRect bounds,
+                                                        LCWindowGridRect safeBounds,
+                                                        bool reservePortraitTop, bool reservePortraitBottom) {
     if (!isfinite(bounds.x) || !isfinite(bounds.y) || !isfinite(bounds.width) || !isfinite(bounds.height) ||
         !isfinite(safeBounds.x) || !isfinite(safeBounds.y) || !isfinite(safeBounds.width) ||
         !isfinite(safeBounds.height) || bounds.width <= 0 || bounds.height <= 0 ||
         safeBounds.width <= 0 || safeBounds.height <= 0) return (LCWindowGridRect){0};
     double left = fmax(bounds.x, safeBounds.x);
     double right = fmin(bounds.x + bounds.width, safeBounds.x + safeBounds.width);
-    double top = fmax(bounds.y, safeBounds.y);
-    return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bounds.y + bounds.height - top)};
+    bool portrait = bounds.height >= bounds.width;
+    double top = !portrait || reservePortraitTop ? fmax(bounds.y, safeBounds.y) : bounds.y;
+    double bottom = portrait && reservePortraitBottom ?
+        fmin(bounds.y + bounds.height, safeBounds.y + safeBounds.height) : bounds.y + bounds.height;
+    return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bottom - top)};
 }
 
-static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(size_t count, double width, double height,
-                                                                                double spacing, double minimumHeight,
-                                                                                bool singleRowInLandscape) {
+static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds, LCWindowGridRect safeBounds) {
+    return LCWindowGridContentBoundsWithPortraitPreferences(bounds, safeBounds, true, false);
+}
+
+// Orientation comes from the full host, so reserved areas and keyboards cannot
+// accidentally select a landscape layout on a nearly square portrait surface.
+static inline LCWindowGridLayout LCWindowGridLayoutMakeForOrientation(size_t count, double width, double height,
+                                                                       double spacing, double minimumHeight,
+                                                                       bool portrait, bool singleRowInLandscape) {
     LCWindowGridLayout layout = {0};
     if (count == 0 || !isfinite(width) || !isfinite(height) || width <= 0 || height <= 0 ||
         !isfinite(spacing) || !isfinite(minimumHeight)) {
@@ -44,8 +55,8 @@ static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(s
 
     // Put the longer side of the grid along the longer side of the screen.
     size_t side = (size_t)ceil(sqrt((double)count));
-    size_t rows = height >= width ? side : 1 + (count - 1) / side;
-    if (singleRowInLandscape && width > height) rows = 1;
+    size_t rows = portrait ? side : 1 + (count - 1) / side;
+    if (singleRowInLandscape && !portrait) rows = 1;
     spacing = fmax(0, spacing);
     if (minimumHeight > 0) {
         double maximumRows = fmax(1, floor((height + spacing) / (minimumHeight + spacing)));
@@ -65,6 +76,13 @@ static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(s
     layout.height = height;
     layout.spacing = spacing;
     return layout;
+}
+
+static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(size_t count, double width, double height,
+                                                                                double spacing, double minimumHeight,
+                                                                                bool singleRowInLandscape) {
+    return LCWindowGridLayoutMakeForOrientation(count, width, height, spacing, minimumHeight,
+                                                height >= width, singleRowInLandscape);
 }
 
 static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double width, double height,

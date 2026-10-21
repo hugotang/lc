@@ -1136,6 +1136,8 @@ private struct GridLayoutButtonView: View {
 private struct DockGridActions: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
     @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) private var singleRowInLandscape = false
+    @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) private var reservePortraitTop = true
+    @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) private var reservePortraitBottom = false
     var swapSourceWindow: UIView? = nil
 
     var body: some View {
@@ -1151,6 +1153,12 @@ private struct DockGridActions: View {
             Label("lc.multitask.landscapeLayout".loc, systemImage: "rectangle.split.3x1")
         }
         .pickerStyle(.menu)
+        Menu {
+            Toggle("lc.multitask.reservePortraitTop".loc, isOn: $reservePortraitTop)
+            Toggle("lc.multitask.reservePortraitBottom".loc, isOn: $reservePortraitBottom)
+        } label: {
+            Label("lc.multitask.portraitReservedAreas".loc, systemImage: "rectangle.portrait")
+        }
         Button {
             perform { dockManager.windowHostingView.toggleGridDividerAdjustment() }
         } label: {

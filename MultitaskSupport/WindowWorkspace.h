@@ -15,10 +15,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, readonly) NSArray<LCWorkspaceWindow *> *windows;
 @property(nonatomic, copy, readonly) NSDictionary<NSString *, NSDictionary<NSString *, NSArray<NSNumber *> *> *> *proportions;
 @property(nonatomic, readonly) BOOL singleRowInLandscape;
+@property(nonatomic, readonly) BOOL reservePortraitTop;
+@property(nonatomic, readonly) BOOL reservePortraitBottom;
 @property(nonatomic, copy, readonly) NSDictionary *propertyList;
 - (nullable instancetype)initWithPropertyList:(nullable id)propertyList;
 - (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
                    singleRowInLandscape:(BOOL)singleRowInLandscape;
+- (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
+                   singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
+                  reservePortraitBottom:(BOOL)reservePortraitBottom;
 @end
 
 @interface LCNamedWorkspace : NSObject

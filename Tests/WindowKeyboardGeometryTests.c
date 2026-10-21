@@ -37,8 +37,42 @@ static void testLandscapePreferenceWithKeyboard(void) {
     }
 }
 
+static void testPortraitReservationsWithKeyboard(void) {
+    LCWindowGridRect bounds = {0, 0, 402, 874}, safe = {0, 62, 402, 778};
+    LCWindowGridRect keyboard = {0, 380, 402, 494};
+    double rows[] = {0.4}, columns[] = {0.6};
+    for (int top = 0; top <= 1; ++top) {
+        for (int bottom = 0; bottom <= 1; ++bottom) {
+            LCWindowGridRect normal = LCWindowGridContentBoundsWithPortraitPreferences(bounds, safe, top, bottom);
+            LCWindowGridRect available = LCKeyboardAvailableRect(normal, keyboard);
+            assert(available.width > available.height);
+            LCWindowGridLayout layout = LCWindowGridLayoutMakeForOrientation(4, normal.width, normal.height, 2, 88,
+                                                                              bounds.height >= bounds.width, true);
+            assert(layout.rows == 2 && layout.columns == 2);
+            LCWindowGridLayout resized = layout;
+            resized.height = available.height;
+            for (size_t i = 0; i < 4; ++i) {
+                LCWindowGridRect before = LCWindowGridFrameWithDividers(layout, i, rows, columns, NULL);
+                LCWindowGridRect during = LCWindowGridFrameWithDividers(resized, i, rows, columns, NULL);
+                assert(before.x == during.x && before.width == during.width);
+                assert(during.height > 0 && during.height < before.height);
+                if (i / layout.columns == layout.rows - 1) {
+                    assert(fabs(available.y + during.y + during.height - keyboard.y) < 1e-8);
+                }
+                resized.height = LCKeyboardAvailableRect(normal, (LCWindowGridRect){0}).height;
+                assert(sameRect(before, LCWindowGridFrameWithDividers(resized, i, rows, columns, NULL)));
+                resized.height = available.height;
+            }
+            // Dismissal returns the chosen bottom edge, without changing saved proportions.
+            assert(sameRect(LCKeyboardAvailableRect(normal, (LCWindowGridRect){0}), normal));
+            assert(rows[0] == 0.4 && columns[0] == 0.6);
+        }
+    }
+}
+
 int main(void) {
     testLandscapePreferenceWithKeyboard();
+    testPortraitReservationsWithKeyboard();
     LCWindowGridRect desktop = {0, 24, 1024, 720};
     LCWindowGridRect keyboard = {0, 500, 1024, 268};
     LCWindowGridRect available = LCKeyboardAvailableRect(desktop, keyboard);
@@ -105,6 +139,6 @@ int main(void) {
             }
         }
     }
-    printf("Keyboard geometry tests passed (%zu fit/restore cases, floating/offscreen/hardware keyboards and rotation).\n", cases);
+    printf("Keyboard geometry tests passed (%zu fit/restore cases, portrait reserved areas, floating/offscreen/hardware keyboards and rotation).\n", cases);
     return 0;
 }

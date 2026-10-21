@@ -18649,6 +18649,144 @@
         }
       }
     },
+    "lc.multitask.portraitReservedAreas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Portrait Reserved Areas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "竖屏预留区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直向預留區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reservePortraitTop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Top Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reservePortraitBottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Bottom Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reservedArea.reserved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserved"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留空间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留空間"
+          }
+        }
+      }
+    },
+    "lc.multitask.reservedArea.extended" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extend Content"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "延伸内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "延伸內容"
+          }
+        }
+      }
+    },
+    "lc.settings.portraitReservedAreasDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off a reserved area to let content extend behind the status bar and Dynamic Island or the home indicator. Applies only to portrait grids. Whether buttons avoid these areas depends on the app. Save or update a workspace to remember both choices."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭后，内容可延伸到状态栏和灵动岛或主屏幕指示条后方，仅影响竖屏网格。按钮是否避开这些区域取决于 App。保存或更新工作区可记住这两项选择。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉後，內容可延伸至狀態列和動態島或主畫面指示條後方，只影響直向網格。按鈕是否避開這些區域取決於 App。儲存或更新工作區可記住這兩項選擇。"
+          }
+        }
+      }
+    },
     "lc.multitask.arrangeWindowsInGrid" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33946,19 +34084,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save named workspaces with apps, containers, order, scale, grid proportions and landscape layout. Update a workspace to replace its saved arrangement. Restore reopens its apps, enables automatic tiling and keeps other open windows."
+            "value" : "Save named workspaces with apps, containers, order, scale, grid proportions, landscape layout and portrait reserved areas. Update a workspace to replace its saved arrangement. Restore reopens its apps, enables automatic tiling and keeps other open windows."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为不同的 App、容器、顺序、缩放、网格比例和横屏排列保存具名工作区。更新工作区会替换该工作区的已保存排列。恢复时重新打开其 App，启用自动平铺，并保留其他已打开的窗口。"
+            "value" : "为不同的 App、容器、顺序、缩放、网格比例、横屏排列和竖屏预留区域保存具名工作区。更新工作区会替换该工作区的已保存排列。恢复时重新打开其 App，启用自动平铺，并保留其他已打开的窗口。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "為不同的 App、容器、順序、縮放、網格比例和橫向排列儲存具名工作區。更新工作區會取代該工作區的已儲存排列。還原時重新開啟其 App，啟用自動平鋪，並保留其他已開啟的視窗。"
+            "value" : "為不同的 App、容器、順序、縮放、網格比例、橫向排列和直向預留區域儲存具名工作區。更新工作區會取代該工作區的已儲存排列。還原時重新開啟其 App，啟用自動平鋪，並保留其他已開啟的視窗。"
           }
         }
       }

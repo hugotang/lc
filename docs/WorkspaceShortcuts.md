@@ -25,8 +25,8 @@ apps or their data.
 Use the copied link if you have multiple LiveContainer installations.
 
 Restoration reopens the apps with their exact containers, order, scale, grid
-proportions and landscape layout, while keeping
-other open windows. App-specific state, such as a song's playback position,
+proportions, landscape layout and portrait reserved areas, while keeping other
+open windows. App-specific state, such as a song's playback position,
 is managed by the app itself.
 
 Your previous single save is automatically imported as **Original Workspace**.
@@ -45,6 +45,21 @@ This also follows rotation after manually arranging a grid with automatic tiling
 off. **Automatic Grid** remains the default. Both layouts keep their own divider
 proportions. Update the saved workspace after changing this choice so its existing
 Home Screen shortcut restores it. Older snapshots restore Automatic Grid.
+
+In **Portrait Reserved Areas**, independently choose **Reserve Top Area** and
+**Reserve Bottom Area** in Settings → Multitasking or the Dock's layout menu.
+By default, the top is reserved for the status bar and Dynamic Island, while
+content extends behind the home indicator. Turn off the top option to extend
+content upward, or turn on the bottom option to leave space below the grid.
+App controls still receive their safe-area insets; each app decides how to use
+them. These options do not hide the status bar or remove system gestures.
+
+The choices apply to portrait grids, including manually arranged grids with
+automatic tiling off. Landscape keeps its existing top/side exclusions and
+bottom-edge coverage. Floating and maximized windows keep their own placement.
+Save or update a workspace to have its restore link recall both choices.
+Manage Workspaces shows each saved choice. Older snapshots preserve the original
+behavior: top reserved, bottom extended.
 
 Locked or hidden apps still require authentication. When a guest is running
 in normal mode, the existing app-switch confirmation applies before returning

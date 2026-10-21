@@ -367,6 +367,14 @@ private struct MultitaskWorkspaceDetailView: View {
                             value: (workspace.snapshot.singleRowInLandscape ? "lc.multitask.landscapeLayout.singleRow" : "lc.multitask.landscapeLayout.automatic").loc)
                     }
                     Section {
+                        LabeledContent("lc.multitask.reservePortraitTop".loc,
+                            value: (workspace.snapshot.reservePortraitTop ? "lc.multitask.reservedArea.reserved" : "lc.multitask.reservedArea.extended").loc)
+                        LabeledContent("lc.multitask.reservePortraitBottom".loc,
+                            value: (workspace.snapshot.reservePortraitBottom ? "lc.multitask.reservedArea.reserved" : "lc.multitask.reservedArea.extended").loc)
+                    } header: {
+                        Text("lc.multitask.portraitReservedAreas".loc)
+                    }
+                    Section {
                         Button { Task { await manager.restore(identifier: identifier) } } label: {
                             Label("lc.workspace.restore".loc, systemImage: "rectangle.3.group")
                         }

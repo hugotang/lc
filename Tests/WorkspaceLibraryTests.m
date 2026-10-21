@@ -15,13 +15,17 @@ static LCWorkspaceLibrary *openLibrary(NSUserDefaults *defaults) {
 
 static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
     LCWindowWorkspace *original = snapshot(@"A", YES);
-    [defaults setObject:original.propertyList forKey:@"LCWindowWorkspace"];
+    NSMutableDictionary *legacy = original.propertyList.mutableCopy;
+    [legacy removeObjectForKey:@"reservePortraitTop"];
+    [legacy removeObjectForKey:@"reservePortraitBottom"];
+    [defaults setObject:legacy forKey:@"LCWindowWorkspace"];
     [defaults setObject:@"keep" forKey:@"unrelated"];
     LCWorkspaceLibrary *library = openLibrary(defaults);
     assert(library.workspaces.count == 1);
     LCNamedWorkspace *migrated = library.workspaces.firstObject;
     assert([migrated.name isEqualToString:@"Original Workspace"]);
     assert([migrated.snapshot.propertyList isEqual:original.propertyList]);
+    assert(migrated.snapshot.reservePortraitTop && !migrated.snapshot.reservePortraitBottom);
     NSString *originalID = migrated.identifier;
     NSURL *link = LCWorkspaceRestoreURLForIdentifier(@"livecontainer", originalID);
     assert(link && [LCWorkspaceRestoreIdentifier(link, @"livecontainer") isEqualToString:originalID]);
@@ -32,7 +36,10 @@ static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
     assert([library.workspaces.firstObject.identifier isEqualToString:originalID]);
     assert([library.workspaces.firstObject.name isEqualToString:migrated.name]);
 
-    LCNamedWorkspace *music = [library saveWorkspace:snapshot(@"B", NO) name:@"Music" replacingIdentifier:nil];
+    LCWindowWorkspace *musicSnapshot = snapshot(@"B", NO);
+    musicSnapshot = [[LCWindowWorkspace alloc] initWithWindows:musicSnapshot.windows proportions:musicSnapshot.proportions
+        singleRowInLandscape:NO reservePortraitTop:NO reservePortraitBottom:YES];
+    LCNamedWorkspace *music = [library saveWorkspace:musicSnapshot name:@"Music" replacingIdentifier:nil];
     assert(music && library.workspaces.count == 2);
     assert(![music.identifier isEqualToString:originalID]);
     NSURL *musicLink = LCWorkspaceRestoreURLForIdentifier(@"livecontainer", music.identifier);
@@ -60,6 +67,7 @@ static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
     assert(library.workspaces.count == 2);
     assert([[library workspaceWithIdentifier:LCWorkspaceRestoreIdentifier(link, @"livecontainer")].snapshot.propertyList isEqual:updated.propertyList]);
     assert([[library workspaceWithIdentifier:LCWorkspaceRestoreIdentifier(musicLink, @"livecontainer")].snapshot.windows.firstObject.dataUUID isEqualToString:@"B"]);
+    assert([[library workspaceWithIdentifier:LCWorkspaceRestoreIdentifier(musicLink, @"livecontainer")].snapshot.propertyList isEqual:musicSnapshot.propertyList]);
 
     assert([library removeWorkspace:originalID]);
     assert([library workspaceWithIdentifier:LCWorkspaceRestoreIdentifier(link, @"livecontainer")] == nil);
@@ -71,7 +79,7 @@ static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
     assert([library removeWorkspace:music.identifier]);
     library = openLibrary(defaults);
     assert(library && library.workspaces.count == 0 && [library workspaceWithIdentifier:nil] == nil);
-    assert([[defaults objectForKey:@"LCWindowWorkspace"] isEqual:original.propertyList]);
+    assert([[defaults objectForKey:@"LCWindowWorkspace"] isEqual:legacy]);
     assert([[defaults stringForKey:@"unrelated"] isEqualToString:@"keep"]);
 }
 
