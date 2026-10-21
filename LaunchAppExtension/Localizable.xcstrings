@@ -1,0 +1,29 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "lc.workspace.launchShortcutDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch an app or restore a saved workspace in LiveContainer. Copy an app's launch URL from Add to Home Screen, or copy the restore link from Settings > Multitasking > Workspace."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 LiveContainer 中启动 App 或恢复已保存的工作区。从 App 的「添加到主屏幕」菜单复制启动链接，或从「设置 > 多任务 > 工作区」复制恢复链接。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 LiveContainer 中啟動 App 或還原已儲存的工作區。從 App 的「加入主畫面」選單複製啟動連結，或從「設定 > 多工 > 工作區」複製還原連結。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
