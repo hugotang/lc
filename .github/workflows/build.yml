@@ -54,6 +54,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/WorkspaceRestoreRequestTests.m -o "$RUNNER_TEMP/workspace-restore-request-tests"
           "$RUNNER_TEMP/workspace-restore-request-tests"
+      - name: Test workspace library
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WorkspaceLibraryTests.m -o "$RUNNER_TEMP/workspace-library-tests"
+          "$RUNNER_TEMP/workspace-library-tests"
       - name: Test symbol cache validation
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/SymbolCacheTests.m -o "$RUNNER_TEMP/symbol-cache-tests"

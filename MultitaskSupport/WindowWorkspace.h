@@ -21,4 +21,23 @@ NS_ASSUME_NONNULL_BEGIN
                    singleRowInLandscape:(BOOL)singleRowInLandscape;
 @end
 
+@interface LCNamedWorkspace : NSObject
+@property(nonatomic, copy, readonly) NSString *identifier;
+@property(nonatomic, copy, readonly) NSString *name;
+@property(nonatomic, strong, readonly) LCWindowWorkspace *snapshot;
+@end
+
+// Newest saved first. Renaming preserves both identity and ordering.
+@interface LCWorkspaceLibrary : NSObject
+@property(nonatomic, copy, readonly) NSArray<LCNamedWorkspace *> *workspaces;
+- (nullable instancetype)initWithDefaults:(NSUserDefaults *)defaults legacyName:(NSString *)legacyName;
+- (BOOL)reload;
+- (nullable LCNamedWorkspace *)workspaceWithIdentifier:(nullable NSString *)identifier NS_SWIFT_NAME(workspace(identifier:));
+- (BOOL)canUseName:(NSString *)name excludingIdentifier:(nullable NSString *)identifier NS_SWIFT_NAME(canUseName(_:excluding:));
+- (nullable LCNamedWorkspace *)saveWorkspace:(LCWindowWorkspace *)snapshot name:(NSString *)name
+                       replacingIdentifier:(nullable NSString *)identifier NS_SWIFT_NAME(save(_:name:replacing:));
+- (BOOL)renameWorkspace:(NSString *)identifier name:(NSString *)name NS_SWIFT_NAME(rename(_:name:));
+- (BOOL)removeWorkspace:(NSString *)identifier NS_SWIFT_NAME(remove(_:));
+@end
+
 NS_ASSUME_NONNULL_END

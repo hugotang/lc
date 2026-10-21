@@ -109,3 +109,157 @@ static NSDictionary *LCWorkspaceProportions(id value) {
              @"singleRowInLandscape": @(self.singleRowInLandscape)};
 }
 @end
+
+static NSString *LCWorkspaceCanonicalID(id value) {
+    if (![value isKindOfClass:NSString.class] || [value length] != 36) return nil;
+    return [[NSUUID alloc] initWithUUIDString:value].UUIDString.lowercaseString;
+}
+
+static NSString *LCWorkspaceDisplayName(id value) {
+    if (![value isKindOfClass:NSString.class]) return nil;
+    NSString *name = [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (name.length == 0 || name.length > 80 ||
+        [name rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location != NSNotFound) return nil;
+    return name;
+}
+
+@interface LCNamedWorkspace ()
+- (instancetype)initWithIdentifier:(NSString *)identifier name:(NSString *)name snapshot:(LCWindowWorkspace *)snapshot;
+- (NSDictionary *)propertyList;
+@end
+
+@implementation LCNamedWorkspace
+- (instancetype)initWithIdentifier:(NSString *)identifier name:(NSString *)name snapshot:(LCWindowWorkspace *)snapshot {
+    NSString *validID = LCWorkspaceCanonicalID(identifier);
+    NSString *validName = LCWorkspaceDisplayName(name);
+    if (!validID || !validName || !snapshot) return nil;
+    self = [super init];
+    if (self) {
+        _identifier = validID;
+        _name = validName.copy;
+        _snapshot = snapshot;
+    }
+    return self;
+}
+- (NSDictionary *)propertyList {
+    return @{@"id": self.identifier, @"name": self.name, @"snapshot": self.snapshot.propertyList};
+}
+@end
+
+@interface LCWorkspaceLibrary ()
+@property(nonatomic, strong) NSUserDefaults *defaults;
+@property(nonatomic, copy) NSString *legacyName;
+- (void)persist;
+@end
+
+@implementation LCWorkspaceLibrary
+- (instancetype)initWithDefaults:(NSUserDefaults *)defaults legacyName:(NSString *)legacyName {
+    self = [super init];
+    if (!self) return nil;
+    _defaults = defaults;
+    _legacyName = legacyName.copy;
+    id stored = [defaults objectForKey:@"LCWorkspaceLibrary"];
+    NSMutableArray *entries = [NSMutableArray array];
+    if (stored) {
+        // Never replace an unreadable library with an empty save or re-import its legacy backup.
+        if (![stored isKindOfClass:NSDictionary.class] || ![stored[@"version"] isEqual:@1] ||
+            ![stored[@"workspaces"] isKindOfClass:NSArray.class]) return nil;
+        NSMutableSet *identifiers = [NSMutableSet set];
+        for (id value in stored[@"workspaces"]) {
+            if (![value isKindOfClass:NSDictionary.class]) return nil;
+            LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:value[@"snapshot"]];
+            LCNamedWorkspace *entry = [[LCNamedWorkspace alloc] initWithIdentifier:value[@"id"] name:value[@"name"] snapshot:snapshot];
+            if (!entry || [identifiers containsObject:entry.identifier]) return nil;
+            for (LCNamedWorkspace *existing in entries) {
+                if ([existing.name caseInsensitiveCompare:entry.name] == NSOrderedSame) return nil;
+            }
+            [identifiers addObject:entry.identifier];
+            [entries addObject:entry];
+        }
+    } else {
+        id legacy = [defaults objectForKey:@"LCWindowWorkspace"];
+        if (legacy) {
+            LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:legacy];
+            LCNamedWorkspace *entry = [[LCNamedWorkspace alloc] initWithIdentifier:NSUUID.UUID.UUIDString name:legacyName snapshot:snapshot];
+            if (!entry) return nil;
+            [entries addObject:entry];
+        }
+    }
+    _workspaces = entries.copy;
+    // The old snapshot stays available as a backup. An empty new library prevents re-import after deletion.
+    if (!stored) [self persist];
+    return self;
+}
+
+- (BOOL)reload {
+    LCWorkspaceLibrary *current = [[LCWorkspaceLibrary alloc] initWithDefaults:self.defaults legacyName:self.legacyName];
+    if (!current) return NO;
+    _workspaces = current.workspaces;
+    return YES;
+}
+
+- (LCNamedWorkspace *)workspaceWithIdentifier:(NSString *)identifier {
+    if (!identifier) return self.workspaces.firstObject;
+    NSString *canonical = LCWorkspaceCanonicalID(identifier);
+    if (!canonical) return nil;
+    for (LCNamedWorkspace *entry in self.workspaces) {
+        if ([entry.identifier isEqualToString:canonical]) return entry;
+    }
+    return nil;
+}
+
+- (BOOL)canUseName:(NSString *)name excludingIdentifier:(NSString *)identifier {
+    NSString *valid = LCWorkspaceDisplayName(name);
+    if (!valid) return NO;
+    NSString *canonical = LCWorkspaceCanonicalID(identifier);
+    for (LCNamedWorkspace *entry in self.workspaces) {
+        if (![entry.identifier isEqualToString:canonical] && [entry.name caseInsensitiveCompare:valid] == NSOrderedSame) return NO;
+    }
+    return YES;
+}
+
+- (LCNamedWorkspace *)saveWorkspace:(LCWindowWorkspace *)snapshot name:(NSString *)name replacingIdentifier:(NSString *)identifier {
+    if (![self reload]) return nil;
+    LCNamedWorkspace *existing = identifier ? [self workspaceWithIdentifier:identifier] : nil;
+    if ((identifier && !existing) || ![self canUseName:name excludingIdentifier:identifier]) return nil;
+    LCNamedWorkspace *entry = [[LCNamedWorkspace alloc] initWithIdentifier:existing ? existing.identifier : NSUUID.UUID.UUIDString
+                                                                   name:name snapshot:snapshot];
+    if (!entry) return nil;
+    NSMutableArray *entries = self.workspaces.mutableCopy;
+    if (existing) [entries removeObjectIdenticalTo:existing];
+    [entries insertObject:entry atIndex:0];
+    _workspaces = entries.copy;
+    [self persist];
+    return entry;
+}
+
+- (BOOL)renameWorkspace:(NSString *)identifier name:(NSString *)name {
+    if (![self reload]) return NO;
+    LCNamedWorkspace *existing = [self workspaceWithIdentifier:identifier];
+    if (!identifier || !existing || ![self canUseName:name excludingIdentifier:identifier]) return NO;
+    LCNamedWorkspace *entry = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:name snapshot:existing.snapshot];
+    if (!entry) return NO;
+    NSMutableArray *entries = self.workspaces.mutableCopy;
+    entries[[entries indexOfObjectIdenticalTo:existing]] = entry;
+    _workspaces = entries.copy;
+    [self persist];
+    return YES;
+}
+
+- (BOOL)removeWorkspace:(NSString *)identifier {
+    if (![self reload]) return NO;
+    LCNamedWorkspace *entry = [self workspaceWithIdentifier:identifier];
+    if (!identifier || !entry) return NO;
+    NSMutableArray *entries = self.workspaces.mutableCopy;
+    [entries removeObjectIdenticalTo:entry];
+    _workspaces = entries.copy;
+    [self persist];
+    return YES;
+}
+
+- (void)persist {
+    NSMutableArray *entries = [NSMutableArray array];
+    for (LCNamedWorkspace *entry in self.workspaces) [entries addObject:entry.propertyList];
+    [self.defaults setObject:@{@"version": @1, @"workspaces": entries.copy} forKey:@"LCWorkspaceLibrary"];
+}
+@end

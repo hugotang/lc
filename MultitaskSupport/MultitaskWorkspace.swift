@@ -5,49 +5,127 @@ import SwiftUI
 final class MultitaskWorkspaceManager: ObservableObject {
     static let shared = MultitaskWorkspaceManager()
     private let defaults = LCUtils.appGroupUserDefault
-    private let storageKey = "LCWindowWorkspace"
+    private let library: LCWorkspaceLibrary?
+    private weak var libraryController: UIViewController?
     @Published private(set) var isRestoring = false
-    @Published private(set) var savedWindowCount = 0
+    @Published private(set) var workspaces: [LCNamedWorkspace] = []
+    @Published private(set) var isStorageAvailable = false
 
     private init() {
-        savedWindowCount = savedWorkspace?.windows.count ?? 0
+        library = LCWorkspaceLibrary(defaults: LCUtils.appGroupUserDefault, legacyName: "lc.workspace.migratedName".loc)
+        isStorageAvailable = library != nil
+        workspaces = library?.workspaces ?? []
     }
 
-    private var savedWorkspace: LCWindowWorkspace? {
-        LCWindowWorkspace(propertyList: defaults.object(forKey: storageKey))
+    func refreshList() {
+        isStorageAvailable = library?.reload() == true
+        workspaces = isStorageAvailable ? library?.workspaces ?? [] : []
     }
 
-    func save() {
-        guard !isRestoring else { return }
+    func saveNew() {
+        refreshList()
+        guard !isRestoring, isStorageAvailable, let library else { return }
         guard let workspace = MultitaskDockManager.shared.windowHostingView.captureWorkspace() else {
             presentResult("lc.workspace.noWindows".loc)
             return
         }
-        defaults.set(workspace.propertyList, forKey: storageKey)
-        savedWindowCount = workspace.windows.count
-        presentResult("lc.workspace.saved".localizeWithFormat(savedWindowCount))
+        var number = 1
+        var name = "lc.workspace.defaultName".localizeWithFormat(number)
+        while !library.canUseName(name, excluding: nil) {
+            number += 1
+            name = "lc.workspace.defaultName".localizeWithFormat(number)
+        }
+        requestName(title: "lc.workspace.saveNew".loc, initialName: name) { [weak self] name in
+            guard let self else { return }
+            guard let saved = library.save(workspace, name: name, replacing: nil) else {
+                self.presentResult("lc.workspace.saveFailed".loc)
+                return
+            }
+            self.refreshList()
+            self.presentResult("lc.workspace.saved".localizeWithFormat(saved.name, workspace.windows.count))
+        }
     }
 
-    func copyRestoreLink() {
-        guard savedWorkspace != nil,
-              let url = LCWorkspaceRestoreURL(UserDefaults.lcAppUrlScheme()) else {
-            presentResult("lc.workspace.unavailable".loc)
+    func update(_ identifier: String) {
+        refreshList()
+        guard !isRestoring, isStorageAvailable, let library, let entry = library.workspace(identifier: identifier) else { return }
+        guard let snapshot = MultitaskDockManager.shared.windowHostingView.captureWorkspace() else {
+            presentResult("lc.workspace.noWindows".loc)
+            return
+        }
+        let alert = UIAlertController(title: "lc.workspace.update".loc,
+            message: "lc.workspace.updateConfirmation".localizeWithFormat(entry.name, snapshot.windows.count), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "lc.common.cancel".loc, style: .cancel))
+        alert.addAction(UIAlertAction(title: "lc.workspace.update".loc, style: .default) { [weak self] _ in
+            guard let self, !self.isRestoring else { return }
+            guard library.reload(), let current = library.workspace(identifier: identifier),
+                  let saved = library.save(snapshot, name: current.name, replacing: identifier) else {
+                self.presentResult("lc.workspace.saveFailed".loc)
+                return
+            }
+            self.refreshList()
+            self.presentResult("lc.workspace.saved".localizeWithFormat(saved.name, snapshot.windows.count))
+        })
+        present(alert)
+    }
+
+    func rename(_ identifier: String) {
+        refreshList()
+        guard !isRestoring, isStorageAvailable, let library, let entry = library.workspace(identifier: identifier) else { return }
+        requestName(title: "lc.common.rename".loc, initialName: entry.name, identifier: identifier) { [weak self] name in
+            guard library.rename(identifier, name: name) else {
+                self?.presentResult("lc.workspace.saveFailed".loc)
+                return
+            }
+            self?.refreshList()
+        }
+    }
+
+    func delete(_ identifier: String, completion: @escaping () -> Void) {
+        refreshList()
+        guard !isRestoring, isStorageAvailable, let library, let entry = library.workspace(identifier: identifier) else { return }
+        let alert = UIAlertController(title: "lc.workspace.deleteTitle".loc,
+            message: "lc.workspace.deleteConfirmation".localizeWithFormat(entry.name), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "lc.common.cancel".loc, style: .cancel))
+        alert.addAction(UIAlertAction(title: "lc.common.delete".loc, style: .destructive) { [weak self] _ in
+            guard let self, !self.isRestoring, library.remove(identifier) else { return }
+            self.refreshList()
+            completion()
+        })
+        present(alert)
+    }
+
+    func copyRestoreLink(identifier: String) {
+        refreshList()
+        guard isStorageAvailable, let entry = library?.workspace(identifier: identifier),
+              let url = LCWorkspaceRestoreURLForIdentifier(UserDefaults.lcAppUrlScheme(), entry.identifier) else {
+            presentResult("lc.workspace.notFound".loc)
             return
         }
         UIPasteboard.general.string = url.absoluteString
         presentResult("lc.workspace.restoreLinkCopied".loc)
     }
 
-    func restore(showSuccess: Bool = true) async {
+    func restore(identifier: String? = nil, showSuccess: Bool = true) async {
         guard !isRestoring else { return }
+        refreshList()
+        guard isStorageAvailable, let library else {
+            presentResult("lc.workspace.storageUnavailable".loc)
+            return
+        }
+        guard let entry = library.workspace(identifier: identifier) else {
+            presentResult((identifier == nil ? "lc.workspace.unavailable" : "lc.workspace.notFound").loc)
+            return
+        }
+        // Bind the request before suspending. A named link must never fall back to another save.
+        let workspace = entry.snapshot
         isRestoring = true
         defer { isRestoring = false }
         guard await waitForHostWindow() else {
             if !Task.isCancelled { presentResult("lc.workspace.notReady".loc) }
             return
         }
-        guard (MultitaskMode(rawValue: defaults.integer(forKey: "LCMultitaskMode")) ?? .virtualWindow) == .virtualWindow,
-              let workspace = savedWorkspace else {
+        guard (MultitaskMode(rawValue: defaults.integer(forKey: "LCMultitaskMode")) ?? .virtualWindow) == .virtualWindow else {
             presentResult("lc.workspace.unavailable".loc)
             return
         }
@@ -62,6 +140,11 @@ final class MultitaskWorkspaceManager: ObservableObject {
             return
         }
 
+        if let controller = libraryController, controller.presentingViewController != nil {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                controller.dismiss(animated: true) { continuation.resume() }
+            }
+        }
         let host = MultitaskDockManager.shared.windowHostingView
         host.finishGridEditing()
         var restored = 0
@@ -139,18 +222,56 @@ final class MultitaskWorkspaceManager: ObservableObject {
         return false
     }
 
-    private func presentResult(_ message: String) {
-        // Present from the main window so feedback also survives a dismissed Dock menu.
+    func presentLibrary() {
+        guard libraryController == nil else { return }
+        refreshList()
+        let controller = UIHostingController(rootView: MultitaskWorkspaceLibraryView())
+        controller.modalPresentationStyle = .pageSheet
+        libraryController = controller
+        present(controller)
+    }
+
+    private func requestName(title: String, initialName: String, identifier: String? = nil, commit: @escaping (String) -> Void) {
+        guard let library else { return }
+        let alert = UIAlertController(title: title, message: "lc.workspace.nameRules".loc, preferredStyle: .alert)
+        alert.addTextField { field in
+            field.text = initialName
+            field.placeholder = "lc.workspace.name".loc
+            field.autocorrectionType = .no
+            field.clearButtonMode = .whileEditing
+        }
+        let save = UIAlertAction(title: (identifier == nil ? "lc.workspace.save" : "lc.common.rename").loc, style: .default) { [weak self, weak alert] _ in
+            guard let self, !self.isRestoring, let name = alert?.textFields?.first?.text,
+                  library.canUseName(name, excluding: identifier) else { return }
+            commit(name)
+        }
+        save.isEnabled = library.canUseName(initialName, excluding: identifier)
+        if let field = alert.textFields?.first {
+            field.addAction(UIAction { [weak field, weak save] _ in
+                save?.isEnabled = library.canUseName(field?.text ?? "", excluding: identifier)
+            }, for: .editingChanged)
+        }
+        alert.addAction(UIAlertAction(title: "lc.common.cancel".loc, style: .cancel))
+        alert.addAction(save)
+        present(alert)
+    }
+
+    private func present(_ controller: UIViewController) {
+        // Present from the main window after the Dock's context menu closes.
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
             let window = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive }?.windows.first { $0.isKeyWindow }
             guard var presenter = window?.rootViewController else { return }
             while let next = presenter.presentedViewController { presenter = next }
-            let alert = UIAlertController(title: "lc.workspace.title".loc, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "lc.common.ok".loc, style: .default))
-            presenter.present(alert, animated: true)
+            presenter.present(controller, animated: true)
         }
+    }
+
+    private func presentResult(_ message: String) {
+        let alert = UIAlertController(title: "lc.workspace.title".loc, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "lc.common.ok".loc, style: .default))
+        present(alert)
     }
 }
 
@@ -159,17 +280,114 @@ struct MultitaskWorkspaceActions: View {
     @ObservedObject private var manager = MultitaskWorkspaceManager.shared
 
     var body: some View {
-        Button { manager.save() } label: {
-            Label("lc.workspace.save".loc, systemImage: "square.and.arrow.down")
+        Button { manager.saveNew() } label: {
+            Label("lc.workspace.saveNew".loc, systemImage: "plus.rectangle.on.rectangle")
         }
-        .disabled(manager.isRestoring)
-        Button { Task { await manager.restore() } } label: {
+        .disabled(manager.isRestoring || !manager.isStorageAvailable)
+        .onAppear { manager.refreshList() }
+        Menu {
+            ForEach(manager.workspaces, id: \.identifier) { entry in
+                Button(entry.name) { Task { await manager.restore(identifier: entry.identifier) } }
+            }
+        } label: {
             Label((manager.isRestoring ? "lc.workspace.restoring" : "lc.workspace.restore").loc, systemImage: "rectangle.3.group")
         }
-        .disabled(manager.isRestoring || manager.savedWindowCount == 0)
-        Button { manager.copyRestoreLink() } label: {
+        .disabled(manager.isRestoring || manager.workspaces.isEmpty)
+        Menu {
+            ForEach(manager.workspaces, id: \.identifier) { entry in
+                Button(entry.name) { manager.copyRestoreLink(identifier: entry.identifier) }
+            }
+        } label: {
             Label("lc.workspace.copyRestoreLink".loc, systemImage: "link")
         }
-        .disabled(manager.isRestoring || manager.savedWindowCount == 0)
+        .disabled(manager.isRestoring || manager.workspaces.isEmpty)
+        Button { manager.presentLibrary() } label: {
+            Label("lc.workspace.manage".loc, systemImage: "folder")
+        }
+        .disabled(manager.isRestoring)
+    }
+}
+
+@available(iOS 16.0, *)
+private struct MultitaskWorkspaceLibraryView: View {
+    @ObservedObject private var manager = MultitaskWorkspaceManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if !manager.isStorageAvailable {
+                    Text("lc.workspace.storageUnavailable".loc)
+                } else {
+                    Button { manager.saveNew() } label: {
+                        Label("lc.workspace.saveNew".loc, systemImage: "plus.rectangle.on.rectangle")
+                    }
+                    if manager.workspaces.isEmpty {
+                        Text("lc.workspace.empty".loc).foregroundStyle(.secondary)
+                    }
+                    ForEach(manager.workspaces, id: \.identifier) { entry in
+                        NavigationLink {
+                            MultitaskWorkspaceDetailView(identifier: entry.identifier)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(entry.name)
+                                Text("lc.workspace.windowCount".localizeWithFormat(entry.snapshot.windows.count))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .disabled(manager.isRestoring)
+            .navigationTitle("lc.workspace.title".loc)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("lc.common.done".loc) { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+private struct MultitaskWorkspaceDetailView: View {
+    let identifier: String
+    @ObservedObject private var manager = MultitaskWorkspaceManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    private var workspace: LCNamedWorkspace? { manager.workspaces.first { $0.identifier == identifier } }
+
+    var body: some View {
+        Group {
+            if let workspace {
+                Form {
+                    Section {
+                        Text("lc.workspace.windowCount".localizeWithFormat(workspace.snapshot.windows.count))
+                        LabeledContent("lc.multitask.landscapeLayout".loc,
+                            value: (workspace.snapshot.singleRowInLandscape ? "lc.multitask.landscapeLayout.singleRow" : "lc.multitask.landscapeLayout.automatic").loc)
+                    }
+                    Section {
+                        Button { Task { await manager.restore(identifier: identifier) } } label: {
+                            Label("lc.workspace.restore".loc, systemImage: "rectangle.3.group")
+                        }
+                        Button { manager.copyRestoreLink(identifier: identifier) } label: {
+                            Label("lc.workspace.copyRestoreLink".loc, systemImage: "link")
+                        }
+                    }
+                    Section {
+                        Button("lc.workspace.update".loc) { manager.update(identifier) }
+                        Button("lc.common.rename".loc) { manager.rename(identifier) }
+                        Button("lc.common.delete".loc, role: .destructive) {
+                            manager.delete(identifier) { dismiss() }
+                        }
+                    }
+                }
+                .disabled(manager.isRestoring)
+            } else {
+                Text("lc.workspace.notFound".loc)
+            }
+        }
+        .navigationTitle(workspace?.name ?? "lc.workspace.title".loc)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

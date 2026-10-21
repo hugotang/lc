@@ -208,7 +208,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 
 + (BOOL)launchToGuestAppWithURL:(NSURL *)url {
     if (LCIsWorkspaceRestoreURL(url, lcAppUrlScheme)) {
-        LCQueueWorkspaceRestore(lcUserDefaults, lcAppUrlScheme, NSDate.date);
+        LCQueueWorkspaceRestoreURL(lcUserDefaults, url, lcAppUrlScheme, NSDate.date);
         [lcUserDefaults setObject:@"ui" forKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];
         [lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];

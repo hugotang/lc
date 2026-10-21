@@ -122,7 +122,8 @@ struct LCTabView: View {
             LCClearPendingWorkspaceRestore(UserDefaults.standard)
             sharedModel.selectedTab = .apps
             if #available(iOS 16.0, *) {
-                Task { await MultitaskWorkspaceManager.shared.restore(showSuccess: false) }
+                let identifier = LCWorkspaceRestoreIdentifier(url, UserDefaults.lcAppUrlScheme())
+                Task { await MultitaskWorkspaceManager.shared.restore(identifier: identifier, showSuccess: false) }
             } else {
                 errorInfo = "lc.workspace.unavailable".loc
                 errorShow = true

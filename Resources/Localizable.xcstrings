@@ -33572,6 +33572,351 @@
         }
       }
     },
+    "lc.workspace.defaultName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Workspace %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作区 %ld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作區 %ld"
+          }
+        }
+      }
+    },
+    "lc.workspace.deleteConfirmation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting “%@” will also make its restore shortcut unavailable. Apps and their data will be kept."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除“%@”后，其专用恢复快捷指令将无法使用。App 及其数据会保留。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除「%@」後，其專用還原捷徑將無法使用。App 及其資料會保留。"
+          }
+        }
+      }
+    },
+    "lc.workspace.deleteTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Workspace?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除工作区？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除工作區？"
+          }
+        }
+      }
+    },
+    "lc.workspace.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No saved workspaces yet. Open your apps, arrange their windows, then save a new workspace."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚无已保存的工作区。打开 App 并排列窗口后，即可另存为新工作区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚無已儲存的工作區。開啟 App 並排列視窗後，即可另存為新工作區。"
+          }
+        }
+      }
+    },
+    "lc.workspace.manage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Workspaces"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.migratedName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原有工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原有工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名稱"
+          }
+        }
+      }
+    },
+    "lc.workspace.nameRules" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a unique name with 1–80 characters."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 1–80 个字符的名称，不要与其他工作区重复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1–80 個字元的名稱，不要與其他工作區重複。"
+          }
+        }
+      }
+    },
+    "lc.workspace.notFound" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This workspace is no longer available. Choose another saved workspace or create a new one."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此工作区已无法使用。请选择其他已保存的工作区，或创建新工作区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此工作區已無法使用。請選擇其他已儲存的工作區，或建立新工作區。"
+          }
+        }
+      }
+    },
+    "lc.workspace.saveFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The workspace could not be updated. Reopen Manage Workspaces and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更新工作区。请重新打开“管理工作区”后再试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更新工作區。請重新開啟「管理工作區」後再試。"
+          }
+        }
+      }
+    },
+    "lc.workspace.saveNew" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save as New Workspace"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另存为新工作区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另存為新工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.storageUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved workspaces could not be read. The stored data has been kept."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取已保存的工作区，原有数据已保留。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取已儲存的工作區，原有資料已保留。"
+          }
+        }
+      }
+    },
+    "lc.workspace.update" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update with Current Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用当前窗口更新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以目前視窗更新"
+          }
+        }
+      }
+    },
+    "lc.workspace.updateConfirmation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace the saved arrangement in “%@” with the current %ld windows? Its restore shortcut will use the updated arrangement."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用当前的 %2$ld 个窗口更新“%1$@”的已保存排列？原有恢复快捷指令将使用更新后的排列。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以目前的 %2$ld 個視窗更新「%1$@」的已儲存排列？原有還原捷徑將使用更新後的排列。"
+          }
+        }
+      }
+    },
+    "lc.workspace.windowCount" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 个窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 個視窗"
+          }
+        }
+      }
+    },
     "lc.workspace.copyRestoreLink" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33601,19 +33946,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save visible running apps, their containers, order, scale, grid proportions and landscape layout. Saving replaces the previous workspace. Restore reopens available apps, enables automatic tiling and keeps other open windows."
+            "value" : "Save named workspaces with apps, containers, order, scale, grid proportions and landscape layout. Update a workspace to replace its saved arrangement. Restore reopens its apps, enables automatic tiling and keeps other open windows."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存当前可见且正在运行的 App、容器、顺序、缩放、网格比例和横屏排列。保存会替换上一次的工作区。恢复时重新打开可用的 App，启用自动平铺，并保留其他已打开的窗口。"
+            "value" : "为不同的 App、容器、顺序、缩放、网格比例和横屏排列保存具名工作区。更新工作区会替换该工作区的已保存排列。恢复时重新打开其 App，启用自动平铺，并保留其他已打开的窗口。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "儲存目前可見且正在執行的 App、容器、順序、縮放、網格比例和橫向排列。儲存會取代上一次的工作區。還原時重新開啟可用的 App，啟用自動平鋪，並保留其他已開啟的視窗。"
+            "value" : "為不同的 App、容器、順序、縮放、網格比例和橫向排列儲存具名工作區。更新工作區會取代該工作區的已儲存排列。還原時重新開啟其 App，啟用自動平鋪，並保留其他已開啟的視窗。"
           }
         }
       }
@@ -33762,19 +34107,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restore link copied. In Shortcuts, add a URL action, paste the link, then add Open URLs. Use Add to Home Screen to choose a name and icon. This link restores the most recently saved workspace."
+            "value" : "Restore link copied. In Shortcuts, add a URL action, paste the link, then add Open URLs. Use Add to Home Screen to choose a name and icon. This link stays with this workspace when you rename or update it."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已复制恢复链接。在「快捷指令」中添加「URL」操作并粘贴链接，再添加「打开 URL」。使用「添加到主屏幕」选择名称和图标。此链接会恢复最近一次保存的工作区。"
+            "value" : "已复制恢复链接。在“快捷指令”加入“URL”操作并粘贴链接，再加入“打开 URL”。使用“添加到主屏幕”选择名称和图标。重新命名或更新此工作区后，链接仍然有效。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已複製還原連結。在「捷徑」加入「URL」動作並貼上連結，再加入「開啟 URL」。使用「加入主畫面」選擇名稱和圖示。此連結會還原最近一次儲存的工作區。"
+            "value" : "已複製還原連結。在「捷徑」加入「URL」動作並貼上連結，再加入「開啟 URL」。使用「加入主畫面」選擇名稱和圖示。重新命名或更新此工作區後，連結仍然有效。"
           }
         }
       }
@@ -33854,19 +34199,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saved %ld windows."
+            "value" : "Saved “%@” (%ld windows)."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已保存 %ld 个窗口。"
+            "value" : "已保存“%@”（%ld 个窗口）。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已儲存 %ld 個視窗。"
+            "value" : "已儲存「%@」（%ld 個視窗）。"
           }
         }
       }
@@ -33877,7 +34222,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saved Workspace"
+            "value" : "Saved Workspaces"
           }
         },
         "zh-Hans" : {

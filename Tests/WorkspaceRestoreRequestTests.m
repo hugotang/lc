@@ -17,6 +17,24 @@ int main(void) {
         assert(LCWorkspaceRestoreURL(@"") == nil);
         assert(LCWorkspaceRestoreURL(@"bad scheme") == nil);
 
+        NSString *identifier = NSUUID.UUID.UUIDString.lowercaseString;
+        NSURL *namedURL = LCWorkspaceRestoreURLForIdentifier(scheme, identifier.uppercaseString);
+        assert(LCIsWorkspaceRestoreURL(namedURL, scheme));
+        assert([namedURL.absoluteString isEqualToString:[@"livecontainer://workspace-restore?id=" stringByAppendingString:identifier]]);
+        assert([LCWorkspaceRestoreIdentifier(namedURL, scheme) isEqualToString:identifier]);
+        assert(LCWorkspaceRestoreIdentifier(url, scheme) == nil);
+        assert(LCWorkspaceRestoreIdentifier(namedURL, @"another-lc") == nil);
+        assert(LCWorkspaceRestoreURLForIdentifier(@"my-livecontainer.2", identifier) != nil);
+        assert(LCWorkspaceRestoreURLForIdentifier(@"bad scheme", identifier) == nil);
+        assert(LCWorkspaceRestoreURLForIdentifier(scheme, @"bad") == nil);
+        for (NSString *query in @[@"", @"id", @"id=", @"id=bad", @"id=../../other",
+                                  [NSString stringWithFormat:@"id=%@&id=%@", identifier, identifier],
+                                  [NSString stringWithFormat:@"id=%@&bundle-name=Game.app", identifier],
+                                  [NSString stringWithFormat:@"other=%@", identifier]]) {
+            NSURL *invalid = [NSURL URLWithString:[@"livecontainer://workspace-restore?" stringByAppendingString:query]];
+            assert(!LCIsWorkspaceRestoreURL(invalid, scheme));
+        }
+
         // Never interpret a web link, guest launch, snapshot, credentials or unknown path as restore.
         for (NSString *value in @[
             @"https://workspace-restore", @"livecontainer2://workspace-restore",
@@ -62,6 +80,21 @@ int main(void) {
         LCClearPendingWorkspaceRestore(defaults);
         assert(LCConsumePendingWorkspaceRestore(defaults, scheme, now) == nil);
 
+        // A confirmed guest-to-host switch must retain the exact workspace selection.
+        LCQueueWorkspaceRestoreURL(defaults, namedURL, scheme, now);
+        restored = LCConsumePendingWorkspaceRestore(defaults, scheme, now);
+        assert([LCWorkspaceRestoreIdentifier(restored, scheme) isEqualToString:identifier]);
+        assert(LCConsumePendingWorkspaceRestore(defaults, scheme, now) == nil);
+        NSURL *secondURL = LCWorkspaceRestoreURLForIdentifier(scheme, NSUUID.UUID.UUIDString);
+        LCQueueWorkspaceRestoreURL(defaults, namedURL, scheme, now);
+        LCQueueWorkspaceRestoreURL(defaults, secondURL, scheme, now);
+        assert([LCConsumePendingWorkspaceRestore(defaults, scheme, now) isEqual:secondURL]);
+        LCQueueWorkspaceRestoreURL(defaults, namedURL, scheme, [now dateByAddingTimeInterval:-121]);
+        assert(LCConsumePendingWorkspaceRestore(defaults, scheme, now) == nil);
+        LCQueueWorkspaceRestoreURL(defaults, namedURL, scheme, now);
+        LCClearPendingWorkspaceRestore(defaults);
+        assert(LCConsumePendingWorkspaceRestore(defaults, scheme, now) == nil);
+
         for (id stored in @[
             @"bad", @[], @{}, @{@"url": url.absoluteString},
             @{@"url": @1, @"date": now}, @{@"url": url.absoluteString, @"date": @"bad"},
@@ -72,7 +105,7 @@ int main(void) {
             assert([defaults objectForKey:@"LCPendingWorkspaceRestore"] == nil);
         }
         [defaults removePersistentDomainForName:suite];
-        puts("Workspace restore request tests passed (URL validation, custom schemes, single consumption, expiry and corrupt requests).");
+        puts("Workspace restore request tests passed (named and legacy URLs, custom schemes, single consumption, expiry and corrupt requests).");
     }
     return 0;
 }
