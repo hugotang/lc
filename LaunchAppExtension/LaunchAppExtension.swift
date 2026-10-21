@@ -16,7 +16,7 @@ private struct LaunchAppExtensionError: LocalizedError {
 
 struct LaunchAppExtension: AppIntent {
     static var title: LocalizedStringResource { "Launch App" }
-    static var description: IntentDescription { "This action directly launches an app in normal mode in LiveContainer. To get the launch URL, open LiveContainer, hold the app, tap \"Add to Home Screen\" -> \"Copy Launch URL\"" }
+    static var description: IntentDescription { "lc.workspace.launchShortcutDescription" }
     @Parameter(title: "Launch URL")
     var launchURL: URL
     
@@ -107,6 +107,12 @@ struct LaunchAppExtension: AppIntent {
             return .result()
         }
         
+        if LCIsWorkspaceRestoreURL(launchURL, normalizedLaunchScheme) {
+            // Restore in the requested host, without selecting a guest or another LC.
+            try await openURL(launchOptions: ["url": launchURL])
+            return .result()
+        }
+
         if launchURL.host != "livecontainer-launch" {
             throw LaunchAppExtensionError("Not a livecontainer launch URL!")
         }

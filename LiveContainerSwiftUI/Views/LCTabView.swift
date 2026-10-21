@@ -101,6 +101,9 @@ struct LCTabView: View {
             checkAndSaveBundleId()
             checkGetTaskAllow()
             checkPrivateContainerBookmark()
+            if let url = LCConsumePendingWorkspaceRestore(UserDefaults.standard, UserDefaults.lcAppUrlScheme(), Date()) {
+                dispatchURL(url: url)
+            }
         }
         .onReceive(pub) { out in
             if let scene1 = sceneDelegate.window?.windowScene, let scene2 = out.object as? UIWindowScene, scene1 == scene2 {
@@ -115,6 +118,17 @@ struct LCTabView: View {
     }
     
     func dispatchURL(url: URL) {
+        if LCIsWorkspaceRestoreURL(url, UserDefaults.lcAppUrlScheme()) {
+            LCClearPendingWorkspaceRestore(UserDefaults.standard)
+            sharedModel.selectedTab = .apps
+            if #available(iOS 16.0, *) {
+                Task { await MultitaskWorkspaceManager.shared.restore(showSuccess: false) }
+            } else {
+                errorInfo = "lc.workspace.unavailable".loc
+                errorShow = true
+            }
+            return
+        }
         repeat {
             if url.isFileURL {
                 sharedModel.selectedTab = .apps

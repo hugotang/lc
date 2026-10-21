@@ -28,15 +28,29 @@ final class MultitaskWorkspaceManager: ObservableObject {
         presentResult("lc.workspace.saved".localizeWithFormat(savedWindowCount))
     }
 
-    func restore() async {
+    func copyRestoreLink() {
+        guard savedWorkspace != nil,
+              let url = LCWorkspaceRestoreURL(UserDefaults.lcAppUrlScheme()) else {
+            presentResult("lc.workspace.unavailable".loc)
+            return
+        }
+        UIPasteboard.general.string = url.absoluteString
+        presentResult("lc.workspace.restoreLinkCopied".loc)
+    }
+
+    func restore(showSuccess: Bool = true) async {
         guard !isRestoring else { return }
+        isRestoring = true
+        defer { isRestoring = false }
+        guard await waitForHostWindow() else {
+            if !Task.isCancelled { presentResult("lc.workspace.notReady".loc) }
+            return
+        }
         guard (MultitaskMode(rawValue: defaults.integer(forKey: "LCMultitaskMode")) ?? .virtualWindow) == .virtualWindow,
               let workspace = savedWorkspace else {
             presentResult("lc.workspace.unavailable".loc)
             return
         }
-        isRestoring = true
-        defer { isRestoring = false }
         let models = DataManager.shared.model.apps + DataManager.shared.model.hiddenApps
         let selected = workspace.windows.compactMap { entry in models.first { $0.appInfo.relativeBundlePath == entry.bundleName } }
         do {
@@ -99,15 +113,37 @@ final class MultitaskWorkspaceManager: ObservableObject {
             defaults.set(true, forKey: "LCAutoTileMultitaskWindows")
             host.applyWorkspace(workspace)
         }
-        let result = "lc.workspace.restored".localizeWithFormat(restored, workspace.windows.count)
-        presentResult(([result] + failures).joined(separator: "\n"))
+        if showSuccess || !failures.isEmpty {
+            let result = "lc.workspace.restored".localizeWithFormat(restored, workspace.windows.count)
+            presentResult(([result] + failures).joined(separator: "\n"))
+        }
+    }
+
+    private func waitForHostWindow() async -> Bool {
+        // Match the Dock's host selection. Its initializer needs a mounted root view;
+        // a cold-start URL can arrive before SwiftUI has installed that view.
+        for _ in 0..<100 {
+            if Task.isCancelled { return false }
+            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               scene.activationState == .foregroundActive,
+               let window = scene.windows.first,
+               window.rootViewController?.viewIfLoaded?.subviews.first != nil {
+                return true
+            }
+            do {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            } catch {
+                return false
+            }
+        }
+        return false
     }
 
     private func presentResult(_ message: String) {
         // Present from the main window so feedback also survives a dismissed Dock menu.
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
-            let window = MultitaskDockManager.shared.windowHostingView.window ?? UIApplication.shared.connectedScenes
+            let window = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive }?.windows.first { $0.isKeyWindow }
             guard var presenter = window?.rootViewController else { return }
             while let next = presenter.presentedViewController { presenter = next }
@@ -129,6 +165,10 @@ struct MultitaskWorkspaceActions: View {
         .disabled(manager.isRestoring)
         Button { Task { await manager.restore() } } label: {
             Label((manager.isRestoring ? "lc.workspace.restoring" : "lc.workspace.restore").loc, systemImage: "rectangle.3.group")
+        }
+        .disabled(manager.isRestoring || manager.savedWindowCount == 0)
+        Button { manager.copyRestoreLink() } label: {
+            Label("lc.workspace.copyRestoreLink".loc, systemImage: "link")
         }
         .disabled(manager.isRestoring || manager.savedWindowCount == 0)
     }

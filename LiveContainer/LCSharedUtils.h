@@ -1,4 +1,5 @@
 @import Foundation;
+#import "LCWorkspaceLaunch.h"
 
 @interface LCSharedUtils : NSObject
 + (NSString*) teamIdentifier;

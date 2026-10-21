@@ -80,6 +80,10 @@ void forEachInstalledNotCurrentLC(BOOL isFree, void (^block)(NSString* scheme, B
 }
 
 void LCShowSwitchAppConfirmation(NSURL *url, NSString* bundleId, bool isSharedApp) {
+    static BOOL workspaceSwitchPending = NO;
+    BOOL restoringWorkspace = LCIsWorkspaceRestoreURL(url, NSUserDefaults.lcAppUrlScheme);
+    if (restoringWorkspace && workspaceSwitchPending) return;
+    if (restoringWorkspace) workspaceSwitchPending = YES;
     NSURLComponents* newUrlComp = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
     
     // check if there's any free LiveContainer to run the app
@@ -99,7 +103,9 @@ void LCShowSwitchAppConfirmation(NSURL *url, NSString* bundleId, bool isSharedAp
     
     // if LCSwitchAppWithoutAsking is enabled we directly open the app in current lc
     if ([NSUserDefaults.lcUserDefaults boolForKey:@"LCSwitchAppWithoutAsking"]) {
-        [NSClassFromString(@"LCSharedUtils") launchToGuestAppWithURL:url];
+        if (![NSClassFromString(@"LCSharedUtils") launchToGuestAppWithURL:url] && restoringWorkspace) {
+            workspaceSwitchPending = NO;
+        }
         return;
     }
 
@@ -108,7 +114,9 @@ void LCShowSwitchAppConfirmation(NSURL *url, NSString* bundleId, bool isSharedAp
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"LiveContainer" message:message preferredStyle:UIAlertControllerStyleAlert];
     UIAlertAction* okAction = [UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * action) {
         [NSUserDefaults.lcUserDefaults setBool:NO forKey:@"LCOpenSideStore"];
-        [NSClassFromString(@"LCSharedUtils") launchToGuestAppWithURL:url];
+        if (![NSClassFromString(@"LCSharedUtils") launchToGuestAppWithURL:url] && restoringWorkspace) {
+            workspaceSwitchPending = NO;
+        }
         window.windowScene = nil;
     }];
     [alert addAction:okAction];
@@ -125,6 +133,7 @@ void LCShowSwitchAppConfirmation(NSURL *url, NSString* bundleId, bool isSharedAp
     }
     
     UIAlertAction* cancelAction = [UIAlertAction actionWithTitle:@"lc.common.cancel".loc style:UIAlertActionStyleCancel handler:^(UIAlertAction * action) {
+        if (restoringWorkspace) workspaceSwitchPending = NO;
         window.windowScene = nil;
     }];
     [alert addAction:cancelAction];
@@ -417,8 +426,10 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         return LCControlAppURLHandlingPassThrough;
     }
 
+    NSString *lcScheme = NSUserDefaults.lcAppUrlScheme;
+    BOOL restoringWorkspace = LCIsWorkspaceRestoreURL(url, lcScheme);
     // pass through sidestore urls
-    if(NSUserDefaults.isSideStore && ![url.scheme isEqualToString:@"livecontainer"]) {
+    if(NSUserDefaults.isSideStore && !restoringWorkspace && ![url.scheme isEqualToString:@"livecontainer"]) {
         return LCControlAppURLHandlingPassThrough;
     }
 
@@ -427,12 +438,21 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         return LCControlAppURLHandlingStop;
     }
 
-    NSString *lcScheme = NSUserDefaults.lcAppUrlScheme;
     // pass through any url that should not be handled by current lc
-    if(![url.scheme isEqualToString:lcScheme]) {
+    if(![url.scheme.lowercaseString isEqualToString:lcScheme.lowercaseString]) {
         return LCControlAppURLHandlingPassThrough;
     }
     NSString* urlHost = url.host;
+
+    if (restoringWorkspace) {
+        if (NSUserDefaults.isLiveProcess) {
+            // The workspace belongs to the host, not this guest extension.
+            [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+        } else {
+            LCShowSwitchAppConfirmation(url, @"LiveContainer", false);
+        }
+        return LCControlAppURLHandlingStop;
+    }
     
     if([urlHost isEqualToString:@"livecontainer-relaunch"]) {
         return LCControlAppURLHandlingStop;
@@ -537,10 +557,32 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
 }
 
 - (void)hook__connectUISceneFromFBSScene:(id)scene transitionContext:(UIApplicationSceneTransitionContext*)context {
+    NSURL *workspaceRestoreURL = nil;
 #if !TARGET_OS_MACCATALYST
     NSString* decodedUrlStr = launchURLProcessed ? nil : NSUserDefaults.lcLaunchURL;
     launchURLProcessed = YES;
     NSString* urlStr;
+
+    // A kept-selected guest may receive the shortcut on its first scene connection.
+    // Preserve this control request before the usual guest URL filtering strips it.
+    id initialURL = context.payload[UIApplicationLaunchOptionsURLKey];
+    NSURL *candidate = [initialURL isKindOfClass:NSURL.class] ? initialURL :
+        ([initialURL isKindOfClass:NSString.class] ? [NSURL URLWithString:initialURL] : nil);
+    if (LCIsWorkspaceRestoreURL(candidate, NSUserDefaults.lcAppUrlScheme)) {
+        workspaceRestoreURL = candidate;
+    }
+    for (id action in context.actions) {
+        if ([action isKindOfClass:UIOpenURLAction.class] &&
+            LCIsWorkspaceRestoreURL([action url], NSUserDefaults.lcAppUrlScheme)) {
+            workspaceRestoreURL = [action url];
+            break;
+        }
+    }
+    if (workspaceRestoreURL) {
+        context.payload = nil;
+        context.actions = nil;
+        decodedUrlStr = nil;
+    }
         
     if(!decodedUrlStr && context.payload && (urlStr = context.payload[UIApplicationLaunchOptionsURLKey])) {
         do {
@@ -593,6 +635,12 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
     
 #endif
     [self hook__connectUISceneFromFBSScene:scene transitionContext:context];
+    if (workspaceRestoreURL) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *replacementURL = nil;
+            LCHandleControlAppURL(workspaceRestoreURL, &replacementURL);
+        });
+    }
 }
 
 -(BOOL)hook__handleDelegateCallbacksWithOptions:(id)arg1 isSuspended:(BOOL)arg2 restoreState:(BOOL)arg3 {

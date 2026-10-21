@@ -207,6 +207,16 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (BOOL)launchToGuestAppWithURL:(NSURL *)url {
+    if (LCIsWorkspaceRestoreURL(url, lcAppUrlScheme)) {
+        LCQueueWorkspaceRestore(lcUserDefaults, lcAppUrlScheme, NSDate.date);
+        [lcUserDefaults setObject:@"ui" forKey:@"selected"];
+        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        [lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];
+        [lcUserDefaults setBool:NO forKey:@"LCOpenSideStore"];
+        // The switch kills this process; flush the one-shot request before relaunching.
+        [lcUserDefaults synchronize];
+        return [self launchToGuestAppWithClassicMode:0];
+    }
     NSURLComponents* components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
     if(![components.host isEqualToString:@"livecontainer-launch"]) return NO;
 
@@ -224,6 +234,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         }
     }
     if(launchBundleId) {
+        LCClearPendingWorkspaceRestore(lcUserDefaults);
         if (openUrl) {
             [lcUserDefaults setObject:openUrl forKey:@"launchAppUrlScheme"];
         }

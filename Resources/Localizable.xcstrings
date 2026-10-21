@@ -33480,6 +33480,29 @@
         }
       }
     },
+    "lc.workspace.copyRestoreLink" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Restore Link"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制恢复链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "複製還原連結"
+          }
+        }
+      }
+    },
     "lc.workspace.description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33499,6 +33522,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "儲存目前可見且正在執行的 App、容器、順序、縮放和網格比例。儲存會取代上一次的工作區。還原時重新開啟可用的 App，啟用自動平鋪，並保留其他已開啟的視窗。"
+          }
+        }
+      }
+    },
+    "lc.workspace.launchShortcutDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch an app or restore a saved workspace in LiveContainer. Copy an app's launch URL from Add to Home Screen, or copy the restore link from Settings > Multitasking > Workspace."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 LiveContainer 中启动 App 或恢复已保存的工作区。从 App 的「添加到主屏幕」菜单复制启动链接，或从「设置 > 多任务 > 工作区」复制恢复链接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 LiveContainer 中啟動 App 或還原已儲存的工作區。從 App 的「加入主畫面」選單複製啟動連結，或從「設定 > 多工 > 工作區」複製還原連結。"
           }
         }
       }
@@ -33572,6 +33618,29 @@
         }
       }
     },
+    "lc.workspace.notReady" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer is not ready to restore the workspace. Open LiveContainer and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer 尚未准备好恢复工作区。请打开 LiveContainer 后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LiveContainer 尚未準備好還原工作區。請開啟 LiveContainer 後重試。"
+          }
+        }
+      }
+    },
     "lc.workspace.restore" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33591,6 +33660,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "還原工作區"
+          }
+        }
+      }
+    },
+    "lc.workspace.restoreLinkCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore link copied. In Shortcuts, add a URL action, paste the link, then add Open URLs. Use Add to Home Screen to choose a name and icon. This link restores the most recently saved workspace."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制恢复链接。在「快捷指令」中添加「URL」操作并粘贴链接，再添加「打开 URL」。使用「添加到主屏幕」选择名称和图标。此链接会恢复最近一次保存的工作区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已複製還原連結。在「捷徑」加入「URL」動作並貼上連結，再加入「開啟 URL」。使用「加入主畫面」選擇名稱和圖示。此連結會還原最近一次儲存的工作區。"
           }
         }
       }
