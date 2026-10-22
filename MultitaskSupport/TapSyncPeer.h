@@ -11,6 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, nullable) void (^stateDidChange)(void);
 @property(nonatomic, copy, nullable) void (^didReceiveTap)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy, nullable) void (^didReceiveTouch)(NSDictionary *, NSString *, uint64_t);
+@property(nonatomic, copy, nullable) void (^didReceiveTouchFrame)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy, nullable) void (^didInterrupt)(NSString *, LCTapSyncResult);
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode reply:(void (^)(LCTapSyncResult))reply;
 - (void)stopSession:(NSString *)session;
@@ -18,6 +19,9 @@ NS_ASSUME_NONNULL_BEGIN
             reply:(void (^)(LCTapSyncResult))reply;
 - (void)replayTouch:(NSDictionary *)touch session:(NSString *)session sequence:(uint64_t)sequence
              reply:(void (^)(LCTapSyncResult))reply;
+- (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
+                  reply:(void (^)(LCTapSyncResult))reply;
+- (void)samplePerformanceWithReply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)invalidate;
 @end
 

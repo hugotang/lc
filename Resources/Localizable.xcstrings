@@ -18764,6 +18764,972 @@
         }
       }
     },
+    "lc.performance.averageCPU" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average Combined CPU"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均合计 CPU"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均合計 CPU"
+          }
+        }
+      }
+    },
+    "lc.performance.coalesced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host-Coalesced Move Frames"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主程序合并的移动帧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主程式合併的移動幀"
+          }
+        }
+      }
+    },
+    "lc.performance.coverage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU: %ld reported · Memory: %ld reported · %ld processes expected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU：%ld 个已回报 · 内存：%ld 个已回报 · 共 %ld 个进程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU：%ld 個已回報 · 記憶體：%ld 個已回報 · 共 %ld 個處理程序"
+          }
+        }
+      }
+    },
+    "lc.performance.current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest Sample"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近取样"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近取樣"
+          }
+        }
+      }
+    },
+    "lc.performance.export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share CSV Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享 CSV 数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享 CSV 數據"
+          }
+        }
+      }
+    },
+    "lc.performance.exportHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps up to five minutes of numeric samples in memory. Sharing is optional. No touch coordinates, app names, account data or container identifiers are included."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅在内存中保留最多五分钟的数值取样，可自行选择分享。不会包含触控坐标、App 名称、账号数据或容器标识。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅在記憶體中保留最多五分鐘的數值取樣，可自行選擇分享。不會包含觸控座標、App 名稱、帳號資料或容器識別碼。"
+          }
+        }
+      }
+    },
+    "lc.performance.lowPower" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low Power Mode is enabled."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低电量模式已开启。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低耗電模式已開啟。"
+          }
+        }
+      }
+    },
+    "lc.performance.monitorHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. Works with one or more app windows, with or without input sync. Closing the overlay stops sampling. Monitoring itself adds a small amount of work; keep it enabled equally in comparisons."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。一个或多个 App 窗口均可使用，无须开启同步。关闭浮窗即停止取样。监测本身也有少量开销，对比时请保持相同设置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預設關閉。一個或多個 App 視窗均可使用，無須開啟同步。關閉浮窗即停止取樣。監測本身也有少量開銷，比較時請保持相同設定。"
+          }
+        }
+      }
+    },
+    "lc.performance.overlayResponse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reply p95 %@ ms · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回复 p95 %@ ms · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回覆 p95 %@ ms · %@"
+          }
+        }
+      }
+    },
+    "lc.performance.overlayTotals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU %@%% · %@ MiB"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU %@%% · %@ MiB"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU %@%% · %@ MiB"
+          }
+        }
+      }
+    },
+    "lc.performance.peakCPU" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peak Combined CPU"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "峰值合计 CPU"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "峰值合計 CPU"
+          }
+        }
+      }
+    },
+    "lc.performance.peakMemory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peak Memory Footprint"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "峰值内存占用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "峰值記憶體佔用"
+          }
+        }
+      }
+    },
+    "lc.performance.process" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Process %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 进程 %ld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 處理程序 %ld"
+          }
+        }
+      }
+    },
+    "lc.performance.processes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By Process"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各进程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各處理程序"
+          }
+        }
+      }
+    },
+    "lc.performance.queue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting Input Frames"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待中的输入帧"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待中的輸入幀"
+          }
+        }
+      }
+    },
+    "lc.performance.queuePeak" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peak Waiting Frames"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待帧数峰值"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待幀數峰值"
+          }
+        }
+      }
+    },
+    "lc.performance.responseHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time from the host sending a frame until all followers acknowledge input delivery. Includes scheduling and intentional tap/gesture timing; it does not measure screen response or network latency. p95 is the value at or below which 95% of these replies fall. Coalescing replaces superseded movement, not touch beginnings or releases."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从主程序发送一帧到所有接收窗口确认输入已送达的时间。包括调度及刻意保留的点按／手势时序，不代表画面响应或网络延迟。p95 表示 95% 的这些回复不超过该数值。合并只替换已被更新的移动，不会删除按下或抬起。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從主程式傳送一幀到所有接收視窗確認輸入已送達的時間。包括排程及刻意保留的點按／手勢時序，不代表畫面回應或網絡延遲。p95 表示 95% 的這些回覆不超過該數值。合併只替換已被更新的移動，不會刪除按下或抬起。"
+          }
+        }
+      }
+    },
+    "lc.performance.responseMedian" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Median Sync Reply"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步回复中位数"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步回覆中位數"
+          }
+        }
+      }
+    },
+    "lc.performance.responseP95" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Reply p95"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步回复 p95"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步回覆 p95"
+          }
+        }
+      }
+    },
+    "lc.performance.responseSamples" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld successful group replies in the last 10 seconds (up to 600)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近 10 秒 %ld 次成功群组回复（最多 600 次）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近 10 秒 %ld 次成功群組回覆（最多 600 次）"
+          }
+        }
+      }
+    },
+    "lc.performance.sampling" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sampling once per second. Tap the overlay for details; drag it to move."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每秒取样一次。点按浮窗查看详情，拖动可移动位置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每秒取樣一次。點按浮窗查看詳情，拖動可移動位置。"
+          }
+        }
+      }
+    },
+    "lc.performance.scope" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Includes LiveContainer and its running app processes, including minimized apps. CPU 100% means one full core; totals may exceed 100%. Memory is the sum of process footprints, not device RAM usage. Missing or stale readings show — and are excluded from averages. System compositor, GPU usage, watts and temperature in degrees are not measured."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包括 LiveContainer 及运行中的 App 进程（含已最小化 App）。CPU 100% 表示占满一个核心，合计可超过 100%。内存为进程占用之和，并非设备整体 RAM 用量。缺失或过期读数显示 —，不计入平均值。不测量系统合成器、GPU 用量、瓦数或摄氏温度。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包括 LiveContainer 及執行中的 App 處理程序（含已最小化 App）。CPU 100% 表示佔滿一個核心，合計可超過 100%。記憶體為處理程序佔用之和，並非裝置整體 RAM 用量。缺失或過期讀數顯示 —，不計入平均值。不量測系統合成器、GPU 用量、瓦數或攝氏溫度。"
+          }
+        }
+      }
+    },
+    "lc.performance.showOverlay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Performance Overlay"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示性能浮窗"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示效能浮窗"
+          }
+        }
+      }
+    },
+    "lc.performance.sinceReset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Since Measurement Started"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次测量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次量測"
+          }
+        }
+      }
+    },
+    "lc.performance.startMeasurement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start New Measurement and Return"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新测量并返回窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新量測並返回視窗"
+          }
+        }
+      }
+    },
+    "lc.performance.stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Performance Monitoring"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止性能监测"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止效能監測"
+          }
+        }
+      }
+    },
+    "lc.performance.stopped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monitoring is off. Any displayed results are from the last measurement."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "监测已关闭。显示的结果来自上一次测量。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監測已關閉。顯示的結果來自上一次量測。"
+          }
+        }
+      }
+    },
+    "lc.performance.suspended" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sampling pauses when the multitasking view is not active."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多任务画面不在前台时暂停取样。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多工畫面不在前景時暫停取樣。"
+          }
+        }
+      }
+    },
+    "lc.performance.sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步操作"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步操作"
+          }
+        }
+      }
+    },
+    "lc.performance.testGuide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to Compare Performance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如何对比性能"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如何比較效能"
+          }
+        }
+      }
+    },
+    "lc.performance.testProcedure" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep brightness, charging, Low Power Mode, layout and app content the same. Start each run at a similar thermal state.\n\n1. Warm up for 2 minutes, then start a new measurement.\n2. Measure 60–120 seconds with sync off, active but idle, and active while repeating the same gestures. Reset and export each run separately.\n3. Repeat with one, two and four app windows. One window measures multitasking overhead; syncing needs at least two. Repeat each condition three times.\n\nFor Spotify, use the same downloaded track and keep the player/Canvas and foreground state unchanged. Watch CPU averages, memory and thermal state. Accurate power/GPU profiling and comparisons with ordinary single-app mode require external tools such as Xcode Instruments; this overlay cannot measure them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请保持亮度、充电、低电量模式、布局及 App 内容一致，各轮从相近热状态开始。\n\n1. 预热两分钟，再开始新测量。\n2. 分别测量 60–120 秒：关闭同步、同步开启但不操作、同步开启并重复相同手势。每轮分别重置并分享数据。\n3. 对比一个、两个和四个 App 窗口。单窗口用于测量多任务本身的开销，同步至少需要两个窗口。每个条件重复三次。\n\nSpotify 使用同一首已下载歌曲，保持播放器／Canvas 和前台状态一致。观察平均 CPU、内存和热状态。准确的功耗／GPU 分析，以及与普通单 App 模式的比较，需要 Xcode Instruments 等外部工具；此浮窗无法测量。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請保持亮度、充電、低耗電模式、佈局及 App 內容一致，各輪從相近熱狀態開始。\n\n1. 預熱兩分鐘，再開始新量測。\n2. 分別量測 60–120 秒：關閉同步、同步開啟但不操作、同步開啟並重複相同手勢。每輪分別重設並分享數據。\n3. 比較一個、兩個和四個 App 視窗。單視窗用於量測多工本身的開銷，同步至少需要兩個視窗。每個條件重複三次。\n\nSpotify 使用同一首已下載歌曲，保持播放器／Canvas 和前景狀態一致。觀察平均 CPU、記憶體和熱狀態。準確的功耗／GPU 分析，以及與普通單 App 模式的比較，需要 Xcode Instruments 等外部工具；此浮窗無法量測。"
+          }
+        }
+      }
+    },
+    "lc.performance.thermal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Thermal State"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统热状态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統熱狀態"
+          }
+        }
+      }
+    },
+    "lc.performance.thermal.critical" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "严重"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "嚴重"
+          }
+        }
+      }
+    },
+    "lc.performance.thermal.fair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏热"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏熱"
+          }
+        }
+      }
+    },
+    "lc.performance.thermal.nominal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正常"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正常"
+          }
+        }
+      }
+    },
+    "lc.performance.thermal.serious" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高热"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高熱"
+          }
+        }
+      }
+    },
+    "lc.performance.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance Monitor"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "性能监测"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "效能監測"
+          }
+        }
+      }
+    },
+    "lc.performance.totalCPU" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combined CPU"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合计 CPU"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合計 CPU"
+          }
+        }
+      }
+    },
+    "lc.performance.totalMemory" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combined Memory Footprint"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合计内存占用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合計記憶體佔用"
+          }
+        }
+      }
+    },
+    "lc.performance.validSamples" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld complete CPU samples · %.0f seconds covered"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 次完整 CPU 取样 · 覆盖 %.0f 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 次完整 CPU 取樣 · 涵蓋 %.0f 秒"
+          }
+        }
+      }
+    },
+    "lc.performance.waiting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for samples"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待取样"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待取樣"
+          }
+        }
+      }
+    },
+    "lc.performance.window" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "窗口 %ld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視窗 %ld"
+          }
+        }
+      }
+    },
     "lc.settings.portraitReservedAreasDesc" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -32557,6 +33523,29 @@
         }
       }
     },
+    "lc.tapSync.affectedMissingWindow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window %ld at the time of interruption is no longer shown."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中断时的窗口 %ld 目前未显示。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中斷時的視窗 %ld 目前未顯示。"
+          }
+        }
+      }
+    },
     "lc.tapSync.alignWindows" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -32931,19 +33920,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs, loading and account differences are not corrected automatically. System gestures, multiple fingers, pointers and keyboard input are not replayed. Compatibility varies by app; the count confirms delivery, not the resulting app action."
+            "value" : "Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs, loading and account differences are not corrected automatically. Two Fingers supports at most two simultaneous contacts; system gestures, pointers and keyboard input are not replayed. Compatibility varies by app; the count confirms delivery, not the resulting app action."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放。弹窗、加载与账号差异不会自动校正。系统手势、多指、指针和键盘输入不参与同步。兼容性因 App 而异，计数表示操作已转送，不代表 App 已完成对应操作。"
+            "value" : "请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放。弹窗、加载与账号差异不会自动校正。双指模式最多支持两个同时触点；系统手势、指针和键盘输入不参与同步。兼容性因 App 而异，计数表示操作已转送，不代表 App 已完成对应操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放。彈窗、載入與帳號差異不會自動校正。系統手勢、多指、指標和鍵盤輸入不參與同步。相容性因 App 而異，計數表示操作已轉送，不代表 App 已完成對應操作。"
+            "value" : "請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放。彈窗、載入與帳號差異不會自動校正。雙指模式最多支援兩個同時觸點；系統手勢、指標和鍵盤輸入不參與同步。相容性因 App 而異，計數表示操作已轉送，不代表 App 已完成對應操作。"
           }
         }
       }
@@ -33013,6 +34002,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "僅點按"
+          }
+        }
+      }
+    },
+    "lc.tapSync.mode.twoFingers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Two Fingers"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "双指手势"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雙指手勢"
           }
         }
       }
@@ -33339,6 +34351,29 @@
         }
       }
     },
+    "lc.tapSync.removeFollower" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Sync Group"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从同步分组移除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從同步群組移除"
+          }
+        }
+      }
+    },
     "lc.tapSync.removeMissingTargets" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33661,6 +34696,29 @@
         }
       }
     },
+    "lc.tapSync.sourceNeedsAttention" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check this source window, or choose another source below. Resume after the app screens match."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请检查此来源窗口，或在下方选择其他来源。待 App 画面一致后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請檢查此來源視窗，或在下方選擇其他來源。待 App 畫面一致後再繼續。"
+          }
+        }
+      }
+    },
     "lc.tapSync.start" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33799,6 +34857,29 @@
         }
       }
     },
+    "lc.tapSync.tooManyTouches" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: more than two fingers were detected. Lift all fingers before resuming."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到超过两根手指，已暂停。请先抬起所有手指再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偵測到超過兩根手指，已暫停。請先抬起所有手指再繼續。"
+          }
+        }
+      }
+    },
     "lc.tapSync.tooSlow" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33818,6 +34899,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已暫停：有視窗未及時回應。請對齊畫面後再啟動。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.twoFingersHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync up to two fingers together: pinch, rotate, or hold a joystick while tapping a button. A third finger pauses sync. System gestures and keyboard input are not forwarded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步最多两根手指：缩放、旋转，或按住摇杆同时点按按钮。第三根手指会暂停同步。系统手势和键盘输入不会转送。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步最多兩根手指：縮放、旋轉，或按住搖桿同時點按按鈕。第三根手指會暫停同步。系統手勢和鍵盤輸入不會轉送。"
           }
         }
       }
@@ -33864,6 +34968,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此裝置或 App 暫不支援觸控重播。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.useAsSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use as Sync Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设为同步来源"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設為同步來源"
           }
         }
       }

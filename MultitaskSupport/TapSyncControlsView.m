@@ -1,5 +1,6 @@
 #import "TapSyncControlsView.h"
 #import "TapSyncCoordinator.h"
+#import "PerformanceMonitor.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
 
@@ -46,15 +47,22 @@
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (void)contentSizeChanged:(NSNotification *)note { [self refresh]; }
 - (void)toggleSync {
+    if (self.showsPerformance) { if (self.configure) self.configure(); return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     if (sync.active || sync.starting) [sync pause];
     else [sync start];
 }
-- (void)openSettings { if (self.configure) self.configure(); }
+- (void)openSettings {
+    if (self.showsPerformance) LCPerformanceMonitor.shared.enabled = NO;
+    else if (self.configure) self.configure();
+}
 - (NSString *)positionKey {
+    if (self.showsPerformance) return self.landscape ? @"LCPerformanceControlsLandscapePosition" : @"LCPerformanceControlsPortraitPosition";
     return self.landscape ? @"LCTapSyncControlsLandscapePosition" : @"LCTapSyncControlsPortraitPosition";
 }
+- (void)setShowsPerformance:(BOOL)showsPerformance { _showsPerformance = showsPerformance; [self refresh]; }
 - (void)refresh {
+    if (self.showsPerformance) { [self refreshPerformance]; [self refreshPlacementActions]; return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     BOOL compact = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncCompactControls"];
     BOOL running = sync.active || sync.starting;
@@ -69,7 +77,12 @@
     configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 12);
     configuration.title = compact ? [NSString stringWithFormat:@"1 → %lu", (unsigned long)sync.targetContainers.count] :
         sync.starting ? @"lc.tapSync.starting".loc : title;
-    configuration.subtitle = !compact && !running ? sync.statusKey.loc : nil;
+    NSMutableArray *affected = [NSMutableArray array];
+    for (NSString *container in sync.interruptedContainers) {
+        [affected addObject:[NSString stringWithFormat:@"#%lu", (unsigned long)[sync windowNumberForContainer:container]]];
+    }
+    NSString *status = affected.count ? [NSString stringWithFormat:@"%@ · %@", [affected componentsJoinedByString:@", "], sync.statusKey.loc] : sync.statusKey.loc;
+    configuration.subtitle = !compact && !running ? status : nil;
     configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
     configuration.subtitleLineBreakMode = NSLineBreakByTruncatingTail;
     configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
@@ -84,7 +97,7 @@
     };
     self.toggleButton.configuration = configuration;
     self.toggleButton.accessibilityLabel = (running ? @"lc.tapSync.pause" : @"lc.tapSync.resume").loc;
-    self.toggleButton.accessibilityValue = [NSString stringWithFormat:@"%@. %@", title, sync.statusKey.loc];
+    self.toggleButton.accessibilityValue = [NSString stringWithFormat:@"%@. %@", title, status];
     self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
     UIButtonConfiguration *settings = UIButtonConfiguration.plainButtonConfiguration;
     settings.image = [UIImage systemImageNamed:@"gearshape" withConfiguration:
@@ -92,6 +105,9 @@
     settings.baseForegroundColor = UIColor.labelColor;
     self.settingsButton.configuration = settings;
     self.settingsButton.accessibilityLabel = @"lc.tapSync.configure".loc;
+    [self refreshPlacementActions];
+}
+- (void)refreshPlacementActions {
     __weak typeof(self) weakSelf = self;
     NSMutableArray *actions = [NSMutableArray array];
     NSArray<NSString *> *keys = @[@"lc.tapSync.moveTopLeft", @"lc.tapSync.moveTopRight", @"lc.tapSync.moveBottomLeft", @"lc.tapSync.moveBottomRight"];
@@ -105,6 +121,42 @@
     }
     self.toggleButton.accessibilityCustomActions = actions;
     if (self.superview) [self placeInBounds:self.placementBounds safeAreaInsets:self.placementInsets];
+}
+- (void)refreshPerformance {
+    LCPerformanceMonitor *monitor = LCPerformanceMonitor.shared;
+    NSDictionary *sample = monitor.snapshot, *sync = sample[@"sync"];
+    NSString *(^number)(id) = ^NSString *(id value) { return value ? [NSString localizedStringWithFormat:@"%.0f", [value doubleValue]] : @"—"; };
+    UIButtonConfiguration *configuration = UIButtonConfiguration.plainButtonConfiguration;
+    configuration.baseForegroundColor = UIColor.labelColor;
+    configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 4);
+    configuration.title = [NSString localizedStringWithFormat:@"lc.performance.overlayTotals".loc,
+        number(sample[@"totalCPU"]), number(sample[@"totalMemoryMiB"])];
+    NSArray *thermalKeys = @[@"lc.performance.thermal.nominal", @"lc.performance.thermal.fair", @"lc.performance.thermal.serious", @"lc.performance.thermal.critical"];
+    NSInteger thermal = [sample[@"thermalState"] integerValue];
+    NSString *state = sample[@"thermalState"] && thermal >= 0 && thermal < (NSInteger)thermalKeys.count ? thermalKeys[thermal].loc : @"lc.performance.waiting".loc;
+    configuration.subtitle = monitor.sampling ? [NSString localizedStringWithFormat:@"lc.performance.overlayResponse".loc,
+        number(sync[@"responseP95Ms"]), state] : @"lc.performance.suspended".loc;
+    configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
+    configuration.subtitleLineBreakMode = NSLineBreakByTruncatingTail;
+    configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
+        NSMutableDictionary *result = attributes.mutableCopy;
+        result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        return result;
+    };
+    configuration.subtitleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
+        NSMutableDictionary *result = attributes.mutableCopy;
+        result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption2];
+        return result;
+    };
+    self.toggleButton.configuration = configuration;
+    self.toggleButton.accessibilityLabel = @"lc.performance.title".loc;
+    self.toggleButton.accessibilityValue = [NSString stringWithFormat:@"%@. %@", configuration.title, configuration.subtitle];
+    self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
+    UIButtonConfiguration *close = UIButtonConfiguration.plainButtonConfiguration;
+    close.image = [UIImage systemImageNamed:@"xmark.circle" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20]];
+    close.baseForegroundColor = UIColor.secondaryLabelColor;
+    self.settingsButton.configuration = close;
+    self.settingsButton.accessibilityLabel = @"lc.performance.stop".loc;
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
@@ -135,8 +187,8 @@
         return;
     }
     NSDictionary *saved = [NSUserDefaults.lcSharedDefaults dictionaryForKey:self.positionKey];
-    BOOL right = ![saved[@"edge"] isEqual:@"left"];
-    double fraction = [saved[@"fraction"] isKindOfClass:NSNumber.class] ? [saved[@"fraction"] doubleValue] : 0;
+    BOOL right = saved[@"edge"] ? ![saved[@"edge"] isEqual:@"left"] : !self.showsPerformance;
+    double fraction = [saved[@"fraction"] isKindOfClass:NSNumber.class] ? [saved[@"fraction"] doubleValue] : self.showsPerformance ? 1 : 0;
     if (!isfinite(fraction)) fraction = 0;
     CGFloat x = right ? CGRectGetMaxX(self.availableBounds) - size.width : CGRectGetMinX(self.availableBounds);
     CGFloat y = CGRectGetMinY(self.availableBounds) + MAX(0, self.availableBounds.size.height - size.height) * MAX(0, MIN(1, fraction));

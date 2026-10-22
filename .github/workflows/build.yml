@@ -44,8 +44,14 @@ jobs:
           "$RUNNER_TEMP/tap-sync-geometry-tests"
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TouchSyncGeometryTests.c -lm -o "$RUNNER_TEMP/touch-sync-geometry-tests"
           "$RUNNER_TEMP/touch-sync-geometry-tests"
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/MultiTouchSyncGeometryTests.c -lm -o "$RUNNER_TEMP/multi-touch-sync-tests"
+          "$RUNNER_TEMP/multi-touch-sync-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSession.m Tests/TapSyncSessionTests.m -o "$RUNNER_TEMP/tap-sync-session-tests"
           "$RUNNER_TEMP/tap-sync-session-tests"
+      - name: Test performance metrics
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
+          "$RUNNER_TEMP/performance-metrics-tests"
       - name: Test app language selection
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"

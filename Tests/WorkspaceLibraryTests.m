@@ -238,6 +238,10 @@ static void testTapSyncGroupPreserved(NSUserDefaults *defaults) {
     assert(![library workspaceWithIdentifier:updated.identifier].snapshot.reservePortraitBottom);
     NSArray *order = [library.workspaces valueForKey:@"identifier"];
     NSDictionary *gestureGroup = @{@"source": @"First", @"targets": @[@"Second"], @"mode": @"singleFinger"};
+    NSDictionary *twoFingerGroup = @{@"source": @"First", @"targets": @[@"Second"], @"mode": @"twoFingers"};
+    assert([staleReader setTapSyncGroup:twoFingerGroup forWorkspace:updated.identifier]);
+    assert([library reload]);
+    assert([[library workspaceWithIdentifier:updated.identifier].snapshot.tapSyncGroup isEqual:twoFingerGroup]);
     // A stale editor patches the current record, keeping a newer name, layout and library order.
     assert([library renameWorkspace:updated.identifier name:@"Latest name"]);
     assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:updated.identifier]);

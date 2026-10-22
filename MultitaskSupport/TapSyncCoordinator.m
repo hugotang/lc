@@ -1,5 +1,6 @@
 #import "TapSyncCoordinator.h"
 #import "TapSyncSession.h"
+#import "PerformanceMetrics.h"
 #import "AppSceneViewController.h"
 #import "DecoratedAppSceneViewController.h"
 #import "VirtualWindowsHostView.h"
@@ -15,6 +16,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 @property(nonatomic) uint64_t deliverySequence;
 @property(nonatomic, strong) dispatch_source_t replyTimer;
 @property(nonatomic) NSArray *lastWindowPresentation;
+@property(nonatomic) NSDictionary<NSString *, NSNumber *> *participantNumbers;
+@property(nonatomic) NSMutableOrderedSet<NSString *> *awaitingReplies;
+@property(nonatomic) LCPerformanceResponseHistory responseHistory;
+@property(nonatomic) NSUInteger measuredPackets, measuredCoalescedMoves, measuredQueuePeak, performanceGeneration;
 @end
 
 @implementation LCTapSyncCoordinator
@@ -28,8 +33,9 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if ((self = [super init])) {
         _scenes = [NSMapTable strongToWeakObjectsMapTable];
         _targetContainers = @[];
-        _mode = [NSUserDefaults.lcSharedDefaults integerForKey:@"LCTapSyncMode"] == LCTapSyncModeSingleFinger ?
-            LCTapSyncModeSingleFinger : LCTapSyncModeTapsOnly;
+        _interruptedContainers = @[];
+        NSInteger mode = [NSUserDefaults.lcSharedDefaults integerForKey:@"LCTapSyncMode"];
+        _mode = mode == LCTapSyncModeSingleFinger || mode == LCTapSyncModeTwoFingers ? mode : LCTapSyncModeTapsOnly;
         _statusKey = @"lc.tapSync.chooseWindows";
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostWillResignActive:)
                                                    name:UIApplicationWillResignActiveNotification object:nil];
@@ -49,7 +55,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         AppSceneViewController *current = weakScene;
         if (!coordinator || !current) return;
         if (!current.tapSyncPeer.ready && [coordinator isParticipant:current.dataUUID]) {
-            [coordinator stopWithStatus:@"lc.tapSync.unavailable"];
+            [coordinator stopWithStatus:@"lc.tapSync.unavailable" containers:@[current.dataUUID]];
         }
         [coordinator changed];
     };
@@ -59,17 +65,20 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     scene.tapSyncPeer.didReceiveTouch = ^(NSDictionary *touch, NSString *session, uint64_t sequence) {
         [weakSelf receiveTouch:touch source:weakScene.dataUUID session:session sequence:sequence];
     };
+    scene.tapSyncPeer.didReceiveTouchFrame = ^(NSDictionary *frame, NSString *session, uint64_t sequence) {
+        [weakSelf receiveTouchFrame:frame source:weakScene.dataUUID session:session sequence:sequence];
+    };
     scene.tapSyncPeer.didInterrupt = ^(NSString *session, LCTapSyncResult reason) {
         LCTapSyncCoordinator *coordinator = weakSelf;
         if ([coordinator.session.identifier isEqualToString:session] && [coordinator isParticipant:weakScene.dataUUID]) {
-            [coordinator stopWithResult:reason];
+            [coordinator stopWithResult:reason containers:@[weakScene.dataUUID]];
         }
     };
     [self changed];
 }
 - (void)unregisterScene:(AppSceneViewController *)scene {
     if ([self.scenes objectForKey:scene.dataUUID] != scene) return;
-    if ([self isParticipant:scene.dataUUID]) [self stopWithStatus:@"lc.tapSync.unavailable"];
+    if ([self isParticipant:scene.dataUUID]) [self stopWithStatus:@"lc.tapSync.unavailable" containers:@[scene.dataUUID]];
     [self.scenes removeObjectForKey:scene.dataUUID];
     [scene.tapSyncPeer invalidate];
     [self changed];
@@ -79,6 +88,55 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 }
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
 - (BOOL)canReplayForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.canReplay; }
+- (NSDictionary<NSString *, LCTapSyncPeer *> *)performancePeers {
+    NSMutableDictionary *peers = [NSMutableDictionary dictionary];
+    for (NSString *container in self.scenes.keyEnumerator) {
+        AppSceneViewController *scene = [self.scenes objectForKey:container];
+        if (scene.isAppRunning && scene.tapSyncPeer) peers[container] = scene.tapSyncPeer;
+    }
+    return peers.copy;
+}
+- (NSUInteger)windowNumberForContainer:(NSString *)container {
+    NSArray<LCWorkspaceWindow *> *windows = self.availableWindows;
+    NSUInteger index = [windows indexOfObjectPassingTest:^BOOL(LCWorkspaceWindow *window, NSUInteger index, BOOL *stop) {
+        return [window.dataUUID isEqualToString:container];
+    }];
+    return index == NSNotFound ? [self.participantNumbers[container] unsignedIntegerValue] : index + 1;
+}
+- (void)useAsSource:(NSString *)container {
+    if ([container isEqualToString:self.sourceContainer] || ![self isReadyForContainer:container]) return;
+    NSArray<LCWorkspaceWindow *> *windows = self.availableWindows;
+    LCWorkspaceWindow *previous = nil, *next = nil;
+    for (LCWorkspaceWindow *window in windows) {
+        if ([window.dataUUID isEqualToString:self.sourceContainer]) previous = window;
+        if ([window.dataUUID isEqualToString:container]) next = window;
+    }
+    if (!next) return;
+    NSMutableOrderedSet *targets = [NSMutableOrderedSet orderedSet];
+    if ((previous && [previous.bundleName isEqualToString:next.bundleName]) || [self.targetContainers containsObject:container]) {
+        NSMutableSet *eligible = [NSMutableSet set];
+        for (LCWorkspaceWindow *window in windows) {
+            if (![window.dataUUID isEqualToString:container] && [window.bundleName isEqualToString:next.bundleName]) [eligible addObject:window.dataUUID];
+        }
+        for (NSString *target in self.targetContainers) if ([eligible containsObject:target]) [targets addObject:target];
+        if (previous && [self canReplayForContainer:previous.dataUUID]) [targets addObject:previous.dataUUID];
+    }
+    [self selectSource:container targets:targets.array];
+}
+- (void)removeTarget:(NSString *)container {
+    if (![self.targetContainers containsObject:container]) return;
+    NSMutableArray *targets = self.targetContainers.mutableCopy;
+    [targets removeObject:container];
+    NSMutableArray *remainingIssues = self.interruptedContainers.mutableCopy;
+    [remainingIssues removeObject:container];
+    NSString *status = self.statusKey;
+    [self selectSource:self.sourceContainer targets:targets];
+    if (remainingIssues.count && targets.count) {
+        _interruptedContainers = remainingIssues.copy;
+        _statusKey = status;
+        [self changed];
+    }
+}
 - (NSArray<LCWorkspaceWindow *> *)availableWindows {
     NSMutableArray *windows = [NSMutableArray array];
     for (DecoratedAppSceneViewController *controller in self.host.tapSyncWindows) {
@@ -99,7 +157,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self changed];
 }
 - (void)setMode:(LCTapSyncMode)mode {
-    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger) return;
+    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers) return;
     if (_mode == mode) return;
     [self pause];
     _mode = mode;
@@ -112,19 +170,23 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (!self.sourceContainer || self.targetContainers.count == 0) return @{};
     NSMutableDictionary *selection = [@{@"source": self.sourceContainer, @"targets": self.targetContainers} mutableCopy];
     if (self.mode == LCTapSyncModeSingleFinger) selection[@"mode"] = @"singleFinger";
+    if (self.mode == LCTapSyncModeTwoFingers) selection[@"mode"] = @"twoFingers";
     return selection.copy;
 }
 - (void)restoreSelection:(NSDictionary *)selection {
     NSString *source = [selection[@"source"] isKindOfClass:NSString.class] ? selection[@"source"] : nil;
     NSArray *targets = [selection[@"targets"] isKindOfClass:NSArray.class] ? selection[@"targets"] : @[];
-    self.mode = [selection[@"mode"] isEqual:@"singleFinger"] ? LCTapSyncModeSingleFinger : LCTapSyncModeTapsOnly;
+    self.mode = [selection[@"mode"] isEqual:@"twoFingers"] ? LCTapSyncModeTwoFingers :
+        [selection[@"mode"] isEqual:@"singleFinger"] ? LCTapSyncModeSingleFinger : LCTapSyncModeTapsOnly;
     [self selectSource:source targets:targets];
     if (source && targets.count) {
         _statusKey = @"lc.tapSync.restoredPaused";
         [self changed];
     }
 }
-- (NSArray *)currentGeometry {
+- (NSArray *)currentGeometry { return [self currentGeometryWithProblem:NULL]; }
+- (NSArray *)currentGeometryWithProblem:(NSString * __autoreleasing *)problem {
+    if (problem) *problem = nil;
     if (!self.host.window || !self.sourceContainer || self.targetContainers.count == 0 ||
         self.host.isAdjustingGridDividers || self.host.isChoosingGridSwap) return nil;
     NSArray *participants = [@[self.sourceContainer] arrayByAddingObjectsFromArray:self.targetContainers];
@@ -134,6 +196,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     NSString *bundle;
     CGSize sourceSize = CGSizeZero;
     for (NSString *container in participants) {
+        if (problem) *problem = container;
         DecoratedAppSceneViewController *window = [self.host windowForContainer:container];
         if (!window || ![visible containsObject:window] || !window.appSceneVC.tapSyncPeer.ready ||
             !CGAffineTransformIsIdentity(window.view.transform) || window.view.alpha < 0.999) return nil;
@@ -154,19 +217,27 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
             [NSValue valueWithCGRect:window.appSceneVC.view.bounds],
             [NSValue valueWithUIEdgeInsets:window.appSceneVC.view.safeAreaInsets], @(window.scaleRatio)]];
     }
+    if (problem) *problem = nil;
     return geometry.copy;
 }
 - (BOOL)canStart { return !self.active && !self.starting && [self currentGeometry] != nil; }
 - (void)start {
     if (self.active || self.starting) return;
-    NSArray *geometry = [self currentGeometry];
-    if (!geometry) { _statusKey = @"lc.tapSync.alignWindows"; [self changed]; return; }
+    NSString *problem;
+    NSArray *geometry = [self currentGeometryWithProblem:&problem];
+    if (!geometry) { [self stopWithStatus:@"lc.tapSync.alignWindows" containers:problem ? @[problem] : @[]]; return; }
     LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:self.sourceContainer targets:self.targetContainers mode:self.mode];
     if (!session) return;
     self.session = session;
     self.geometry = geometry;
     self.inFlightSequence = 0;
     self.deliverySequence = 0;
+    _interruptedContainers = @[];
+    NSMutableDictionary *numbers = [NSMutableDictionary dictionary];
+    NSUInteger number = 0;
+    for (LCWorkspaceWindow *window in self.availableWindows) numbers[window.dataUUID] = @(++number);
+    self.participantNumbers = numbers.copy;
+    self.awaitingReplies = [NSMutableOrderedSet orderedSetWithArray:session.targets];
     _forwardedTapCount = 0;
     _starting = YES;
     _statusKey = @"lc.tapSync.starting";
@@ -175,11 +246,14 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     for (NSString *container in session.targets) {
         [[self.scenes objectForKey:container].tapSyncPeer prepareSession:session.identifier source:NO mode:session.mode reply:^(LCTapSyncResult result) {
             if (self.session != session) return;
-            if (result != LCTapSyncResultAccepted) { [self stopWithResult:result]; return; }
+            if (result != LCTapSyncResultAccepted) { [self stopWithResult:result containers:@[container]]; return; }
+            [self.awaitingReplies removeObject:container];
             if (--remaining != 0) return;
+            [self.awaitingReplies addObject:session.source];
             [[self.scenes objectForKey:session.source].tapSyncPeer prepareSession:session.identifier source:YES mode:session.mode reply:^(LCTapSyncResult sourceResult) {
                 if (self.session != session) return;
-                if (sourceResult != LCTapSyncResultAccepted) { [self stopWithResult:sourceResult]; return; }
+                if (sourceResult != LCTapSyncResultAccepted) { [self stopWithResult:sourceResult containers:@[session.source]]; return; }
+                [self.awaitingReplies removeObject:session.source];
                 [self validateWindows];
                 if (self.session != session) return;
                 self->_starting = NO;
@@ -191,7 +265,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         }];
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        if (self.session == session && self.starting) [self stopWithStatus:@"lc.tapSync.unavailable"];
+        if (self.session == session && self.starting) [self stopWithStatus:@"lc.tapSync.unavailable" containers:self.awaitingReplies.array];
     });
 }
 - (void)receiveTap:(NSDictionary *)tap source:(NSString *)source session:(NSString *)identifier sequence:(uint64_t)sequence {
@@ -201,29 +275,50 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (self.session != session) return;
     LCTapSyncResult result = [session enqueue:tap fromSource:source session:identifier sequence:sequence
         now:NSProcessInfo.processInfo.systemUptime];
-    if (result != LCTapSyncResultAccepted) { [self stopWithResult:result]; return; }
+    if (result != LCTapSyncResultAccepted) { [self stopForEnqueueResult:result source:source]; return; }
+    [self recordQueueWithCoalescedMoves:0];
     [self sendNext];
 }
 - (void)receiveTouch:(NSDictionary *)touch source:(NSString *)source session:(NSString *)identifier sequence:(uint64_t)sequence {
     LCTapSyncSession *session = self.session;
     if (!session || ![session.identifier isEqualToString:identifier] || ![session.source isEqualToString:source]) return;
+    NSUInteger coalesced = session.coalescedMoveCount;
     LCTapSyncResult result = [session enqueueTouch:touch fromSource:source session:identifier sequence:sequence
         now:NSProcessInfo.processInfo.systemUptime];
-    if (result != LCTapSyncResultAccepted) { [self stopWithResult:result]; return; }
+    if (result != LCTapSyncResultAccepted) { [self stopForEnqueueResult:result source:source]; return; }
+    [self recordQueueWithCoalescedMoves:session.coalescedMoveCount - coalesced];
     [self sendNext];
+}
+- (void)receiveTouchFrame:(NSDictionary *)frame source:(NSString *)source session:(NSString *)identifier sequence:(uint64_t)sequence {
+    LCTapSyncSession *session = self.session;
+    if (!session || ![session.identifier isEqualToString:identifier] || ![session.source isEqualToString:source]) return;
+    NSUInteger coalesced = session.coalescedMoveCount;
+    LCTapSyncResult result = [session enqueueTouchFrame:frame fromSource:source session:identifier sequence:sequence
+        now:NSProcessInfo.processInfo.systemUptime];
+    if (result != LCTapSyncResultAccepted) { [self stopForEnqueueResult:result source:source]; return; }
+    [self recordQueueWithCoalescedMoves:session.coalescedMoveCount - coalesced];
+    [self sendNext];
+}
+- (void)stopForEnqueueResult:(LCTapSyncResult)result source:(NSString *)source {
+    NSArray *affected = result == LCTapSyncResultBusy && self.awaitingReplies.count ? self.awaitingReplies.array : @[source];
+    [self stopWithResult:result containers:affected];
 }
 - (void)sendNext {
     LCTapSyncSession *session = self.session;
     if (!self.active || !session || self.inFlightSequence) return;
     LCTapSyncResult result;
     NSDictionary *next = [session takeNextAtTime:NSProcessInfo.processInfo.systemUptime result:&result];
-    if (result != LCTapSyncResultAccepted) { [self stopWithResult:result]; return; }
+    if (result != LCTapSyncResultAccepted) { [self stopWithResult:result containers:@[]]; return; }
     if (!next) return;
     LCTouchSyncSample touch = {0};
+    LCMultiTouchSyncFrame frame = {0};
     BOOL isTouch = next[@"touch"] != nil;
-    if (isTouch && !LCTouchSyncDecode(next[@"touch"], &touch)) { [self stopWithResult:LCTapSyncResultInvalidGesture]; return; }
+    BOOL isFrame = next[@"frame"] != nil;
+    if ((isTouch && !LCTouchSyncDecode(next[@"touch"], &touch)) || (isFrame && !LCMultiTouchSyncDecode(next[@"frame"], &frame))) {
+        [self stopWithResult:LCTapSyncResultInvalidGesture containers:@[session.source]]; return;
+    }
     // Layout callbacks also validate geometry. A move does not need another full host window scan.
-    if (!isTouch || touch.phase == LCTouchSyncPhaseBegan) {
+    if ((!isTouch && !isFrame) || (isTouch && touch.phase == LCTouchSyncPhaseBegan) || (isFrame && LCMultiTouchSyncHasBoundary(frame))) {
         [self validateWindows];
         if (self.session != session) return;
     }
@@ -231,23 +326,35 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     // Coalescing may skip source move numbers; recipients still receive a contiguous delivery sequence.
     uint64_t sequence = ++self.deliverySequence;
     self.inFlightSequence = sequence;
-    BOOL completedAction = !isTouch || touch.phase == LCTouchSyncPhaseEnded;
+    BOOL completedAction = isFrame ? [next[@"completed"] boolValue] : !isTouch || touch.phase == LCTouchSyncPhaseEnded;
+    self.awaitingReplies = [NSMutableOrderedSet orderedSetWithArray:session.targets];
+    BOOL measure = self.collectsPerformanceData;
+    NSUInteger measurementGeneration = self.performanceGeneration;
+    NSTimeInterval sentAt = measure ? NSProcessInfo.processInfo.systemUptime : 0;
     self.replyTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     dispatch_source_set_timer(self.replyTimer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 10 * NSEC_PER_MSEC);
     __weak typeof(self) weakSelf = self;
     dispatch_source_set_event_handler(self.replyTimer, ^{
-        if (weakSelf.session == session && weakSelf.inFlightSequence == sequence) [weakSelf stopWithStatus:@"lc.tapSync.tooSlow"];
+        if (weakSelf.session == session && weakSelf.inFlightSequence == sequence) {
+            [weakSelf stopWithStatus:@"lc.tapSync.tooSlow" containers:weakSelf.awaitingReplies.array];
+        }
     });
     dispatch_resume(self.replyTimer);
     __block NSUInteger remaining = session.targets.count;
     for (NSString *container in session.targets) {
         void (^receiveReply)(LCTapSyncResult) = ^(LCTapSyncResult reply) {
             if (self.session != session || self.inFlightSequence != sequence) return;
-            if (reply != LCTapSyncResultAccepted) { [self stopWithResult:reply]; return; }
+            if (reply != LCTapSyncResultAccepted) { [self stopWithResult:reply containers:@[container]]; return; }
+            [self.awaitingReplies removeObject:container];
             if (--remaining != 0) return;
             self.inFlightSequence = 0;
             dispatch_source_cancel(self.replyTimer);
             self.replyTimer = nil;
+            if (measure && self.collectsPerformanceData && measurementGeneration == self.performanceGeneration) {
+                NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+                LCPerformanceRecordResponse(&self->_responseHistory, now, (now - sentAt) * 1000);
+                self.measuredPackets++;
+            }
             if (completedAction) {
                 self->_forwardedTapCount += 1;
                 [self changed];
@@ -255,11 +362,12 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
             [self sendNext];
         };
         LCTapSyncPeer *peer = [self.scenes objectForKey:container].tapSyncPeer;
-        if (isTouch) [peer replayTouch:next[@"touch"] session:session.identifier sequence:sequence reply:receiveReply];
+        if (isFrame) [peer replayTouchFrame:next[@"frame"] session:session.identifier sequence:sequence reply:receiveReply];
+        else if (isTouch) [peer replayTouch:next[@"touch"] session:session.identifier sequence:sequence reply:receiveReply];
         else [peer replayTap:next[@"tap"] session:session.identifier sequence:sequence reply:receiveReply];
     }
 }
-- (void)stopWithResult:(LCTapSyncResult)result {
+- (void)stopWithResult:(LCTapSyncResult)result containers:(NSArray<NSString *> *)containers {
     NSString *status = @"lc.tapSync.unavailable";
     switch (result) {
         case LCTapSyncResultUnsupported: status = @"lc.tapSync.unsupported"; break;
@@ -269,11 +377,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         case LCTapSyncResultStopped: status = @"lc.tapSync.paused"; break;
         case LCTapSyncResultInvalidGesture: status = @"lc.tapSync.gestureInterrupted"; break;
         case LCTapSyncResultMultipleTouches: status = @"lc.tapSync.multipleTouches"; break;
+        case LCTapSyncResultTooManyTouches: status = @"lc.tapSync.tooManyTouches"; break;
         default: break;
     }
-    [self stopWithStatus:status];
+    [self stopWithStatus:status containers:containers];
 }
-- (void)stopWithStatus:(NSString *)status {
+- (void)stopWithStatus:(NSString *)status containers:(NSArray<NSString *> *)containers {
+    _interruptedContainers = containers.copy ?: @[];
     LCTapSyncSession *session = self.session;
     self.session = nil;
     [session invalidate];
@@ -281,6 +391,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     self.inFlightSequence = 0;
     if (self.replyTimer) dispatch_source_cancel(self.replyTimer);
     self.replyTimer = nil;
+    self.awaitingReplies = nil;
     _active = NO;
     _starting = NO;
     _statusKey = status;
@@ -291,12 +402,28 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     }
     [self changed];
 }
-- (void)pause { [self stopWithStatus:@"lc.tapSync.paused"]; }
+- (void)pause { [self stopWithStatus:@"lc.tapSync.paused" containers:@[]]; }
 - (void)pauseForWindowChange {
-    if (self.session) [self stopWithStatus:@"lc.tapSync.layoutChanged"];
+    if (self.session) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[]];
+}
+- (void)pauseForChangeToContainer:(NSString *)container {
+    if (self.session) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[container]];
 }
 - (void)validateWindows {
-    if (self.session && ![self.geometry isEqual:[self currentGeometry]]) [self pauseForWindowChange];
+    if (self.session) {
+        NSString *problem;
+        NSArray *current = [self currentGeometryWithProblem:&problem];
+        if (![self.geometry isEqual:current]) {
+            NSMutableArray *affected = [NSMutableArray array];
+            if (problem) [affected addObject:problem];
+            else if (current.count == self.geometry.count) {
+                for (NSUInteger i = 3; i < current.count; i++) {
+                    if (![current[i] isEqual:self.geometry[i]]) [affected addObject:current[i][0]];
+                }
+            }
+            [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:affected];
+        }
+    }
     NSMutableArray *presentation = [NSMutableArray array];
     for (DecoratedAppSceneViewController *window in self.host.tapSyncWindows) {
         [presentation addObject:@[window.appSceneVC.dataUUID, [NSValue valueWithCGRect:window.view.frame],
@@ -308,6 +435,32 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     }
 }
 - (void)hostWillResignActive:(NSNotification *)note {
-    if (self.session) [self stopWithStatus:@"lc.tapSync.backgroundPaused"];
+    if (self.session) [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]];
+}
+- (void)setCollectsPerformanceData:(BOOL)collectsPerformanceData {
+    if (_collectsPerformanceData == collectsPerformanceData) return;
+    _collectsPerformanceData = collectsPerformanceData;
+    self.performanceGeneration++;
+}
+- (void)resetPerformanceData {
+    self.performanceGeneration++;
+    _responseHistory = (LCPerformanceResponseHistory){0};
+    self.measuredPackets = 0;
+    self.measuredCoalescedMoves = 0;
+    self.measuredQueuePeak = 0;
+}
+- (void)recordQueueWithCoalescedMoves:(NSUInteger)count {
+    if (!self.collectsPerformanceData) return;
+    self.measuredCoalescedMoves += count;
+    self.measuredQueuePeak = MAX(self.measuredQueuePeak, self.session.pendingCount);
+}
+- (NSDictionary *)performanceSnapshot {
+    double p50, p95;
+    unsigned count = LCPerformanceResponsePercentiles(&_responseHistory, NSProcessInfo.processInfo.systemUptime, &p50, &p95);
+    NSMutableDictionary *snapshot = [@{@"packets": @(self.measuredPackets), @"coalesced": @(self.measuredCoalescedMoves),
+        @"queuePeak": @(self.measuredQueuePeak), @"pending": @(self.session.pendingCount), @"inFlight": @(self.inFlightSequence != 0),
+        @"responseSamples": @(count), @"mode": @(self.mode), @"active": @(self.active), @"targets": @(self.targetContainers.count)} mutableCopy];
+    if (count) { snapshot[@"responseP50Ms"] = @(p50); snapshot[@"responseP95Ms"] = @(p95); }
+    return snapshot.copy;
 }
 @end

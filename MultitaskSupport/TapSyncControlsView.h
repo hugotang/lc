@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 API_AVAILABLE(ios(16.0))
 @interface LCTapSyncControlsView : UIView
 @property(nonatomic, copy, nullable) void (^configure)(void);
+@property(nonatomic) BOOL showsPerformance;
 - (void)refresh;
 - (void)placeInBounds:(CGRect)bounds safeAreaInsets:(UIEdgeInsets)insets;
 @end

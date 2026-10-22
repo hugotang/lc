@@ -98,6 +98,7 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
     NSMutableDictionary *group = [@{@"source": source.dataUUID, @"targets": validTargets.copy} mutableCopy];
     // Older or unknown modes use the conservative tap-only behavior.
     if ([value[@"mode"] isEqual:@"singleFinger"]) group[@"mode"] = @"singleFinger";
+    if ([value[@"mode"] isEqual:@"twoFingers"]) group[@"mode"] = @"twoFingers";
     return group.copy;
 }
 
@@ -321,7 +322,7 @@ static NSString *LCWorkspaceDisplayName(id value) {
     if (![self reload] || ![group isKindOfClass:NSDictionary.class]) return NO;
     LCNamedWorkspace *existing = [self workspaceWithIdentifier:identifier];
     if (!identifier || !existing) return NO;
-    if (group[@"mode"] && ![group[@"mode"] isEqual:@"singleFinger"] && ![group[@"mode"] isEqual:@"tapsOnly"]) return NO;
+    if (group[@"mode"] && ![group[@"mode"] isEqual:@"singleFinger"] && ![group[@"mode"] isEqual:@"twoFingers"] && ![group[@"mode"] isEqual:@"tapsOnly"]) return NO;
     NSDictionary *validated = LCWorkspaceTapSyncGroup(group, existing.snapshot.windows);
     if (group.count && !validated.count) return NO;
     if ([validated isEqual:existing.snapshot.tapSyncGroup]) return YES;

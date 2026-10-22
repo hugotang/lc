@@ -10,12 +10,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) LCTapSyncMode mode;
 @property(nonatomic, readonly, getter=isValid) BOOL valid;
 @property(nonatomic, readonly) NSUInteger pendingCount;
+@property(nonatomic, readonly) NSUInteger coalescedMoveCount;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets mode:(LCTapSyncMode)mode;
 - (LCTapSyncResult)enqueue:(NSDictionary *)tap fromSource:(NSString *)source session:(NSString *)session
                  sequence:(uint64_t)sequence now:(NSTimeInterval)now;
 - (LCTapSyncResult)enqueueTouch:(NSDictionary *)touch fromSource:(NSString *)source session:(NSString *)session
                       sequence:(uint64_t)sequence now:(NSTimeInterval)now;
+- (LCTapSyncResult)enqueueTouchFrame:(NSDictionary *)frame fromSource:(NSString *)source session:(NSString *)session
+                           sequence:(uint64_t)sequence now:(NSTimeInterval)now;
 // Returns a dictionary containing the original packet and sequence, in source order.
 - (nullable NSDictionary *)takeNextAtTime:(NSTimeInterval)now result:(LCTapSyncResult *)result;
 - (void)invalidate;

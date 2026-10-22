@@ -17,6 +17,10 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, readonly, getter=isStarting) BOOL starting;
 @property(nonatomic, readonly) NSUInteger forwardedTapCount;
 @property(nonatomic, copy, readonly) NSString *statusKey;
+@property(nonatomic, copy, readonly) NSArray<NSString *> *interruptedContainers;
+@property(nonatomic, readonly) NSDictionary<NSString *, LCTapSyncPeer *> *performancePeers;
+@property(nonatomic) BOOL collectsPerformanceData;
+@property(nonatomic, readonly) NSDictionary *performanceSnapshot;
 @property(nonatomic, copy, readonly) NSArray<LCWorkspaceWindow *> *availableWindows;
 @property(nonatomic, copy, readonly) NSDictionary *selectionPropertyList;
 @property(nonatomic, readonly) BOOL canStart;
@@ -25,10 +29,15 @@ API_AVAILABLE(ios(16.0))
 - (void)registerScene:(AppSceneViewController *)scene;
 - (void)unregisterScene:(AppSceneViewController *)scene;
 - (void)selectSource:(nullable NSString *)source targets:(NSArray<NSString *> *)targets;
+- (void)useAsSource:(NSString *)container NS_SWIFT_NAME(useAsSource(_:));
+- (void)removeTarget:(NSString *)container NS_SWIFT_NAME(removeTarget(_:));
+- (NSUInteger)windowNumberForContainer:(NSString *)container NS_SWIFT_NAME(windowNumber(forContainer:));
+- (void)resetPerformanceData;
 - (void)restoreSelection:(NSDictionary *)selection;
 - (void)start;
 - (void)pause;
 - (void)pauseForWindowChange;
+- (void)pauseForChangeToContainer:(NSString *)container;
 - (void)validateWindows;
 @end
 NS_ASSUME_NONNULL_END

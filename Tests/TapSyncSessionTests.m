@@ -15,7 +15,7 @@ static LCTapSyncResult enqueueTouch(LCTapSyncSession *session, uint64_t sequence
 }
 
 static void testSingleFingerSessions(void) {
-    assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:(LCTapSyncMode)2] == nil);
+    assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:(LCTapSyncMode)3] == nil);
     LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeSingleFinger];
     assert(session.mode == LCTapSyncModeSingleFinger);
     assert([session enqueue:tap(100) fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultInvalidGesture);
@@ -76,9 +76,101 @@ static void testSingleFingerSessions(void) {
     assert(enqueueTouch(taps, 1, 1, LCTouchSyncPhaseBegan, 164) == LCTapSyncResultInvalidGesture);
 }
 
+static LCTapSyncResult enqueueFrame(LCTapSyncSession *session, uint64_t sequence, LCMultiTouchSyncFrame frame) {
+    return [session enqueueTouchFrame:LCMultiTouchSyncEncode(frame) fromSource:@"A" session:session.identifier sequence:sequence now:frame.timestamp];
+}
+
+static void testTwoFingerSessions(void) {
+    LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B", @"C"] mode:LCTapSyncModeTwoFingers];
+    assert(session && session.mode == LCTapSyncModeTwoFingers);
+    LCMultiTouchSyncFrame frame = {.width = 200, .height = 400, .timestamp = 100, .orientation = 1, .count = 2,
+        .contacts = {{0.2, 0.5, 1, 1, LCMultiTouchSyncPhaseBegan}, {0.8, 0.5, 2, 1, LCMultiTouchSyncPhaseBegan}}};
+    NSDictionary *encoded = LCMultiTouchSyncEncode(frame);
+    assert(LCMultiTouchSyncDecode(encoded, NULL));
+    assert([session enqueue:tap(100) fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultInvalidGesture);
+    assert(enqueueTouch(session, 1, 1, LCTouchSyncPhaseBegan, 100) == LCTapSyncResultInvalidGesture);
+    assert([session enqueueTouchFrame:encoded fromSource:@"C" session:session.identifier sequence:1 now:100] == LCTapSyncResultStopped);
+    assert([session enqueueTouchFrame:encoded fromSource:@"A" session:@"old" sequence:1 now:100] == LCTapSyncResultStopped);
+    assert([session enqueueTouchFrame:encoded fromSource:@"A" session:session.identifier sequence:1 now:101] == LCTapSyncResultExpired);
+    for (id invalid in @[NSNull.null, @"bad", @[], @[encoded, encoded, encoded, encoded, encoded]]) {
+        NSMutableDictionary *packet = encoded.mutableCopy;
+        packet[@"contacts"] = invalid;
+        assert(!LCMultiTouchSyncDecode(packet, NULL));
+    }
+    for (NSString *key in @[@"contact", @"phase", @"tapCount"]) {
+        for (id invalid in @[@"1", @(NAN), @(INFINITY), @-1, @1.5, @(UINT64_MAX)]) {
+            NSMutableDictionary *packet = encoded.mutableCopy;
+            NSMutableArray *contacts = [encoded[@"contacts"] mutableCopy];
+            NSMutableDictionary *first = [contacts[0] mutableCopy];
+            first[key] = invalid;
+            contacts[0] = first;
+            packet[@"contacts"] = contacts;
+            assert(!LCMultiTouchSyncDecode(packet, NULL));
+        }
+    }
+    LCTapSyncSession *single = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeSingleFinger];
+    assert(enqueueFrame(single, 1, frame) == LCTapSyncResultInvalidGesture);
+    assert(enqueueFrame(session, 2, frame) == LCTapSyncResultExpired);
+    assert(enqueueFrame(session, 1, frame) == LCTapSyncResultAccepted);
+    for (uint64_t sequence = 2; sequence <= 99; sequence++) {
+        frame.timestamp = 100 + sequence / 1000.0;
+        unsigned moving = (unsigned)(sequence % 2);
+        frame.contacts[moving].x += 0.001;
+        frame.contacts[moving].phase = LCMultiTouchSyncPhaseMoved;
+        frame.contacts[1 - moving].phase = LCMultiTouchSyncPhaseStationary;
+        assert(enqueueFrame(session, sequence, frame) == LCTapSyncResultAccepted);
+    }
+    assert(session.pendingCount == 2 && session.coalescedMoveCount == 97);
+    frame.timestamp = 100.2;
+    frame.contacts[0].phase = LCMultiTouchSyncPhaseStationary;
+    frame.contacts[1].phase = LCMultiTouchSyncPhaseEnded;
+    assert(enqueueFrame(session, 100, frame) == LCTapSyncResultAccepted);
+    frame.timestamp = 100.21;
+    frame.contacts[1].identifier = 3;
+    frame.contacts[1].phase = LCMultiTouchSyncPhaseBegan;
+    assert(enqueueFrame(session, 101, frame) == LCTapSyncResultAccepted);
+    assert(session.pendingCount == 4);
+    frame.timestamp = 100.22;
+    frame.contacts[0].phase = LCMultiTouchSyncPhaseCancelled;
+    frame.contacts[1].phase = LCMultiTouchSyncPhaseEnded;
+    assert(enqueueFrame(session, 102, frame) == LCTapSyncResultBusy);
+    LCTapSyncResult result;
+    LCMultiTouchSyncStream receiver = {0};
+    for (NSNumber *sequence in @[@1, @99, @100, @101]) {
+        NSDictionary *packet = [session takeNextAtTime:100.25 result:&result];
+        assert(packet && result == LCTapSyncResultAccepted && [packet[@"sequence"] isEqual:sequence]);
+        LCMultiTouchSyncFrame received;
+        assert(LCMultiTouchSyncDecode(packet[@"frame"], &received));
+        assert(LCMultiTouchSyncAdvance(&receiver, received));
+        assert(![packet[@"completed"] boolValue]);
+    }
+    assert(receiver.count == 2 && receiver.lastContact == 3);
+    assert(enqueueFrame(session, 102, frame) == LCTapSyncResultAccepted);
+    NSDictionary *cancel = [session takeNextAtTime:100.25 result:&result];
+    assert(![cancel[@"completed"] boolValue]);
+    frame.count = 1;
+    frame.timestamp = 101;
+    frame.contacts[0].identifier = 4;
+    frame.contacts[0].phase = LCMultiTouchSyncPhaseBegan;
+    assert(enqueueFrame(session, 103, frame) == LCTapSyncResultAccepted);
+    assert([session takeNextAtTime:101 result:&result]);
+    frame.timestamp = 161;
+    frame.contacts[0].phase = LCMultiTouchSyncPhaseEnded;
+    assert(enqueueFrame(session, 104, frame) == LCTapSyncResultAccepted);
+    assert([[session takeNextAtTime:161 result:&result][@"completed"] boolValue]);
+    frame.timestamp = 162;
+    frame.contacts[0].identifier = 5;
+    frame.contacts[0].phase = LCMultiTouchSyncPhaseBegan;
+    assert(enqueueFrame(session, 105, frame) == LCTapSyncResultAccepted);
+    assert([session takeNextAtTime:163 result:&result] == nil && result == LCTapSyncResultExpired);
+    assert(!session.valid && session.pendingCount == 0);
+    assert(enqueueFrame(session, 106, frame) == LCTapSyncResultStopped);
+}
+
 int main(void) {
     @autoreleasepool {
         testSingleFingerSessions();
+        testTwoFingerSessions();
         assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[]] == nil);
         assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"A"]] == nil);
         assert(([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B", @"B"]] == nil));

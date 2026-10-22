@@ -37,14 +37,27 @@ import Combine
     func refresh() { revision &+= 1 }
 
     func selectSource(_ window: LCWorkspaceWindow) {
-        guard source != window.dataUUID else { return }
-        var updated: [String] = []
-        if let previous = sourceWindow, previous.bundleName == window.bundleName {
-            let available = Set(windows.filter { $0.bundleName == window.bundleName }.map(\.dataUUID))
-            updated = targets.filter { $0 != window.dataUUID && available.contains($0) }
-            if coordinator.canReplay(forContainer: previous.dataUUID) { updated.append(previous.dataUUID) }
+        coordinator.useAsSource(window.dataUUID)
+    }
+
+    @objc(windowMenuForContainer:) func windowMenu(forContainer container: String) -> UIMenu {
+        let useSource = UIAction(title: "lc.tapSync.useAsSource".loc, image: UIImage(systemName: "hand.point.up.left")) { [weak self] _ in
+            self?.coordinator.useAsSource(container)
         }
-        coordinator.selectSource(window.dataUUID, targets: updated)
+        useSource.state = source == container ? .on : .off
+        if source == container || !windows.contains(where: { $0.dataUUID == container }) || !coordinator.isReady(forContainer: container) {
+            useSource.attributes = .disabled
+        }
+        var actions: [UIMenuElement] = [useSource]
+        if targets.contains(container) {
+            actions.append(UIAction(title: "lc.tapSync.removeFollower".loc, image: UIImage(systemName: "minus.circle")) { [weak self] _ in
+                self?.coordinator.removeTarget(container)
+            })
+        }
+        actions.append(UIAction(title: "lc.tapSync.configure".loc, image: UIImage(systemName: "gearshape")) { [weak self] _ in
+            self?.presentPanel()
+        })
+        return UIMenu(title: "lc.tapSync.title".loc, options: .displayInline, children: actions)
     }
 
     func toggleTarget(_ window: LCWorkspaceWindow) {
@@ -79,6 +92,12 @@ import Combine
         // Input must start after the sheet has stopped covering the guest windows.
         controller.dismiss(animated: true) { [weak self] in self?.coordinator.start() }
     }
+
+    func dismissForMeasurement() -> Bool {
+        guard let presenter = panelController?.presentingViewController else { return false }
+        presenter.dismiss(animated: true)
+        return true
+    }
 }
 
 @available(iOS 16.0, *)
@@ -103,6 +122,25 @@ struct MultitaskTapSyncActions: View {
 }
 
 @available(iOS 16.0, *)
+struct MultitaskTapSyncWindowActions: View {
+    let container: String
+    @ObservedObject private var manager = MultitaskTapSyncManager.shared
+
+    var body: some View {
+        Button { manager.coordinator.useAsSource(container) } label: {
+            Label("lc.tapSync.useAsSource".loc, systemImage: "hand.point.up.left")
+        }
+        .disabled(manager.source == container || !manager.windows.contains(where: { $0.dataUUID == container }) ||
+                  !manager.coordinator.isReady(forContainer: container))
+        if manager.targets.contains(container) {
+            Button { manager.coordinator.removeTarget(container) } label: {
+                Label("lc.tapSync.removeFollower".loc, systemImage: "minus.circle")
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, *)
 private struct MultitaskTapSyncPanel: View {
     @ObservedObject private var manager = MultitaskTapSyncManager.shared
     @Environment(\.dismiss) private var dismiss
@@ -113,7 +151,22 @@ private struct MultitaskTapSyncPanel: View {
         NavigationStack {
             Form {
                 Section {
-                    Label(manager.coordinator.statusKey.loc, systemImage: manager.coordinator.mode == .singleFinger ? "hand.draw" : "hand.tap")
+                    Label(manager.coordinator.statusKey.loc, systemImage: manager.coordinator.mode == .tapsOnly ? "hand.tap" : "hand.draw")
+                    ForEach(manager.coordinator.interruptedContainers, id: \.self) { container in
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let window = manager.windows.first(where: { $0.dataUUID == container }) {
+                                MultitaskWorkspaceWindowRow(window: window, position: manager.position(of: window))
+                            } else {
+                                Label("lc.tapSync.affectedMissingWindow".localizeWithFormat(manager.coordinator.windowNumber(forContainer: container)),
+                                      systemImage: "exclamationmark.circle")
+                            }
+                            if manager.targets.contains(container) {
+                                Button("lc.tapSync.removeFollower".loc) { manager.coordinator.removeTarget(container) }
+                            } else if manager.source == container {
+                                Text("lc.tapSync.sourceNeedsAttention".loc).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     if manager.coordinator.forwardedTapCount > 0 {
                         Text("lc.tapSync.sentCount".localizeWithFormat(manager.coordinator.forwardedTapCount))
                             .font(.footnote).foregroundStyle(.secondary)
@@ -191,6 +244,9 @@ private struct MultitaskTapSyncPanel: View {
                     Text("lc.tapSync.controlsHelp".loc)
                 }
                 Section {
+                    MultitaskPerformanceActions()
+                }
+                Section {
                     DisclosureGroup("lc.tapSync.help".loc) {
                         Text("lc.tapSync.limitations".loc).font(.footnote)
                         Text("lc.tapSync.workspaceHelp".loc).font(.footnote)
@@ -239,12 +295,13 @@ private struct MultitaskTapSyncModeSection: View {
             Picker("lc.tapSync.mode".loc, selection: $mode) {
                 Text("lc.tapSync.mode.tapsOnly".loc).tag(LCTapSyncMode.tapsOnly)
                 Text("lc.tapSync.mode.singleFinger".loc).tag(LCTapSyncMode.singleFinger)
+                Text("lc.tapSync.mode.twoFingers".loc).tag(LCTapSyncMode.twoFingers)
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
         } header: {
             Text("lc.tapSync.mode".loc)
         } footer: {
-            Text((mode == .singleFinger ? "lc.tapSync.singleFingerHelp" : "lc.tapSync.tapsOnlyHelp").loc)
+            Text((mode == .twoFingers ? "lc.tapSync.twoFingersHelp" : mode == .singleFinger ? "lc.tapSync.singleFingerHelp" : "lc.tapSync.tapsOnlyHelp").loc)
         }
     }
 }
@@ -331,7 +388,7 @@ struct MultitaskSavedTapSyncEditor: View {
             let group = snapshot?.tapSyncGroup ?? [:]
             source = group["source"] as? String
             targets = group["targets"] as? [String] ?? []
-            mode = group["mode"] as? String == "singleFinger" ? .singleFinger : .tapsOnly
+            mode = group["mode"] as? String == "twoFingers" ? .twoFingers : group["mode"] as? String == "singleFinger" ? .singleFinger : .tapsOnly
             loaded = true
         }
     }
@@ -364,6 +421,7 @@ struct MultitaskSavedTapSyncEditor: View {
         if let source {
             group = ["source": source, "targets": targets]
             if mode == .singleFinger { group["mode"] = "singleFinger" }
+            if mode == .twoFingers { group["mode"] = "twoFingers" }
         }
         if manager.setTapSyncGroup(group, for: identifier) { dismiss() }
     }

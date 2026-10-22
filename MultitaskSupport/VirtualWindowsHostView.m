@@ -11,6 +11,7 @@
 #import "WindowKeyboardGeometry.h"
 #import "TapSyncCoordinator.h"
 #import "TapSyncControlsView.h"
+#import "PerformanceMonitor.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
@@ -188,6 +189,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic, strong) LCGridControlsOverlay *swapOverlay;
 @property(nonatomic, strong) LCGridControlsOverlay *tapSyncOverlay;
 @property(nonatomic, strong) LCTapSyncControlsView *tapSyncControls;
+@property(nonatomic, strong) LCGridControlsOverlay *performanceOverlay;
+@property(nonatomic, strong) LCTapSyncControlsView *performanceControls;
 @property(nonatomic, strong) NSMutableDictionary<NSString *, UILabel *> *tapSyncRoleLabels;
 @property(nonatomic, copy) NSArray<UIView *> *swapCandidates;
 @property(nonatomic, weak) UIView *selectedSwapWindow;
@@ -222,6 +225,9 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     self.keyboardOriginalFrames = [NSMapTable weakToStrongObjectsMapTable];
     self.wasKeyboardAvoidanceEnabled = self.keyboardAvoidanceEnabled;
     LCTapSyncCoordinator.shared.host = self;
+    LCPerformanceMonitor.shared.hostView = self;
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(performanceDidChange:)
+                                               name:LCPerformanceDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(tapSyncStateDidChange:)
                                                name:LCTapSyncDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(defaultsDidChange:)
@@ -289,6 +295,28 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     return windows.copy;
 }
 
+- (void)performanceDidChange:(NSNotification *)notification {
+    BOOL visible = LCPerformanceMonitor.shared.enabled;
+    if (visible && !self.performanceOverlay) {
+        self.performanceOverlay = [LCGridControlsOverlay new];
+        self.performanceControls = [LCTapSyncControlsView new];
+        self.performanceControls.showsPerformance = YES;
+        self.performanceControls.configure = ^{ [MultitaskPerformanceManager.shared presentPanel]; };
+        self.performanceOverlay.escapeHandler = ^{ LCPerformanceMonitor.shared.enabled = NO; };
+        [self.performanceOverlay addSubview:self.performanceControls];
+        [self addSubview:self.performanceOverlay];
+    }
+    self.performanceOverlay.hidden = !visible;
+    if (!visible) return;
+    [self.performanceControls refresh];
+    [self layoutPerformanceOverlay];
+    [self bringGridControlsToFront];
+}
+- (void)layoutPerformanceOverlay {
+    if (!self.performanceOverlay || self.performanceOverlay.hidden) return;
+    self.performanceOverlay.frame = self.bounds;
+    [self.performanceControls placeInBounds:self.bounds safeAreaInsets:self.safeAreaInsets];
+}
 - (void)tapSyncStateDidChange:(NSNotification *)notification {
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     BOOL visible = sync.sourceContainer && sync.targetContainers.count > 0 && self.tapSyncWindows.count > 0;
@@ -522,12 +550,14 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     if (self.dividerOverlay.superview == self) [super bringSubviewToFront:self.dividerOverlay];
     if (self.swapOverlay.superview == self) [super bringSubviewToFront:self.swapOverlay];
     if (self.tapSyncOverlay.superview == self) [super bringSubviewToFront:self.tapSyncOverlay];
+    if (self.performanceOverlay.superview == self) [super bringSubviewToFront:self.performanceOverlay];
 }
 
 - (void)didMoveToWindow {
     [super didMoveToWindow];
     if (!self.window) [self finishGridEditing];
     [LCTapSyncCoordinator.shared validateWindows];
+    [LCPerformanceMonitor.shared updateVisibility];
 }
 
 - (void)safeAreaInsetsDidChange {
@@ -560,6 +590,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     [self updateGridBackdrop];
     [LCTapSyncCoordinator.shared validateWindows];
     [self layoutTapSyncOverlay];
+    [self layoutPerformanceOverlay];
+    [LCPerformanceMonitor.shared updateVisibility];
 }
 
 - (void)setNeedsGridLayout {

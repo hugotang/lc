@@ -102,6 +102,15 @@ static void testTapSyncGroup(void) {
     plist[@"tapSync"] = gestureGroup;
     snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
     assert([snapshot.tapSyncGroup[@"mode"] isEqual:@"singleFinger"] && snapshot.tapSyncGroup.count == 3);
+    gestureGroup[@"mode"] = @"twoFingers";
+    plist[@"tapSync"] = gestureGroup;
+    snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+    assert([snapshot.tapSyncGroup[@"mode"] isEqual:@"twoFingers"] && snapshot.tapSyncGroup.count == 3);
+    NSData *multiData = [NSPropertyListSerialization dataWithPropertyList:snapshot.propertyList
+        format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    LCWindowWorkspace *multiCopy = [[LCWindowWorkspace alloc] initWithPropertyList:
+        [NSPropertyListSerialization propertyListWithData:multiData options:0 format:NULL error:nil]];
+    assert([multiCopy.tapSyncGroup isEqual:snapshot.tapSyncGroup]);
     copy = [[LCWindowWorkspace alloc] initWithPropertyList:snapshot.propertyList];
     assert([copy.tapSyncGroup isEqual:snapshot.tapSyncGroup]);
     for (id mode in @[@"tapsOnly", @"unknown-mode", @1, NSNull.null, @[]]) {

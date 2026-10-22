@@ -1194,6 +1194,8 @@ private struct DockGridActions: View {
         Divider()
         MultitaskTapSyncActions()
         Divider()
+        MultitaskPerformanceActions()
+        Divider()
         MultitaskWorkspaceActions()
     }
 
@@ -1422,6 +1424,9 @@ private struct DockWindowActions: View {
                     Label("lc.multitask.scale".loc, systemImage: "textformat.size")
                 }
             }
+        }
+        if vc.appSceneVC.isAppRunning {
+            MultitaskTapSyncWindowActions(container: app.appUUID)
         }
         DockGridActions(swapSourceWindow: isHidden ? nil : vc.view)
         Divider()

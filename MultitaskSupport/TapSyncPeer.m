@@ -4,6 +4,7 @@
 @property(nonatomic) NSXPCListener *listener;
 @property(nonatomic) NSXPCConnection *connection;
 @property(nonatomic) BOOL invalidated;
+@property(nonatomic) NSUUID *performanceRequest;
 @end
 
 @implementation LCTapSyncPeer
@@ -41,6 +42,7 @@
             NSXPCConnection *previous = weakConnection;
             if (!peer || !previous || peer.connection != previous) return;
             peer.connection = nil;
+            peer.performanceRequest = nil;
             peer->_ready = NO;
             peer->_canReplay = NO;
             [previous invalidate];
@@ -77,6 +79,12 @@
     NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (sender && self.connection == sender && self.ready && self.didInterrupt) self.didInterrupt(session, reason);
+    });
+}
+- (void)submitTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didReceiveTouchFrame) self.didReceiveTouchFrame(frame, session, sequence);
     });
 }
 - (void)sendWithReply:(void (^)(id<LCTapSyncGuestProtocol>, void (^)(LCTapSyncResult)))send
@@ -122,6 +130,7 @@
     self.invalidated = YES;
     NSXPCConnection *connection = self.connection;
     self.connection = nil;
+    self.performanceRequest = nil;
     _ready = NO;
     _canReplay = NO;
     [connection invalidate];
@@ -130,6 +139,33 @@
     self.stateDidChange = nil;
     self.didReceiveTap = nil;
     self.didReceiveTouch = nil;
+    self.didReceiveTouchFrame = nil;
     self.didInterrupt = nil;
+}
+- (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
+                  reply:(void (^)(LCTapSyncResult))reply {
+    [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
+        [proxy replayTouchFrame:frame session:session sequence:sequence reply:finish];
+    } reply:reply];
+}
+- (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply {
+    // A hung guest must not accumulate telemetry requests every second, or across
+    // repeatedly opening the monitor. Input forwarding has its own independent queue.
+    if (!self.ready || !self.connection || self.performanceRequest) { reply(nil); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.performanceRequest = request;
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *sample) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completed) return;
+            completed = YES;
+            BOOL current = self.connection == connection && self.performanceRequest == request;
+            if (self.performanceRequest == request) self.performanceRequest = nil;
+            reply(current && [sample isKindOfClass:NSDictionary.class] ? sample : nil);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
+    [proxy samplePerformanceWithReply:finish];
 }
 @end
