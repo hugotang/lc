@@ -38,10 +38,12 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
           "$RUNNER_TEMP/window-grid-order-tests"
-      - name: Test tap sync geometry and sessions
+      - name: Test input sync geometry and sessions
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TapSyncGeometryTests.c -lm -o "$RUNNER_TEMP/tap-sync-geometry-tests"
           "$RUNNER_TEMP/tap-sync-geometry-tests"
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TouchSyncGeometryTests.c -lm -o "$RUNNER_TEMP/touch-sync-geometry-tests"
+          "$RUNNER_TEMP/touch-sync-geometry-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSession.m Tests/TapSyncSessionTests.m -o "$RUNNER_TEMP/tap-sync-session-tests"
           "$RUNNER_TEMP/tap-sync-session-tests"
       - name: Test app language selection

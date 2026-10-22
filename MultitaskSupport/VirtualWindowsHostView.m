@@ -10,6 +10,7 @@
 #import "WindowGridOrder.h"
 #import "WindowKeyboardGeometry.h"
 #import "TapSyncCoordinator.h"
+#import "TapSyncControlsView.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
@@ -186,7 +187,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic, strong) LCGridControlsOverlay *dividerOverlay;
 @property(nonatomic, strong) LCGridControlsOverlay *swapOverlay;
 @property(nonatomic, strong) LCGridControlsOverlay *tapSyncOverlay;
-@property(nonatomic, strong) UIButton *tapSyncButton;
+@property(nonatomic, strong) LCTapSyncControlsView *tapSyncControls;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, UILabel *> *tapSyncRoleLabels;
 @property(nonatomic, copy) NSArray<UIView *> *swapCandidates;
 @property(nonatomic, weak) UIView *selectedSwapWindow;
 @property(nonatomic, weak) LCGridDividerView *activeDivider;
@@ -293,39 +295,65 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     if (visible && !self.tapSyncOverlay) {
         self.tapSyncOverlay = [LCGridControlsOverlay new];
         self.tapSyncOverlay.escapeHandler = ^{ [LCTapSyncCoordinator.shared pause]; };
-        self.tapSyncButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [self.tapSyncButton addTarget:self action:@selector(tapSyncButtonPressed) forControlEvents:UIControlEventTouchUpInside];
-        self.tapSyncButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-        self.tapSyncButton.titleLabel.adjustsFontForContentSizeCategory = YES;
-        [self.tapSyncOverlay addSubview:self.tapSyncButton];
+        self.tapSyncControls = [LCTapSyncControlsView new];
+        self.tapSyncControls.configure = ^{ [MultitaskTapSyncManager.shared presentPanel]; };
+        self.tapSyncRoleLabels = [NSMutableDictionary dictionary];
+        [self.tapSyncOverlay addSubview:self.tapSyncControls];
         [self addSubview:self.tapSyncOverlay];
     }
     self.tapSyncOverlay.hidden = !visible;
     if (!visible) return;
-    UIButtonConfiguration *configuration = UIButtonConfiguration.filledButtonConfiguration;
-    configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    configuration.imagePadding = 6;
-    configuration.baseBackgroundColor = sync.active ? UIColor.systemOrangeColor : UIColor.systemBlueColor;
-    configuration.image = [UIImage systemImageNamed:sync.active || sync.starting ? @"pause.fill" : @"hand.tap"];
-    configuration.title = sync.starting ? @"lc.tapSync.starting".loc : sync.active ?
-        [NSString localizedStringWithFormat:@"lc.tapSync.overlayActive".loc, (long)sync.targetContainers.count] : @"lc.tapSync.overlayPaused".loc;
-    self.tapSyncButton.configuration = configuration;
-    self.tapSyncButton.accessibilityLabel = configuration.title;
-    self.tapSyncButton.accessibilityHint = (sync.active || sync.starting ? @"lc.tapSync.pause" : @"lc.tapSync.configure").loc;
+    [self.tapSyncControls refresh];
+    NSNumber *showRoles = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCTapSyncShowWindowRoles"];
+    NSMutableSet *labelled = [NSMutableSet set];
+    NSUInteger position = 0;
+    for (DecoratedAppSceneViewController *window in self.tapSyncWindows) {
+        position += 1;
+        NSString *container = window.appSceneVC.dataUUID;
+        BOOL source = [sync.sourceContainer isEqualToString:container];
+        if ((showRoles && !showRoles.boolValue) || (!source && ![sync.targetContainers containsObject:container])) continue;
+        [labelled addObject:container];
+        UILabel *label = self.tapSyncRoleLabels[container];
+        if (!label) {
+            label = [UILabel new];
+            label.userInteractionEnabled = NO;
+            label.isAccessibilityElement = YES;
+            label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption2];
+            label.adjustsFontForContentSizeCategory = YES;
+            label.textAlignment = NSTextAlignmentCenter;
+            label.layer.cornerRadius = 6;
+            label.clipsToBounds = YES;
+            self.tapSyncRoleLabels[container] = label;
+            [self.tapSyncOverlay addSubview:label];
+        }
+        label.text = [NSString stringWithFormat:@"%lu · %@", (unsigned long)position, (source ? @"lc.tapSync.source" : @"lc.tapSync.follower").loc];
+        label.backgroundColor = source ? UIColor.systemBlueColor : UIColor.darkGrayColor;
+        label.textColor = UIColor.whiteColor;
+        label.alpha = sync.active ? 1 : 0.85;
+    }
+    for (NSString *container in self.tapSyncRoleLabels.allKeys) {
+        if ([labelled containsObject:container]) continue;
+        [self.tapSyncRoleLabels[container] removeFromSuperview];
+        [self.tapSyncRoleLabels removeObjectForKey:container];
+    }
+    [self.tapSyncOverlay bringSubviewToFront:self.tapSyncControls];
     [self layoutTapSyncOverlay];
     [self bringGridControlsToFront];
 }
 - (void)layoutTapSyncOverlay {
     if (!self.tapSyncOverlay || self.tapSyncOverlay.hidden) return;
     self.tapSyncOverlay.frame = self.bounds;
-    CGFloat width = MAX(0, self.bounds.size.width - self.safeAreaInsets.left - self.safeAreaInsets.right - 16);
-    CGSize size = [self.tapSyncButton sizeThatFits:CGSizeMake(width, CGFLOAT_MAX)];
-    self.tapSyncButton.frame = CGRectMake(CGRectGetMinX(self.bounds) + self.safeAreaInsets.left + 8,
-        CGRectGetMinY(self.bounds) + self.safeAreaInsets.top + 8, MIN(width, size.width), MAX(44, size.height));
-}
-- (void)tapSyncButtonPressed {
-    if (LCTapSyncCoordinator.shared.active || LCTapSyncCoordinator.shared.starting) [LCTapSyncCoordinator.shared pause];
-    else [MultitaskTapSyncManager.shared presentPanel];
+    [self.tapSyncControls placeInBounds:self.tapSyncOverlay.bounds safeAreaInsets:self.safeAreaInsets];
+    for (NSString *container in self.tapSyncRoleLabels) {
+        UILabel *label = self.tapSyncRoleLabels[container];
+        DecoratedAppSceneViewController *window = [self windowForContainer:container];
+        label.hidden = !window || window.view.hidden || window.view.alpha == 0;
+        if (label.hidden) continue;
+        CGRect frame = [window.appSceneVC.view convertRect:window.appSceneVC.view.bounds toView:self.tapSyncOverlay];
+        CGSize size = [label sizeThatFits:CGSizeMake(MAX(0, frame.size.width - 12), CGFLOAT_MAX)];
+        label.frame = CGRectMake(frame.origin.x + 6, frame.origin.y + 6,
+            MIN(MAX(0, frame.size.width - 12), size.width + 10), size.height + 6);
+    }
 }
 
 - (BOOL)canAdjustGridDividers {
@@ -429,6 +457,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 
 - (void)defaultsDidChange:(NSNotification *)notification {
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.tapSyncOverlay) [self tapSyncStateDidChange:nil];
         BOOL enabled = self.automaticallyTilesWindows;
         BOOL singleRow = self.singleRowInLandscape;
         BOOL reserveTop = self.reservePortraitTop, reserveBottom = self.reservePortraitBottom;

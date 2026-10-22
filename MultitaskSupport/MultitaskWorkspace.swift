@@ -74,6 +74,19 @@ final class MultitaskWorkspaceManager: ObservableObject {
         presentSuccess("lc.workspace.layoutSaved".loc)
     }
 
+    @discardableResult
+    func setTapSyncGroup(_ group: [String: Any], for identifier: String) -> Bool {
+        guard !isRestoring, currentWorkspace(identifier) != nil, let library else { return false }
+        guard library.setTapSyncGroup(group, for: identifier) else {
+            refreshList()
+            presentResult("lc.workspace.saveFailed".loc)
+            return false
+        }
+        refreshList()
+        presentSuccess("lc.tapSync.groupSaved".loc)
+        return true
+    }
+
     func update(_ identifier: String) {
         guard !isRestoring, let entry = currentWorkspace(identifier), let library else { return }
         guard let snapshot = MultitaskDockManager.shared.windowHostingView.captureWorkspace() else {
@@ -613,6 +626,22 @@ private struct MultitaskWorkspaceDetailView: View {
                         Text("lc.multitask.portraitReservedAreas".loc)
                     } footer: {
                         Text("lc.workspace.layoutAutosave".loc)
+                    }
+                    Section {
+                        NavigationLink {
+                            MultitaskSavedTapSyncEditor(identifier: identifier)
+                        } label: {
+                            HStack {
+                                Label("lc.tapSync.savedGroup".loc, systemImage: "hand.draw")
+                                Spacer()
+                                Text(workspace.snapshot.tapSyncGroup.isEmpty ? "lc.common.none".loc :
+                                    (workspace.snapshot.tapSyncGroup["mode"] as? String == "singleFinger" ?
+                                        "lc.tapSync.mode.singleFinger".loc : "lc.tapSync.mode.tapsOnly".loc))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } footer: {
+                        Text("lc.tapSync.workspaceHelp".loc)
                     }
                     Section {
                         ForEach(Array(workspace.snapshot.windows.enumerated()), id: \.element.dataUUID) { index, window in

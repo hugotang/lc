@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) BOOL singleRowInLandscape;
 @property(nonatomic, readonly) BOOL reservePortraitTop;
 @property(nonatomic, readonly) BOOL reservePortraitBottom;
-// Only the source/target container identifiers are saved; restoring never enables input forwarding.
+// Only container identifiers and the input mode are saved; restoring never enables input forwarding.
 @property(nonatomic, copy, readonly) NSDictionary *tapSyncGroup;
 @property(nonatomic, copy, readonly) NSDictionary *propertyList;
 - (nullable instancetype)initWithPropertyList:(nullable id)propertyList;
@@ -53,6 +53,8 @@ typedef NS_ENUM(NSInteger, LCWorkspaceLayoutPreference) {
 // Patch one saved preference without capturing live windows or changing library order.
 - (BOOL)setLayoutPreference:(LCWorkspaceLayoutPreference)preference enabled:(BOOL)enabled
                forWorkspace:(NSString *)identifier NS_SWIFT_NAME(setLayoutPreference(_:enabled:for:));
+// Patch the saved group without recapturing live windows, changing layout preferences, or moving the entry.
+- (BOOL)setTapSyncGroup:(NSDictionary *)group forWorkspace:(NSString *)identifier NS_SWIFT_NAME(setTapSyncGroup(_:for:));
 - (BOOL)removeWorkspace:(NSString *)identifier NS_SWIFT_NAME(remove(_:));
 @end
 

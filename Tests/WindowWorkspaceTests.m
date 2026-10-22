@@ -94,6 +94,22 @@ static void testTapSyncGroup(void) {
     LCWindowWorkspace *copy = [[LCWindowWorkspace alloc] initWithPropertyList:
         [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:nil]];
     assert([copy.tapSyncGroup isEqual:group]);
+    NSMutableDictionary *gestureGroup = group.mutableCopy;
+    gestureGroup[@"mode"] = @"singleFinger";
+    gestureGroup[@"active"] = @YES;
+    gestureGroup[@"contact"] = @123;
+    gestureGroup[@"queue"] = @[@1];
+    plist[@"tapSync"] = gestureGroup;
+    snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+    assert([snapshot.tapSyncGroup[@"mode"] isEqual:@"singleFinger"] && snapshot.tapSyncGroup.count == 3);
+    copy = [[LCWindowWorkspace alloc] initWithPropertyList:snapshot.propertyList];
+    assert([copy.tapSyncGroup isEqual:snapshot.tapSyncGroup]);
+    for (id mode in @[@"tapsOnly", @"unknown-mode", @1, NSNull.null, @[]]) {
+        gestureGroup[@"mode"] = mode;
+        plist[@"tapSync"] = gestureGroup;
+        snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+        assert([snapshot.tapSyncGroup isEqual:group]);
+    }
     // Active state and pending input must never be restored, even if inserted into a property list.
     plist[@"tapSync"] = @{@"source": @"B", @"targets": @[@"C", @"A"], @"active": @YES, @"queue": @[@1]};
     snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];

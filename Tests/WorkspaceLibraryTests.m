@@ -203,6 +203,7 @@ static void testUnreadableDataIsPreserved(NSUserDefaults *defaults) {
         assert(openLibrary(defaults) == nil);
         assert([existing saveWorkspace:snapshot(@"Z", NO) name:@"New" replacingIdentifier:nil] == nil);
         assert(![existing setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:entry[@"id"]]);
+        assert(![existing setTapSyncGroup:@{} forWorkspace:entry[@"id"]]);
         assert([[defaults objectForKey:@"LCWorkspaceLibrary"] isEqual:corrupt]);
     }
     [defaults removeObjectForKey:@"LCWorkspaceLibrary"];
@@ -235,6 +236,40 @@ static void testTapSyncGroupPreserved(NSUserDefaults *defaults) {
     assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:duplicate.identifier]);
     assert([[library workspaceWithIdentifier:duplicate.identifier].snapshot.tapSyncGroup isEqual:group]);
     assert(![library workspaceWithIdentifier:updated.identifier].snapshot.reservePortraitBottom);
+    NSArray *order = [library.workspaces valueForKey:@"identifier"];
+    NSDictionary *gestureGroup = @{@"source": @"First", @"targets": @[@"Second"], @"mode": @"singleFinger"};
+    // A stale editor patches the current record, keeping a newer name, layout and library order.
+    assert([library renameWorkspace:updated.identifier name:@"Latest name"]);
+    assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:updated.identifier]);
+    assert([staleReader setTapSyncGroup:gestureGroup forWorkspace:updated.identifier]);
+    assert([library reload]);
+    updated = [library workspaceWithIdentifier:updated.identifier];
+    assert([updated.snapshot.tapSyncGroup isEqual:gestureGroup]);
+    assert([updated.name isEqual:@"Latest name"] && updated.snapshot.reservePortraitBottom && !updated.snapshot.reservePortraitTop);
+    assert([[library.workspaces valueForKey:@"identifier"] isEqual:order]);
+    assert([updated.snapshot.proportions isEqual:base.proportions] && updated.snapshot.windows.count == 2);
+    assert([[library workspaceWithIdentifier:duplicate.identifier].snapshot.tapSyncGroup isEqual:group]);
+    for (NSDictionary *invalid in @[@{@"source": @"First", @"targets": @[@"Missing"]},
+                                     @{@"source": @"First", @"targets": @[@"First"]},
+                                     @{@"source": @"First", @"targets": @[@"Second"], @"mode": @"all"}]) {
+        NSDictionary *before = [defaults objectForKey:@"LCWorkspaceLibrary"];
+        assert(![staleReader setTapSyncGroup:invalid forWorkspace:updated.identifier]);
+        assert([[defaults objectForKey:@"LCWorkspaceLibrary"] isEqual:before]);
+    }
+    LCNamedWorkspace *gestureCopy = [library saveWorkspace:updated.snapshot name:@"Gesture copy" replacingIdentifier:nil];
+    assert([gestureCopy.snapshot.tapSyncGroup isEqual:gestureGroup]);
+    assert([staleReader setTapSyncGroup:@{} forWorkspace:updated.identifier]);
+    assert([library reload]);
+    updated = [library workspaceWithIdentifier:updated.identifier];
+    assert(updated.snapshot.tapSyncGroup.count == 0 && updated.snapshot.reservePortraitBottom && !updated.snapshot.reservePortraitTop);
+    assert([[library workspaceWithIdentifier:gestureCopy.identifier].snapshot.tapSyncGroup isEqual:gestureGroup]);
+    // A window replacement while the editor is open must not be undone to revive its old group.
+    LCNamedWorkspace *replacement = [library saveWorkspace:snapshot(@"Replacement", NO) name:updated.name replacingIdentifier:updated.identifier];
+    assert(replacement);
+    assert(![staleReader setTapSyncGroup:gestureGroup forWorkspace:updated.identifier]);
+    assert([staleReader workspaceWithIdentifier:updated.identifier].snapshot.windows.count == 1);
+    assert([library removeWorkspace:updated.identifier]);
+    assert(![staleReader setTapSyncGroup:@{} forWorkspace:updated.identifier]);
 }
 
 int main(void) {

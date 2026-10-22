@@ -32540,19 +32540,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Syncing taps from the source window."
+            "value" : "Syncing input from the source window."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在同步主控窗口的点按。"
+            "value" : "正在同步来源窗口的操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在同步主控視窗的點按。"
+            "value" : "正在同步來源視窗的操作。"
           }
         }
       }
@@ -32615,13 +32615,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请选择一个主控窗口和至少一个跟随窗口。"
+            "value" : "请选择一个来源窗口和至少一个接收窗口。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請選擇一個主控視窗和至少一個跟隨視窗。"
+            "value" : "請選擇一個來源視窗和至少一個接收視窗。"
           }
         }
       }
@@ -32649,25 +32649,71 @@
         }
       }
     },
+    "lc.tapSync.compactControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compact Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精简显示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精簡顯示"
+          }
+        }
+      }
+    },
     "lc.tapSync.configure" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Configure Tap Sync"
+            "value" : "Sync Settings"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设置同步点按"
+            "value" : "同步设置"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "設定同步點按"
+            "value" : "同步設定"
+          }
+        }
+      }
+    },
+    "lc.tapSync.controlsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。"
           }
         }
       }
@@ -32678,19 +32724,65 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After a short, single-finger tap in the source window, replay its relative position in selected windows of the same app."
+            "value" : "Align the selected windows on the same app screen, choose a mode, then start syncing from the source window."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在主控窗口完成单指短点按后，将相对位置重播到选定的同一 App 窗口。"
+            "value" : "请让选定窗口进入相同的 App 画面，选择模式后，开始同步来源窗口的操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在主控視窗完成單指短點按後，將相對位置重播到選定的同一 App 視窗。"
+            "value" : "請讓選定視窗進入相同的 App 畫面，選擇模式後，開始同步來源視窗的操作。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.dragControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag to move the controls, or use the accessibility actions to choose a corner."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动可移动控制，也可使用辅助功能操作选择角落。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖動可移動控制項，也可使用輔助使用動作選擇角落。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.floatingControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Floating Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮动控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浮動控制"
           }
         }
       }
@@ -32701,19 +32793,65 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap Sync Follower"
+            "value" : "Follower"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步点按跟随窗口"
+            "value" : "接收窗口"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步點按跟隨視窗"
+            "value" : "接收視窗"
+          }
+        }
+      }
+    },
+    "lc.tapSync.gestureInterrupted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused because the gesture was interrupted. Align the screens before resuming."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手势中断，已暂停同步。请对齐画面后继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手勢中斷，已暫停同步。請對齊畫面後繼續。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.groupSaved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync group saved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步分组已保存。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步群組已儲存。"
           }
         }
       }
@@ -32724,19 +32862,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How Tap Sync Works"
+            "value" : "How Input Sync Works"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步点按说明"
+            "value" : "同步操作说明"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步點按說明"
+            "value" : "同步操作說明"
           }
         }
       }
@@ -32793,19 +32931,226 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This version supports short, single-finger taps. Swipes, long presses, multiple fingers and keyboard input are not replayed. Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs and loading differences are not corrected automatically. Device and app compatibility varies; the forwarded count does not confirm that the app performed the intended action."
+            "value" : "Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs, loading and account differences are not corrected automatically. System gestures, multiple fingers, pointers and keyboard input are not replayed. Compatibility varies by app; the count confirms delivery, not the resulting app action."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此版本支持单指短点按，不重播滑动、长按、多指或键盘输入。请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放；弹窗与加载差异不会自动校正。兼容性因设备和 App 而异，转送计数不代表 App 已完成对应操作。"
+            "value" : "请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放。弹窗、加载与账号差异不会自动校正。系统手势、多指、指针和键盘输入不参与同步。兼容性因 App 而异，计数表示操作已转送，不代表 App 已完成对应操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此版本支援單指短點按，不重播滑動、長按、多指或鍵盤輸入。請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放；彈窗與載入差異不會自動校正。相容性因裝置和 App 而異，轉送計數不代表 App 已完成對應操作。"
+            "value" : "請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放。彈窗、載入與帳號差異不會自動校正。系統手勢、多指、指標和鍵盤輸入不參與同步。相容性因 App 而異，計數表示操作已轉送，不代表 App 已完成對應操作。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Mode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步模式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步模式"
+          }
+        }
+      }
+    },
+    "lc.tapSync.mode.singleFinger" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single Finger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单指手势"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "單指手勢"
+          }
+        }
+      }
+    },
+    "lc.tapSync.mode.tapsOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taps Only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅点按"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅點按"
+          }
+        }
+      }
+    },
+    "lc.tapSync.moveBottomLeft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Bottom Left"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至左下角"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至左下角"
+          }
+        }
+      }
+    },
+    "lc.tapSync.moveBottomRight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Bottom Right"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至右下角"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至右下角"
+          }
+        }
+      }
+    },
+    "lc.tapSync.moveTopLeft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Top Left"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至左上角"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至左上角"
+          }
+        }
+      }
+    },
+    "lc.tapSync.moveTopRight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Top Right"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至右上角"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移至右上角"
+          }
+        }
+      }
+    },
+    "lc.tapSync.multipleTouches" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: more than one finger was detected. This mode supports one finger at a time."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到多指触控，已暂停。此模式一次支持一根手指。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偵測到多指觸控，已暫停。此模式一次支援一根手指。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.noSavedTargets" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This workspace needs another container of the same app. Update its saved windows first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 workspace 需要包含同一 App 的另一个容器。请先更新已保存的窗口。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 workspace 需要包含同一 App 的另一個容器。請先更新已儲存的視窗。"
           }
         }
       }
@@ -32822,13 +33167,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请再打开此 App 的另一个可见容器作为跟随窗口。"
+            "value" : "请再打开此 App 的另一个容器，并让接收窗口保持可见。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請再開啟此 App 的另一個可見容器作為跟隨視窗。"
+            "value" : "請再開啟此 App 的另一個容器，並讓接收視窗保持可見。"
           }
         }
       }
@@ -32885,19 +33230,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sync to %ld · Pause"
+            "value" : "Syncing · 1 → %ld"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步至 %ld 个 · 暂停"
+            "value" : "同步中 · 1 → %ld"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步至 %ld 個 · 暫停"
+            "value" : "同步中 · 1 → %ld"
           }
         }
       }
@@ -32908,19 +33253,42 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sync paused · Settings"
+            "value" : "Sync paused"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步已暂停 · 设置"
+            "value" : "同步已暂停"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步已暫停 · 設定"
+            "value" : "同步已暫停"
+          }
+        }
+      }
+    },
+    "lc.tapSync.overlayResume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume · 1 → %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续 · 1 → %ld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續 · 1 → %ld"
           }
         }
       }
@@ -32931,19 +33299,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pause Tap Sync"
+            "value" : "Pause Sync"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暂停同步点按"
+            "value" : "暂停同步"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暫停同步點按"
+            "value" : "暫停同步"
           }
         }
       }
@@ -32954,19 +33322,65 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap sync is paused."
+            "value" : "Sync is paused."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步点按已暂停。"
+            "value" : "同步已暂停。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步點按已暫停。"
+            "value" : "同步已暫停。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.removeMissingTargets" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove %ld Followers Not Shown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除 %ld 个未显示的接收窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除 %ld 個未顯示的接收視窗"
+          }
+        }
+      }
+    },
+    "lc.tapSync.resetControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Control Positions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置控制位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設控制位置"
           }
         }
       }
@@ -32977,7 +33391,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Group restored. Align the app screens, then start tap sync."
+            "value" : "Group restored. Align the app screens, then start syncing."
           }
         },
         "zh-Hans" : {
@@ -32994,25 +33408,117 @@
         }
       }
     },
+    "lc.tapSync.resume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續同步"
+          }
+        }
+      }
+    },
+    "lc.tapSync.saveGroup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存"
+          }
+        }
+      }
+    },
+    "lc.tapSync.savedGroup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Group"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步分组"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步群組"
+          }
+        }
+      }
+    },
+    "lc.tapSync.savedGroupHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit this workspace’s source, followers and sync mode, then tap Save. Restoring the workspace keeps sync paused."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑此 workspace 的来源、接收窗口和同步模式，再点按“保存”。还原后同步保持暂停。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯此 workspace 的來源、接收視窗和同步模式，再點按「儲存」。還原後同步保持暫停。"
+          }
+        }
+      }
+    },
     "lc.tapSync.selectAll" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Select All Available Followers"
+            "value" : "Select All Followers"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选取所有可用跟随窗口"
+            "value" : "选取所有接收窗口"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "選取所有可用跟隨視窗"
+            "value" : "選取所有接收視窗"
           }
         }
       }
@@ -33023,19 +33529,65 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%ld taps forwarded to all selected followers"
+            "value" : "%ld actions forwarded to all selected followers"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已向所有选定跟随窗口转送 %ld 次点按"
+            "value" : "已向所有选定接收窗口转送 %ld 次操作"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已向所有選定跟隨視窗轉送 %ld 次點按"
+            "value" : "已向所有選定接收視窗轉送 %ld 次操作"
+          }
+        }
+      }
+    },
+    "lc.tapSync.showWindowRoles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Source and Follower Labels"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示来源和接收窗口标记"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示來源和接收視窗標記"
+          }
+        }
+      }
+    },
+    "lc.tapSync.singleFingerHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync taps, swipes, scrolling, dragging and long presses as they happen. A second finger or keyboard input pauses sync."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即时同步点按、滑动、滚动、拖动及长按。多指触控或键盘输入会暂停同步。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即時同步點按、滑動、捲動、拖曳及長按。多指觸控或鍵盤輸入會暫停同步。"
           }
         }
       }
@@ -33052,13 +33604,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主控窗口"
+            "value" : "来源窗口"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主控視窗"
+            "value" : "來源視窗"
           }
         }
       }
@@ -33069,19 +33621,42 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only taps in this window are forwarded. Changing the layout, leaving the foreground or touching a follower pauses sync."
+            "value" : "Input in this window is forwarded. Changing the layout, leaving the foreground or touching a follower pauses sync. Switching to another source in the same app keeps the other selected windows."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只转送此窗口内的点按。调整布局、离开前台或直接操作跟随窗口时会暂停同步。"
+            "value" : "将转送此窗口内的操作。调整布局、离开前台或直接操作接收窗口会暂停同步。切换到同一 App 的其他来源窗口时，会保留其余选定窗口。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "只轉送此視窗內的點按。調整佈局、離開前景或直接操作跟隨視窗時會暫停同步。"
+            "value" : "將轉送此視窗內的操作。調整佈局、離開前景或直接操作接收視窗會暫停同步。切換到同一 App 的其他來源視窗時，會保留其餘選定視窗。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.sourceMissing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The source window is not shown. Restore it or select another source."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源窗口目前未显示。请还原窗口或重新选择来源。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "來源視窗目前未顯示。請還原視窗或重新選擇來源。"
           }
         }
       }
@@ -33092,19 +33667,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start Tap Sync"
+            "value" : "Start Sync"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动同步点按"
+            "value" : "开始同步"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "啟動同步點按"
+            "value" : "開始同步"
           }
         }
       }
@@ -33132,6 +33707,29 @@
         }
       }
     },
+    "lc.tapSync.tapsOnlyHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat short single-finger taps. Swipes, drags and long presses are not forwarded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步单指短点按。滑动、拖动及长按不会转送。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步單指短點按。滑動、拖曳及長按不會轉送。"
+          }
+        }
+      }
+    },
     "lc.tapSync.targets" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33144,13 +33742,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跟随窗口（%ld）"
+            "value" : "接收窗口（%ld）"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跟隨視窗（%ld）"
+            "value" : "接收視窗（%ld）"
           }
         }
       }
@@ -33184,19 +33782,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap Sync (Experimental)"
+            "value" : "Input Sync (Experimental)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步点按（实验性）"
+            "value" : "同步操作（实验性）"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步點按（實驗性）"
+            "value" : "同步操作（實驗性）"
           }
         }
       }
@@ -33276,19 +33874,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Workspaces remember the source and followers, and restore with tap sync paused. Wait for every app to reach the same screen before starting."
+            "value" : "Workspaces remember the source, followers and sync mode, and always restore paused. Wait for every app to reach the same screen before starting."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Workspace 会记住主控和跟随窗口，恢复时保持暂停。待所有 App 加载到相同画面后，再启动同步。"
+            "value" : "Workspace 会记住来源、接收窗口和同步模式，恢复后保持暂停。待所有 App 进入相同画面，再开始同步。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Workspace 會記住主控和跟隨視窗，恢復時保持暫停。待所有 App 載入到相同畫面後，再啟動同步。"
+            "value" : "Workspace 會記住來源、接收視窗和同步模式，還原後保持暫停。待所有 App 進入相同畫面，再開始同步。"
           }
         }
       }

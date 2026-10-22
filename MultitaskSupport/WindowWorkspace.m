@@ -95,7 +95,10 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
         [seen addObject:target];
         [validTargets addObject:window.dataUUID];
     }
-    return @{@"source": source.dataUUID, @"targets": validTargets.copy};
+    NSMutableDictionary *group = [@{@"source": source.dataUUID, @"targets": validTargets.copy} mutableCopy];
+    // Older or unknown modes use the conservative tap-only behavior.
+    if ([value[@"mode"] isEqual:@"singleFinger"]) group[@"mode"] = @"singleFinger";
+    return group.copy;
 }
 
 @implementation LCWindowWorkspace
@@ -304,6 +307,26 @@ static NSString *LCWorkspaceDisplayName(id value) {
     propertyList[@"singleRowInLandscape"] = @(singleRow);
     propertyList[@"reservePortraitTop"] = @(top);
     propertyList[@"reservePortraitBottom"] = @(bottom);
+    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
+    LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
+    if (!updated) return NO;
+    NSMutableArray *entries = self.workspaces.mutableCopy;
+    entries[[entries indexOfObjectIdenticalTo:existing]] = updated;
+    _workspaces = entries.copy;
+    [self persist];
+    return YES;
+}
+
+- (BOOL)setTapSyncGroup:(NSDictionary *)group forWorkspace:(NSString *)identifier {
+    if (![self reload] || ![group isKindOfClass:NSDictionary.class]) return NO;
+    LCNamedWorkspace *existing = [self workspaceWithIdentifier:identifier];
+    if (!identifier || !existing) return NO;
+    if (group[@"mode"] && ![group[@"mode"] isEqual:@"singleFinger"] && ![group[@"mode"] isEqual:@"tapsOnly"]) return NO;
+    NSDictionary *validated = LCWorkspaceTapSyncGroup(group, existing.snapshot.windows);
+    if (group.count && !validated.count) return NO;
+    if ([validated isEqual:existing.snapshot.tapSyncGroup]) return YES;
+    NSMutableDictionary *propertyList = existing.snapshot.propertyList.mutableCopy;
+    propertyList[@"tapSync"] = validated;
     LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
     LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
     if (!updated) return NO;

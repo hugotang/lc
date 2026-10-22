@@ -12,6 +12,7 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, weak) VirtualWindowsHostView *host;
 @property(nonatomic, copy, readonly, nullable) NSString *sourceContainer;
 @property(nonatomic, copy, readonly) NSArray<NSString *> *targetContainers;
+@property(nonatomic) LCTapSyncMode mode;
 @property(nonatomic, readonly, getter=isActive) BOOL active;
 @property(nonatomic, readonly, getter=isStarting) BOOL starting;
 @property(nonatomic, readonly) NSUInteger forwardedTapCount;

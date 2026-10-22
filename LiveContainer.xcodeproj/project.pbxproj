@@ -280,6 +280,8 @@
 				ResizeHandleView.m,
 				TapSyncCoordinator.h,
 				TapSyncCoordinator.m,
+				TapSyncControlsView.h,
+				TapSyncControlsView.m,
 				TapSyncPeer.h,
 				TapSyncPeer.m,
 				TapSyncSession.h,
