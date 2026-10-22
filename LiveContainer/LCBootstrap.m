@@ -2,6 +2,7 @@
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
 #import "LCResourceCompactor.h"
+#import "Localization.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
 

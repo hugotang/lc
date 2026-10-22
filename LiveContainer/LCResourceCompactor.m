@@ -9,6 +9,7 @@
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 NSErrorDomain const LCResourceCompactionErrorDomain = @"LCResourceCompactionErrorDomain";
@@ -169,6 +170,18 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
         LCFail(error, LCResourceCompactionErrorIO, @"Unable to preserve resource metadata. The original file was preserved.");
         goto cleanup;
     }
+#if TARGET_OS_IPHONE
+    {
+        int targetProtection = fcntl(targetFD, F_GETPROTECTIONCLASS);
+        int cloneProtection = fcntl(cloneFD, F_GETPROTECTIONCLASS);
+        if (targetProtection < 0 || cloneProtection < 0 ||
+            (targetProtection != cloneProtection && fcntl(cloneFD, F_SETPROTECTIONCLASS, targetProtection)) ||
+            fcntl(cloneFD, F_GETPROTECTIONCLASS) != targetProtection) {
+            LCFail(error, LCResourceCompactionErrorIO, @"Unable to preserve the target's file protection class.");
+            goto cleanup;
+        }
+    }
+#endif
     if (LCCancelled(progress, error)) goto cleanup;
     if (fstat(sourceFD, &sourceStat) || fstat(targetFD, &targetStat) ||
         fstatat(directoryFD, target.name.UTF8String, &namedTarget, AT_SYMLINK_NOFOLLOW) ||
@@ -226,6 +239,12 @@ cleanup:
         LCFail(error, LCResourceCompactionErrorInvalidContainer, @"The container lease is not a regular private file.");
         return -1;
     }
+#if TARGET_OS_IPHONE
+    // This lease has no buffered account data and is safe to keep across guest
+    // suspension. Use the existing Dead10ccFix convention for shared storage.
+    unsigned char suspendSafe = 1;
+    fsetxattr(descriptor, "com.apple.runningboard.can-suspend-locked", &suspendSafe, sizeof(suspendSafe), 0, 0);
+#endif
     if (flock(descriptor, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB)) {
         close(descriptor);
         LCFail(error, LCResourceCompactionErrorBusy, @"Close all participating game windows and try again.");

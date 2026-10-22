@@ -268,6 +268,11 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         }
 
         do {
+            for container in containers {
+                if LCResourceCompactor.isCompactingContainer(at: container.containerURL) {
+                    throw "lc.resourceCompaction.busy".loc
+                }
+            }
             guard let bundlePath = appInfo.bundlePath() else {
                 throw CocoaError(.fileNoSuchFile)
             }

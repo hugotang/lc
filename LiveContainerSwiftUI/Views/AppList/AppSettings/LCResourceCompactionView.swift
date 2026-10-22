@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 struct LCResourceCompactionView: View {
     @ObservedObject var app: LCAppModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selection = Set<String>()
     @State private var plan: LCResourceCompactionPlan?
     @State private var result: LCResourceCompactionResult?
@@ -75,7 +76,9 @@ struct LCResourceCompactionView: View {
                 Section {
                     valueRow("lc.resourceCompaction.compacted", String(result.compactedFileCount))
                     valueRow("lc.resourceCompaction.sharedSize", byteSize(result.sharedBytes))
-                    Text("lc.resourceCompaction.finished".loc)
+                    if result.stoppedError == nil {
+                        Text("lc.resourceCompaction.finished".loc)
+                    }
                 }
             }
 
@@ -99,6 +102,9 @@ struct LCResourceCompactionView: View {
         .onDisappear {
             progress?.cancel()
             operation?.cancel()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase != .active { progress?.cancel() }
         }
     }
 
@@ -133,7 +139,9 @@ struct LCResourceCompactionView: View {
         let next = Progress(totalUnitCount: 0)
         progress = next
         progressObservation = next.observe(\.fractionCompleted, options: [.new]) { value, _ in
-            Task { @MainActor in progressFraction = value.fractionCompleted }
+            Task { @MainActor in
+                if progress === next { progressFraction = value.fractionCompleted }
+            }
         }
         return next
     }
