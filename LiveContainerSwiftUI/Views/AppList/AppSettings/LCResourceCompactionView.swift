@@ -13,6 +13,8 @@ struct LCResourceCompactionView: View {
     @State private var isApplying = false
     @State private var operation: Task<Void, Never>?
     @State private var errorInfo: String?
+    @State private var availableBytes: Int64?
+    @State private var isRefreshingSpace = false
 
     private var containers: [LCContainer] {
         app.uiContainers.filter { $0.storageBookMark == nil }
@@ -63,6 +65,13 @@ struct LCResourceCompactionView: View {
                         valueRow("lc.resourceCompaction.candidateSize", byteSize(plan.candidateBytes))
                         valueRow("lc.resourceCompaction.alreadyCompacted", String(plan.alreadyCompactedFileCount))
                         valueRow("lc.resourceCompaction.independent", String(plan.independentFileCount))
+                        valueRow("lc.resourceCompaction.verifiedSharedFiles", String(plan.verifiedSharedFileCount))
+                        valueRow("lc.resourceCompaction.verifiedSharedSize", byteSize(plan.verifiedSharedBytes))
+                        if plan.sharingUnavailableFileCount > 0 {
+                            valueRow("lc.resourceCompaction.sharingUnavailableFiles", String(plan.sharingUnavailableFileCount))
+                            Text("lc.resourceCompaction.sharingUnavailableNote".loc)
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
                         if plan.matchingFileCount > 0 {
                             Button("lc.resourceCompaction.apply".loc) { apply(plan) }
                         }
@@ -75,11 +84,49 @@ struct LCResourceCompactionView: View {
             if let result {
                 Section {
                     valueRow("lc.resourceCompaction.compacted", String(result.compactedFileCount))
-                    valueRow("lc.resourceCompaction.sharedSize", byteSize(result.sharedBytes))
-                    if result.stoppedError == nil {
+                    valueRow("lc.resourceCompaction.sharedSize", byteSize(result.processedBytes))
+                    valueRow("lc.resourceCompaction.verifiedSharedFiles", String(result.verifiedSharedFileCount))
+                    if result.sharingUnavailableFileCount > 0 {
+                        valueRow("lc.resourceCompaction.sharingUnavailableFiles", String(result.sharingUnavailableFileCount))
+                        Text("lc.resourceCompaction.sharingUnavailableNote".loc)
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    valueRow("lc.resourceCompaction.completedAt", result.completedAt.formatted(date: .abbreviated, time: .shortened))
+                    if let before = result.availableBytesBefore?.int64Value {
+                        valueRow("lc.resourceCompaction.availableBefore", byteSize(before))
+                    }
+                    if let after = result.availableBytesAfter?.int64Value {
+                        valueRow("lc.resourceCompaction.availableAfter", byteSize(after))
+                    }
+                    if let before = result.availableBytesBefore?.int64Value,
+                       let after = result.availableBytesAfter?.int64Value {
+                        valueRow("lc.resourceCompaction.availableChange", signedByteSize(after - before))
+                    } else {
+                        Text("lc.resourceCompaction.spaceUnavailable".loc)
+                    }
+                    if let stoppedError = result.stoppedError {
+                        Text(localizedError(stoppedError)).foregroundStyle(.red)
+                    } else {
                         Text("lc.resourceCompaction.finished".loc)
                     }
+                } footer: {
+                    Text("lc.resourceCompaction.spaceNote".loc)
                 }
+            }
+
+            Section {
+                if let availableBytes {
+                    valueRow("lc.resourceCompaction.availableNow", byteSize(availableBytes))
+                    if let before = result?.availableBytesBefore?.int64Value {
+                        valueRow("lc.resourceCompaction.changeSinceBefore", signedByteSize(availableBytes - before))
+                    }
+                } else {
+                    Text("lc.resourceCompaction.spaceUnavailable".loc).foregroundStyle(.secondary)
+                }
+                Button("lc.storage.refresh".loc) { Task { await refreshSpace() } }
+                    .disabled(progress != nil || isRefreshingSpace)
+            } footer: {
+                Text("lc.storage.cloneSizeNote".loc)
             }
 
             if let errorInfo {
@@ -99,6 +146,7 @@ struct LCResourceCompactionView: View {
         .onAppear {
             if selection.isEmpty { selection = Set(containers.map(\.folderName)) }
         }
+        .task(id: selection) { await refreshSpace() }
         .onDisappear {
             progress?.cancel()
             operation?.cancel()
@@ -118,6 +166,26 @@ struct LCResourceCompactionView: View {
 
     private func byteSize(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func signedByteSize(_ bytes: Int64) -> String {
+        if bytes == 0 { return byteSize(0) }
+        return (bytes > 0 ? "+" : "−") + byteSize(abs(bytes))
+    }
+
+    private func refreshSpace() async {
+        guard progress == nil else { return }
+        let selected = selection
+        let urls = containers.filter { selected.contains($0.folderName) }.map(\.containerURL)
+        guard !urls.isEmpty else { availableBytes = nil; return }
+        isRefreshingSpace = true
+        defer { isRefreshingSpace = false }
+        let measurements = await Task.detached(priority: .utility) {
+            (LCResourceCompactor.availableBytes(containers: urls), LCResourceCompactor.lastResult(containers: urls))
+        }.value
+        guard !Task.isCancelled, selection == selected, progress == nil else { return }
+        availableBytes = measurements.0?.int64Value
+        if result == nil { result = measurements.1 }
     }
 
     private func selectedContainersAreIdle() -> Bool {
@@ -174,6 +242,7 @@ struct LCResourceCompactionView: View {
                 if !Task.isCancelled { errorInfo = localizedError(error) }
             }
             finishProgress()
+            await refreshSpace()
         }
     }
 
@@ -188,12 +257,13 @@ struct LCResourceCompactionView: View {
                 }.value
                 if !Task.isCancelled {
                     result = applied
-                    if let stoppedError = applied.stoppedError { errorInfo = localizedError(stoppedError) }
+                    availableBytes = applied.availableBytesAfter?.int64Value
                 }
             } catch {
                 if !Task.isCancelled { errorInfo = localizedError(error) }
             }
             finishProgress()
+            await refreshSpace()
         }
     }
 
@@ -208,6 +278,7 @@ struct LCResourceCompactionView: View {
         case 4: key = "lc.resourceCompaction.changed"
         case 5: key = "lc.resourceCompaction.unsupportedVolume"
         case 6: key = "lc.resourceCompaction.cancelled"
+        case 8: key = "lc.resourceCompaction.sharingNotRetained"
         default: key = "lc.resourceCompaction.failed"
         }
         return key.loc

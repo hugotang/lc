@@ -3,6 +3,7 @@
 #include <copyfile.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/clonefile.h>
@@ -14,6 +15,8 @@
 
 NSErrorDomain const LCResourceCompactionErrorDomain = @"LCResourceCompactionErrorDomain";
 static NSString *const LCManifestName = @".lc-resource-compaction.plist";
+static NSString *const LCReportName = @".lc-resource-compaction-report.plist";
+static NSInteger const LCManifestVersion = 2;
 
 static NSError *LCError(LCResourceCompactionErrorCode code, NSString *detail) {
     return [NSError errorWithDomain:LCResourceCompactionErrorDomain code:code
@@ -75,6 +78,25 @@ static NSData *LCDigest(int descriptor, NSProgress *progress, NSError **error) {
     return [NSData dataWithBytes:digest length:sizeof(digest)];
 }
 
+/// Compare complete extent maps rather than st_blocks, which counts cloned
+/// blocks for each inode. Sandboxes/filesystems may deny these queries; nil
+/// means unavailable, never zero sharing. No physical offsets leave this code.
+static NSNumber *LCSharedDataBytes(int sourceFD, int targetFD, off_t size, NSProgress *progress) {
+    int64_t shared = 0;
+    for (off_t offset = 0; offset < size;) {
+        if (progress.cancelled) return nil;
+        struct log2phys source = { .l2p_contigbytes = size - offset, .l2p_devoffset = offset };
+        struct log2phys target = { .l2p_contigbytes = size - offset, .l2p_devoffset = offset };
+        if (fcntl(sourceFD, F_LOG2PHYS_EXT, &source) || fcntl(targetFD, F_LOG2PHYS_EXT, &target) ||
+            source.l2p_devoffset < 0 || target.l2p_devoffset < 0 ||
+            source.l2p_contigbytes <= 0 || target.l2p_contigbytes <= 0) return nil;
+        off_t length = MIN(size - offset, MIN(source.l2p_contigbytes, target.l2p_contigbytes));
+        if (source.l2p_devoffset == target.l2p_devoffset) shared += length;
+        offset += length;
+    }
+    return @(shared);
+}
+
 @interface LCResourceFile : NSObject
 @property(nonatomic) NSURL *containerURL;
 @property(nonatomic) NSURL *url;
@@ -92,12 +114,39 @@ static NSData *LCDigest(int descriptor, NSProgress *progress, NSError **error) {
 @implementation LCResourceReplacement
 @end
 
+static NSNumber *LCExistingSharedBytes(LCResourceFile *source, LCResourceFile *target,
+                                       NSProgress *progress, NSError **error) {
+    int sourceFD = open(source.url.fileSystemRepresentation, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    int targetFD = open(target.url.fileSystemRepresentation, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    struct stat a, b;
+    NSNumber *shared = nil;
+    if (sourceFD < 0 || targetFD < 0 || fstat(sourceFD, &a) || fstat(targetFD, &b) ||
+        !LCSameFile(a, source.identity) || !LCSameFile(b, target.identity)) {
+        LCFail(error, LCResourceCompactionErrorChanged, @"A resource changed during the sharing check. Analyze again.");
+    } else {
+        shared = LCSharedDataBytes(sourceFD, targetFD, target.identity.st_size, progress);
+        if (LCCancelled(progress, error)) {
+            shared = nil;
+        } else if (fstat(sourceFD, &a) || fstat(targetFD, &b) ||
+                   !LCSameFile(a, source.identity) || !LCSameFile(b, target.identity)) {
+            LCFail(error, LCResourceCompactionErrorChanged, @"A resource changed during the sharing check. Analyze again.");
+            shared = nil;
+        }
+    }
+    if (sourceFD >= 0) close(sourceFD);
+    if (targetFD >= 0) close(targetFD);
+    return shared;
+}
+
 @interface LCResourceCompactionPlan ()
 @property(nonatomic, readwrite) NSUInteger containerCount;
 @property(nonatomic, readwrite) NSUInteger matchingFileCount;
 @property(nonatomic, readwrite) NSUInteger alreadyCompactedFileCount;
 @property(nonatomic, readwrite) NSUInteger independentFileCount;
 @property(nonatomic, readwrite) int64_t candidateBytes;
+@property(nonatomic, readwrite) NSUInteger verifiedSharedFileCount;
+@property(nonatomic, readwrite) int64_t verifiedSharedBytes;
+@property(nonatomic, readwrite) NSUInteger sharingUnavailableFileCount;
 @property(nonatomic) NSArray<NSURL *> *containerURLs;
 @property(nonatomic) NSArray<LCResourceReplacement *> *replacements;
 - (instancetype)initInternal;
@@ -108,7 +157,12 @@ static NSData *LCDigest(int descriptor, NSProgress *progress, NSError **error) {
 
 @interface LCResourceCompactionResult ()
 @property(nonatomic, readwrite) NSUInteger compactedFileCount;
-@property(nonatomic, readwrite) int64_t sharedBytes;
+@property(nonatomic, readwrite) int64_t processedBytes;
+@property(nonatomic, readwrite) NSUInteger verifiedSharedFileCount;
+@property(nonatomic, readwrite) NSUInteger sharingUnavailableFileCount;
+@property(nonatomic, readwrite, nullable) NSNumber *availableBytesBefore;
+@property(nonatomic, readwrite, nullable) NSNumber *availableBytesAfter;
+@property(nonatomic, readwrite) NSDate *completedAt;
 @property(nonatomic, readwrite, nullable) NSError *stoppedError;
 - (instancetype)initInternal;
 @end
@@ -119,7 +173,7 @@ static NSData *LCDigest(int descriptor, NSProgress *progress, NSError **error) {
 /// Descriptor-relative replacement prevents a renamed/symlinked resource
 /// directory from redirecting writes elsewhere in the container.
 static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, NSError **error,
-                      NSDictionary **manifestRecord) {
+                      NSDictionary **manifestRecord, BOOL *sharingVerified) {
     LCResourceFile *source = replacement.source, *target = replacement.target;
     int sourceFD = -1, targetFD = -1, directoryFD = -1, cloneFD = -1;
     NSString *temporaryName = [@".lc-resource-clone-" stringByAppendingString:NSUUID.UUID.UUIDString];
@@ -147,7 +201,9 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
         goto cleanup;
     }
     createdClone = YES;
-    cloneFD = openat(directoryFD, temporaryName.UTF8String, O_RDWR | O_NOFOLLOW | O_CLOEXEC);
+    // Metadata operations accept a read-only descriptor. Opening a clone for
+    // writing can have filesystem side effects despite never writing its data.
+    cloneFD = openat(directoryFD, temporaryName.UTF8String, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (cloneFD < 0 || fstat(cloneFD, &clonedStat) || !LCRegularPrivateFile(clonedStat) ||
         clonedStat.st_ino == sourceStat.st_ino || clonedStat.st_size != targetStat.st_size) {
         LCFail(error, LCResourceCompactionErrorIO, @"Unable to verify the cloned file.");
@@ -166,7 +222,7 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
     }
     // A clone inherits source metadata. Restore the TARGET's permissions, ACLs,
     // extended attributes and modification time, then verify iOS protection.
-    if (fcopyfile(targetFD, cloneFD, NULL, COPYFILE_METADATA) || fsync(cloneFD)) {
+    if (fcopyfile(targetFD, cloneFD, NULL, COPYFILE_METADATA)) {
         LCFail(error, LCResourceCompactionErrorIO, @"Unable to preserve resource metadata. The original file was preserved.");
         goto cleanup;
     }
@@ -182,6 +238,19 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
         }
     }
 #endif
+    if (fsync(cloneFD)) {
+        LCFail(error, LCResourceCompactionErrorIO, @"Unable to sync resource metadata. The original file was preserved.");
+        goto cleanup;
+    }
+    {
+        NSNumber *shared = LCSharedDataBytes(sourceFD, cloneFD, targetStat.st_size, progress);
+        if (shared && shared.longLongValue != targetStat.st_size) {
+            LCFail(error, LCResourceCompactionErrorSharingNotRetained,
+                   @"The cloned resource did not retain shared data blocks. The original file was preserved.");
+            goto cleanup;
+        }
+        *sharingVerified = shared != nil;
+    }
     if (LCCancelled(progress, error)) goto cleanup;
     if (fstat(sourceFD, &sourceStat) || fstat(targetFD, &targetStat) ||
         fstatat(directoryFD, target.name.UTF8String, &namedTarget, AT_SYMLINK_NOFOLLOW) ||
@@ -218,6 +287,82 @@ cleanup:
 + (NSString *)supportedBundleIdentifier { return @"jp.co.mixi.monsterstrike"; }
 + (NSString *)resourceRelativePath { return @"Library/Application Support/dl_res"; }
 + (NSString *)leaseFileName { return @".lc-resource-compaction.lock"; }
+
++ (nullable NSNumber *)availableBytesForContainers:(NSArray<NSURL *> *)containerURLs {
+    if (!containerURLs.count) return nil;
+    NSMutableSet<NSNumber *> *devices = [NSMutableSet set];
+    uint64_t total = 0;
+    for (NSURL *url in containerURLs) {
+        struct stat value;
+        struct statfs filesystem;
+        if (!url.isFileURL || stat(url.fileSystemRepresentation, &value) ||
+            statfs(url.fileSystemRepresentation, &filesystem) || filesystem.f_bsize == 0) return nil;
+        NSNumber *device = @((uint64_t)value.st_dev);
+        if ([devices containsObject:device]) continue;
+        [devices addObject:device];
+        uint64_t blockSize = filesystem.f_bsize, availableBlocks = filesystem.f_bavail;
+        if (availableBlocks > ((uint64_t)INT64_MAX - total) / blockSize) return nil;
+        total += availableBlocks * blockSize;
+    }
+    return @((int64_t)total);
+}
+
++ (NSArray<NSString *> *)reportPathsForContainers:(NSArray<NSURL *> *)containerURLs {
+    NSMutableArray<NSString *> *paths = [NSMutableArray array];
+    for (NSURL *url in containerURLs) {
+        if (!url.isFileURL) return @[];
+        [paths addObject:url.URLByStandardizingPath.URLByResolvingSymlinksInPath.path];
+    }
+    return [paths sortedArrayUsingSelector:@selector(compare:)];
+}
+
++ (nullable LCResourceCompactionResult *)lastResultForContainers:(NSArray<NSURL *> *)containerURLs {
+    NSArray<NSString *> *paths = [self reportPathsForContainers:containerURLs];
+    if (!paths.count) return nil;
+    LCResourceCompactionResult *latest = nil;
+    for (NSURL *containerURL in containerURLs) {
+        NSURL *url = [containerURL URLByAppendingPathComponent:LCReportName];
+        struct stat value;
+        if (lstat(url.fileSystemRepresentation, &value) || !S_ISREG(value.st_mode) ||
+            value.st_nlink != 1 || value.st_size > 64 * 1024) continue;
+        NSDictionary *report = [NSDictionary dictionaryWithContentsOfURL:url];
+        if (![report[@"version"] isEqual:@1] || ![report[@"containers"] isEqual:paths] ||
+            ![report[@"completedAt"] isKindOfClass:NSDate.class] ||
+            ![report[@"compactedFiles"] isKindOfClass:NSNumber.class] ||
+            ![report[@"processedBytes"] isKindOfClass:NSNumber.class] ||
+            ![report[@"verifiedSharedFiles"] isKindOfClass:NSNumber.class] ||
+            ![report[@"sharingUnavailableFiles"] isKindOfClass:NSNumber.class]) continue;
+        LCResourceCompactionResult *result = [[LCResourceCompactionResult alloc] initInternal];
+        result.compactedFileCount = [report[@"compactedFiles"] unsignedIntegerValue];
+        result.processedBytes = [report[@"processedBytes"] longLongValue];
+        result.verifiedSharedFileCount = [report[@"verifiedSharedFiles"] unsignedIntegerValue];
+        result.sharingUnavailableFileCount = [report[@"sharingUnavailableFiles"] unsignedIntegerValue];
+        result.completedAt = report[@"completedAt"];
+        if ([report[@"availableBefore"] isKindOfClass:NSNumber.class]) result.availableBytesBefore = report[@"availableBefore"];
+        if ([report[@"availableAfter"] isKindOfClass:NSNumber.class]) result.availableBytesAfter = report[@"availableAfter"];
+        NSNumber *stoppedCode = report[@"stoppedCode"];
+        if ([stoppedCode isKindOfClass:NSNumber.class] && stoppedCode.integerValue > 0 &&
+            stoppedCode.integerValue <= LCResourceCompactionErrorSharingNotRetained) {
+            result.stoppedError = LCError(stoppedCode.integerValue, @"Resource compaction stopped before completion.");
+        }
+        if (!latest || [result.completedAt compare:latest.completedAt] == NSOrderedDescending) latest = result;
+    }
+    return latest;
+}
+
++ (void)saveResult:(LCResourceCompactionResult *)result containers:(NSArray<NSURL *> *)containerURLs {
+    NSMutableDictionary *report = [@{@"version": @1, @"containers": [self reportPathsForContainers:containerURLs],
+        @"completedAt": result.completedAt, @"compactedFiles": @(result.compactedFileCount),
+        @"processedBytes": @(result.processedBytes), @"verifiedSharedFiles": @(result.verifiedSharedFileCount),
+        @"sharingUnavailableFiles": @(result.sharingUnavailableFileCount)} mutableCopy];
+    if (result.availableBytesBefore) report[@"availableBefore"] = result.availableBytesBefore;
+    if (result.availableBytesAfter) report[@"availableAfter"] = result.availableBytesAfter;
+    if (result.stoppedError) report[@"stoppedCode"] = @(result.stoppedError.code);
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:report format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    for (NSURL *url in containerURLs) {
+        [data writeToURL:[url URLByAppendingPathComponent:LCReportName] options:NSDataWritingAtomic error:nil];
+    }
+}
 
 + (int)acquireLease:(NSURL *)url exclusive:(BOOL)exclusive create:(BOOL)create error:(NSError **)error {
     int directoryFD = open(url.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
@@ -308,7 +453,9 @@ cleanup:
     if (lstat(manifestURL.fileSystemRepresentation, &value) || !S_ISREG(value.st_mode) ||
         value.st_nlink != 1 || value.st_size > 2 * 1024 * 1024) return @{};
     NSDictionary *manifest = [NSDictionary dictionaryWithContentsOfURL:manifestURL];
-    if (![manifest[@"version"] isEqual:@1] || ![manifest[@"files"] isKindOfClass:NSDictionary.class]) return @{};
+    // Version 1 recorded replacements before physical-sharing diagnostics and
+    // used a writable clone descriptor. Re-evaluate those files once.
+    if (![manifest[@"version"] isEqual:@(LCManifestVersion)] || ![manifest[@"files"] isKindOfClass:NSDictionary.class]) return @{};
     return manifest[@"files"];
 }
 
@@ -420,8 +567,24 @@ cleanup:
                 sources[group] = file;
                 continue;
             }
+            NSError *sharingError = nil;
+            NSNumber *shared = LCExistingSharedBytes(source, file, progress, &sharingError);
+            if (sharingError) {
+                if (error) *error = sharingError;
+                return nil;
+            }
+            if (shared) {
+                plan.verifiedSharedBytes += shared.longLongValue;
+                if (shared.longLongValue == file.identity.st_size) {
+                    plan.verifiedSharedFileCount++;
+                    plan.alreadyCompactedFileCount++;
+                    continue;
+                }
+            } else {
+                plan.sharingUnavailableFileCount++;
+            }
             NSDictionary *record = manifests[file.containerURL.path][file.name];
-            if ([record isKindOfClass:NSDictionary.class] &&
+            if (!shared && [record isKindOfClass:NSDictionary.class] &&
                 [record[@"sourceContainer"] isEqual:source.containerURL.lastPathComponent] &&
                 [record[@"source"] isEqual:LCIdentity(source.identity)] &&
                 [record[@"target"] isEqual:LCIdentity(file.identity)] && [record[@"digest"] isEqual:file.digest]) {
@@ -448,8 +611,9 @@ cleanup:
     NSArray<NSNumber *> *leases = [self lockContainers:plan.containerURLs error:error];
     if (!leases) return nil;
     LCResourceCompactionResult *result = [[LCResourceCompactionResult alloc] initInternal];
+    result.availableBytesBefore = [self availableBytesForContainers:plan.containerURLs];
     NSMutableDictionary<NSString *, NSMutableDictionary *> *manifests = [NSMutableDictionary dictionary];
-    NSError *failure;
+    NSError *failure = nil;
     @try {
         progress.totalUnitCount = plan.candidateBytes * 2;
         progress.completedUnitCount = 0;
@@ -458,10 +622,13 @@ cleanup:
                 if (LCCancelled(progress, &failure)) break;
                 if (![self validateContainer:replacement.source.containerURL error:&failure] ||
                     ![self validateContainer:replacement.target.containerURL error:&failure]) break;
-                NSDictionary *record;
-                if (!LCReplace(replacement, progress, &failure, &record)) break;
+                NSDictionary *record = nil;
+                BOOL sharingVerified = NO;
+                if (!LCReplace(replacement, progress, &failure, &record, &sharingVerified)) break;
                 result.compactedFileCount++;
-                result.sharedBytes += replacement.target.identity.st_size;
+                result.processedBytes += replacement.target.identity.st_size;
+                if (sharingVerified) result.verifiedSharedFileCount++;
+                else result.sharingUnavailableFileCount++;
                 NSString *key = replacement.target.containerURL.path;
                 if (record) {
                     if (!manifests[key]) manifests[key] = [[self manifestForContainer:replacement.target.containerURL] mutableCopy];
@@ -471,12 +638,16 @@ cleanup:
         }
         for (NSString *path in manifests) {
             NSURL *url = [[NSURL fileURLWithPath:path] URLByAppendingPathComponent:LCManifestName];
-            NSData *data = [NSPropertyListSerialization dataWithPropertyList:@{@"version": @1, @"files": manifests[path]}
+            NSData *data = [NSPropertyListSerialization dataWithPropertyList:@{@"version": @(LCManifestVersion), @"files": manifests[path]}
                                                                     format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
             // The marker is advisory, never trusted for content verification.
             // A failed write cannot invalidate an already verified clone.
             [data writeToURL:url options:NSDataWritingAtomic error:nil];
         }
+        result.availableBytesAfter = [self availableBytesForContainers:plan.containerURLs];
+        result.completedAt = NSDate.date;
+        result.stoppedError = failure;
+        if (!failure || result.compactedFileCount > 0) [self saveResult:result containers:plan.containerURLs];
     } @finally {
         for (NSNumber *descriptor in leases) close(descriptor.intValue);
     }

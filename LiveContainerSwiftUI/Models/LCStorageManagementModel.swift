@@ -37,6 +37,7 @@ final class LCStorageManagementModel: ObservableObject {
     @Published var breakdown: LCStorageBreakdown?
     @Published var isCalculating = false
     @Published var errorInfo: String?
+    @Published var availableBytes: Int64?
 
     func refresh(apps: [LCAppModel], hiddenApps: [LCAppModel]) async {
         guard !isCalculating else {
@@ -47,6 +48,10 @@ final class LCStorageManagementModel: ObservableObject {
         defer { isCalculating = false }
         errorInfo = nil
         breakdown = nil
+        let measuredSpace = await Task.detached(priority: .utility) {
+            LCResourceCompactor.availableBytes(containers: [LCPath.docPath, LCPath.lcGroupDocPath])
+        }.value
+        availableBytes = measuredSpace?.int64Value
 
         do {
             breakdown = try await Self.calculateBreakdown(apps: apps, hiddenApps: hiddenApps)
@@ -295,6 +300,8 @@ final class LCStorageManagementModel: ObservableObject {
                 continue
             }
 
+            // Per-inode allocation counts include shared APFS extents for each
+            // clone. These totals are not unique physical disk usage.
             let fileSize = resourceValues.totalFileAllocatedSize
                 ?? resourceValues.fileAllocatedSize
                 ?? resourceValues.fileSize

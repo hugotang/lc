@@ -2,8 +2,10 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/xattr.h>
@@ -62,7 +64,11 @@ static NSURL *MakeContainer(NSURL *root, NSString *name) {
     return container;
 }
 
-static void Write(NSURL *url, NSData *data) { assert([data writeToURL:url options:NSDataWritingAtomic error:nil]); }
+static void Write(NSURL *url, NSData *data) {
+    assert([data writeToURL:url options:NSDataWritingAtomic error:nil]);
+    int descriptor = open(url.fileSystemRepresentation, O_RDONLY);
+    assert(descriptor >= 0 && !fsync(descriptor)); close(descriptor);
+}
 
 static LCResourceCompactionPlan *Scan(NSArray<NSURL *> *containers) {
     NSError *error = nil;
@@ -86,6 +92,25 @@ static void CheckNoTemporaryClones(NSURL *container) {
         [container URLByAppendingPathComponent:LCResourceCompactor.resourceRelativePath]
         includingPropertiesForKeys:nil options:0 error:nil];
     for (NSURL *item in items) assert(![item.lastPathComponent hasPrefix:@".lc-resource-clone-"]);
+}
+
+// Read physical maps independently of the compactor so a full data copy with
+// the correct hashes and separate inodes cannot pass as storage sharing.
+static void CheckSharedExtents(NSURL *sourceURL, NSURL *targetURL) {
+    int sourceFD = open(sourceURL.fileSystemRepresentation, O_RDONLY);
+    int targetFD = open(targetURL.fileSystemRepresentation, O_RDONLY);
+    struct stat sourceStat, targetStat;
+    assert(sourceFD >= 0 && targetFD >= 0 && !fstat(sourceFD, &sourceStat) && !fstat(targetFD, &targetStat));
+    assert(sourceStat.st_dev == targetStat.st_dev && sourceStat.st_size == targetStat.st_size);
+    for (off_t offset = 0; offset < sourceStat.st_size;) {
+        struct log2phys source = { .l2p_contigbytes = sourceStat.st_size - offset, .l2p_devoffset = offset };
+        struct log2phys target = { .l2p_contigbytes = targetStat.st_size - offset, .l2p_devoffset = offset };
+        assert(!fcntl(sourceFD, F_LOG2PHYS_EXT, &source) && !fcntl(targetFD, F_LOG2PHYS_EXT, &target));
+        assert(source.l2p_devoffset >= 0 && source.l2p_devoffset == target.l2p_devoffset);
+        assert(source.l2p_contigbytes > 0 && target.l2p_contigbytes > 0);
+        offset += MIN(sourceStat.st_size - offset, MIN(source.l2p_contigbytes, target.l2p_contigbytes));
+    }
+    close(sourceFD); close(targetFD);
 }
 
 int main(void) {
@@ -143,6 +168,15 @@ int main(void) {
             assert(plan.containerCount == 2 && plan.matchingFileCount == 2);
             assert(plan.candidateBytes == (int64_t)(first.length + second.length));
             assert(plan.independentFileCount >= 10);
+            assert(plan.verifiedSharedFileCount == 0 && plan.verifiedSharedBytes == 0);
+            assert(plan.sharingUnavailableFileCount == 0);
+            assert([LCResourceCompactor availableBytesForContainers:@[]] == nil);
+            assert([LCResourceCompactor availableBytesForContainers:@[[root URLByAppendingPathComponent:@"missing"]]] == nil);
+            struct statfs filesystem;
+            assert(!statfs(a.fileSystemRepresentation, &filesystem));
+            int64_t expectedAvailable = (int64_t)filesystem.f_bavail * filesystem.f_bsize;
+            NSNumber *measuredAvailable = [LCResourceCompactor availableBytesForContainers:@[a,b,a]];
+            assert(measuredAvailable && llabs(measuredAvailable.longLongValue - expectedAvailable) < 4 * 1024 * 1024);
             error = nil;
             NSProgress *cancelled = Progress(); [cancelled cancel];
             assert(![LCResourceCompactor applyPlan:plan progress:cancelled error:&error]);
@@ -161,7 +195,18 @@ int main(void) {
             assert(!lstat(Resource(b, @"data02.bin").fileSystemRepresentation, &destinationBefore));
 
             LCResourceCompactionResult *result = Apply(Scan(@[a,b]));
-            assert(result.compactedFileCount == 2 && result.sharedBytes == (int64_t)(first.length + second.length));
+            assert(result.compactedFileCount == 2 && result.processedBytes == (int64_t)(first.length + second.length));
+            assert(result.verifiedSharedFileCount == 2 && result.sharingUnavailableFileCount == 0);
+            assert(result.availableBytesBefore && result.availableBytesAfter && result.completedAt);
+            CheckSharedExtents(Resource(a, @"data02.bin"), Resource(b, @"data02.bin"));
+            CheckSharedExtents(Resource(a, @"data03.bin"), Resource(b, @"data03.bin"));
+            LCResourceCompactionResult *savedResult = [LCResourceCompactor lastResultForContainers:@[b,a]];
+            assert(savedResult && savedResult.compactedFileCount == result.compactedFileCount &&
+                   savedResult.processedBytes == result.processedBytes);
+            assert([savedResult.availableBytesBefore isEqual:result.availableBytesBefore] &&
+                   [savedResult.availableBytesAfter isEqual:result.availableBytesAfter]);
+            assert([savedResult.completedAt isEqual:result.completedAt] && !savedResult.stoppedError);
+            assert([LCResourceCompactor lastResultForContainers:@[a]] == nil);
             struct stat sourceAfter, targetAfter, privateAfter;
             assert(!lstat(Resource(a, @"data02.bin").fileSystemRepresentation, &sourceAfter));
             assert(!lstat(Resource(b, @"data02.bin").fileSystemRepresentation, &targetAfter));
@@ -178,6 +223,28 @@ int main(void) {
             CheckNoTemporaryClones(a); CheckNoTemporaryClones(b);
             plan = Scan(@[a,b]);
             assert(plan.matchingFileCount == 0 && plan.alreadyCompactedFileCount == 2);
+            assert(plan.verifiedSharedFileCount == 2 && plan.verifiedSharedBytes == (int64_t)(first.length + second.length));
+
+            // Copy-on-write may unshare data even when the final bytes are the
+            // same again. Re-analysis must detect that despite a recorded clone.
+            int sameWriter = open(Resource(b, @"data02.bin").fileSystemRepresentation, O_WRONLY);
+            const unsigned char *originalBytes = first.bytes;
+            unsigned char temporaryByte = originalBytes[10] ^ 0xff;
+            assert(sameWriter >= 0 && pwrite(sameWriter, &temporaryByte, 1, 10) == 1 && !fsync(sameWriter));
+            assert(pwrite(sameWriter, originalBytes + 10, 1, 10) == 1 && !fsync(sameWriter)); close(sameWriter);
+            assert([[NSData dataWithContentsOfURL:Resource(b, @"data02.bin")] isEqual:first]);
+            plan = Scan(@[a,b]);
+            assert(plan.matchingFileCount == 1 && plan.verifiedSharedFileCount == 1);
+            assert(Apply(plan).compactedFileCount == 1);
+            CheckSharedExtents(Resource(a, @"data02.bin"), Resource(b, @"data02.bin"));
+
+            // Missing/old advisory manifests do not force replacements when
+            // the physical maps already show full sharing.
+            NSURL *manifestURL = [b URLByAppendingPathComponent:@".lc-resource-compaction.plist"];
+            NSMutableDictionary *oldManifest = [[NSDictionary dictionaryWithContentsOfURL:manifestURL] mutableCopy];
+            oldManifest[@"version"] = @1;
+            assert([oldManifest writeToURL:manifestURL atomically:YES]);
+            assert(Scan(@[a,b]).verifiedSharedFileCount == 2);
 
             // In-place guest updates separate APFS blocks and cannot modify the peer.
             int writer = open(Resource(b, @"data02.bin").fileSystemRepresentation, O_WRONLY);
@@ -220,6 +287,11 @@ int main(void) {
             ssize_t attributeLength = getxattr(Resource(e, @"data02.bin").fileSystemRepresentation,
                                                attributeName, restoredAttribute, sizeof(restoredAttribute), 0, 0);
             assert(attributeLength == (ssize_t)strlen(attributeValue) && !memcmp(restoredAttribute, attributeValue, strlen(attributeValue)));
+            CheckSharedExtents(Resource(d, @"data02.bin"), Resource(e, @"data02.bin"));
+            savedResult = [LCResourceCompactor lastResultForContainers:@[d,e]];
+            assert(savedResult && savedResult.compactedFileCount == 1 &&
+                   savedResult.stoppedError.code == LCResourceCompactionErrorCancelled);
+            assert(savedResult.availableBytesBefore && savedResult.availableBytesAfter);
             CheckNoTemporaryClones(e);
             assert(Apply(Scan(@[d,e])).compactedFileCount == 1);
 
@@ -255,7 +327,7 @@ int main(void) {
             close(lease);
             assert(![LCResourceCompactor isCompactingContainerAtURL:a]);
 
-            printf("Resource compaction tests passed (SHA-256 equality, exclusions, APFS write/delete isolation, stale plans, cancellation, metadata, repeat scans, third accounts, symlinks, hard links and cross-process leases).\n");
+            printf("Resource compaction tests passed (SHA-256 equality, verified physical extent sharing, free-space measurements, persisted/partial reports, exclusions, APFS write/delete isolation, stale plans, cancellation, metadata, repeat scans, third accounts, symlinks, hard links and cross-process leases).\n");
         } @finally {
             [fm removeItemAtURL:root error:nil];
         }

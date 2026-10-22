@@ -12,6 +12,7 @@ typedef NS_ERROR_ENUM(LCResourceCompactionErrorDomain, LCResourceCompactionError
     LCResourceCompactionErrorUnsupportedVolume,
     LCResourceCompactionErrorCancelled,
     LCResourceCompactionErrorIO,
+    LCResourceCompactionErrorSharingNotRetained,
 };
 
 @interface LCResourceCompactionPlan : NSObject
@@ -20,12 +21,22 @@ typedef NS_ERROR_ENUM(LCResourceCompactionErrorDomain, LCResourceCompactionError
 @property(nonatomic, readonly) NSUInteger alreadyCompactedFileCount;
 @property(nonatomic, readonly) NSUInteger independentFileCount;
 @property(nonatomic, readonly) int64_t candidateBytes;
+/// Physical extent comparison, when permitted by the filesystem. These bytes
+/// describe shared file data, not the change in device free space.
+@property(nonatomic, readonly) NSUInteger verifiedSharedFileCount;
+@property(nonatomic, readonly) int64_t verifiedSharedBytes;
+@property(nonatomic, readonly) NSUInteger sharingUnavailableFileCount;
 - (instancetype)init NS_UNAVAILABLE;
 @end
 
 @interface LCResourceCompactionResult : NSObject
 @property(nonatomic, readonly) NSUInteger compactedFileCount;
-@property(nonatomic, readonly) int64_t sharedBytes;
+@property(nonatomic, readonly) int64_t processedBytes;
+@property(nonatomic, readonly) NSUInteger verifiedSharedFileCount;
+@property(nonatomic, readonly) NSUInteger sharingUnavailableFileCount;
+@property(nonatomic, readonly, nullable) NSNumber *availableBytesBefore;
+@property(nonatomic, readonly, nullable) NSNumber *availableBytesAfter;
+@property(nonatomic, readonly) NSDate *completedAt;
 @property(nonatomic, readonly, nullable) NSError *stoppedError;
 - (instancetype)init NS_UNAVAILABLE;
 @end
@@ -48,6 +59,13 @@ typedef NS_ERROR_ENUM(LCResourceCompactionErrorDomain, LCResourceCompactionError
                                         progress:(NSProgress *)progress
                                            error:(NSError **)error
     NS_SWIFT_NAME(apply(plan:progress:));
+
+/// Uses statfs available blocks, counting each volume once. No per-file size
+/// summation, purgeable-space estimate or process-wide filesystem sync.
++ (nullable NSNumber *)availableBytesForContainers:(NSArray<NSURL *> *)containerURLs
+    NS_SWIFT_NAME(availableBytes(containers:));
++ (nullable LCResourceCompactionResult *)lastResultForContainers:(NSArray<NSURL *> *)containerURLs
+    NS_SWIFT_NAME(lastResult(containers:));
 
 /// A guest holds this shared, nonblocking lease until process exit. Scanning
 /// and replacing files hold exclusive leases on every participating container.

@@ -19937,6 +19937,98 @@
         }
       }
     },
+    "lc.resourceCompaction.availableAfter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available Space After"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精简后可用空间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精簡後可用空間"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.availableBefore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available Space Before"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精简前可用空间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "精簡前可用空間"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.availableChange" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available Space Change"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用空间变化"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用空間變化"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.availableNow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device Available Space"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设备当前可用空间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "裝置目前可用空間"
+          }
+        }
+      }
+    },
     "lc.resourceCompaction.busy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20002,6 +20094,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "相同內容大小"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.changeSinceBefore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Since Before Compaction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相较精简前的变化"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相較精簡前的變化"
           }
         }
       }
@@ -20075,25 +20190,48 @@
         }
       }
     },
+    "lc.resourceCompaction.completedAt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Operation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次处理时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次處理時間"
+          }
+        }
+      }
+    },
     "lc.resourceCompaction.estimateNote" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Matching data size is a potential reduction, not measured free space. The system may already share some blocks. Each account can still modify or delete its files independently."
+            "value" : "Matching data is potential work, not measured savings. Verified shared data comes from physical block checks when available. Each account keeps independent files."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相同内容大小表示潜在节省量，不是实测可用空间；系统可能已共用部分区块。各账号仍可独立修改或删除文件。"
+            "value" : "相同内容大小是待处理量，不是实测节省空间。已验证共用量来自系统允许的实体区块检查；各账号的文件仍独立。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相同內容大小表示潛在節省量，並非實測可用空間；系統可能已共用部分區塊。各帳號仍可獨立修改或刪除檔案。"
+            "value" : "相同內容大小是待處理量，並非實測節省空間。已驗證共用量來自系統允許的實體區塊檢查；各帳號的檔案仍獨立。"
           }
         }
       }
@@ -20127,19 +20265,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Resource compaction is complete. Account saves and settings are unchanged. Check device free space for the actual reduction."
+            "value" : "Resource processing is complete. Check verified sharing and available space below for the storage result."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "素材精简已完成。账号存档和设置已保留。请查看设备可用空间确认实际节省量。"
+            "value" : "素材处理已完成。请查看共用验证和可用空间数据，确认储存结果。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "素材精簡已完成。帳號存檔和設定已保留。請查看裝置可用空間確認實際節省量。"
+            "value" : "素材處理已完成。請查看共用驗證和可用空間資料，確認儲存結果。"
           }
         }
       }
@@ -20265,19 +20403,134 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Data Processed for Sharing"
+            "value" : "Resource Data Processed"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已处理的共用内容"
+            "value" : "已处理素材量"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已處理的共用內容"
+            "value" : "已處理素材量"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.sharingNotRetained" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The clone did not retain shared data blocks after preserving file metadata. Compaction stopped and the unfinished original file was preserved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留文件属性后，副本未能共用数据区块。精简已停止，未完成的原文件已保留。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留檔案屬性後，副本未能共用資料區塊。精簡已停止，未完成的原檔案已保留。"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.sharingUnavailableFiles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files with Sharing Check Unavailable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法验证共用的文件数"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法驗證共用的檔案數"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.sharingUnavailableNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This filesystem does not expose physical sharing for these files. A recorded replacement is not proof of freed space; compare available space."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统未提供这些文件的实体共用信息。精简记录不代表已释放空间，请比较可用空间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統未提供這些檔案的實體共用資訊。精簡紀錄不代表已釋放空間，請比較可用空間。"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.spaceNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A positive change means more space is available. Other apps and delayed APFS reclamation can affect it. Refresh after a short idle period. Processed bytes and folder size do not measure actual savings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正数表示可用空间增加；其他应用和 APFS 延迟回收也会影响此数值。稍等后可刷新。处理量和文件夹大小均不能代表实际节省量。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正數表示可用空間增加；其他 App 和 APFS 延遲回收也會影響此數值。稍等後可重新整理。處理量和資料夾大小均不能代表實際節省量。"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.spaceUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available space measurement is unavailable."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取可用空间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取可用空間。"
           }
         }
       }
@@ -24325,6 +24578,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在測試免JIT模式前，你需要先匯入開發者證書。"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.verifiedSharedFiles" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files with Verified Shared Blocks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已验证共用区块的文件数"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已驗證共用區塊的檔案數"
+          }
+        }
+      }
+    },
+    "lc.resourceCompaction.verifiedSharedSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified Shared Resource Data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已验证共用素材量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已驗證共用素材量"
           }
         }
       }
@@ -33335,6 +33634,29 @@
         }
       }
     },
+    "lc.storage.cloneSizeNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APFS clones can share disk blocks while each account and Files app folder still shows the full file size. These totals count shared blocks repeatedly. Use device available space to assess physical storage."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APFS 副本可共用磁盘区块，但每个账号和「文件」App 仍可能显示完整大小；合计会重复计算共用区块。请用设备可用空间判断实体储存占用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APFS 副本可共用磁碟區塊，但每個帳號和「檔案」App 仍可能顯示完整大小；合計會重複計算共用區塊。請用裝置可用空間判斷實體儲存佔用。"
+          }
+        }
+      }
+    },
     "lc.storage.containers" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -33592,6 +33914,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其他"
+          }
+        }
+      }
+    },
+    "lc.storage.refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Storage"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新储存数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理儲存資料"
+          }
+        }
+      }
+    },
+    "lc.storage.summedFileSizes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summed File Sizes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件大小合计"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檔案大小合計"
           }
         }
       }
