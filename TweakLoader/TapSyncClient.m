@@ -5,6 +5,7 @@
 #import "../LiveContainer/utils.h"
 #import "../MultitaskSupport/TapSyncProtocol.h"
 #import "../MultitaskSupport/ProcessMetrics.h"
+#import "TapSyncClientState.h"
 
 // These setters are used only inside the selected guest process. No system-wide HID injection is used.
 typedef struct __IOHIDEvent *LCTapHIDEventRef;
@@ -76,14 +77,21 @@ static BOOL LCTapReplayAvailable(void) {
     } @catch (NSException *exception) { return NO; }
 }
 
-static UIWindow *LCTapSyncGuestWindow(void) {
+static UIWindow *LCTapSyncGuestWindowWithResult(LCTapSyncResult *result) {
+    if (result) *result = LCTapSyncResultSceneInactive;
     NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
         if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
+        if (result) *result = LCTapSyncResultWindowNotReady;
         for (UIWindow *window in ((UIWindowScene *)scene).windows) {
             if (!window.hidden && window.alpha > 0 && window.userInteractionEnabled &&
-                window.windowLevel > UIWindowLevelNormal && window.rootViewController) return nil;
-            if (!window.hidden && window.alpha > 0 && window.windowLevel == UIWindowLevelNormal && window.rootViewController) {
+                window.windowLevel > UIWindowLevelNormal && window.rootViewController &&
+                CGRectIntersectsRect(window.frame, ((UIWindowScene *)scene).coordinateSpace.bounds)) {
+                if (result) *result = LCTapSyncResultWindowCovered;
+                return nil;
+            }
+            if (!window.hidden && window.alpha > 0 && window.userInteractionEnabled &&
+                window.windowLevel == UIWindowLevelNormal && window.rootViewController) {
                 [windows addObject:window];
             }
         }
@@ -94,8 +102,11 @@ static UIWindow *LCTapSyncGuestWindow(void) {
         if (keyWindow) return nil;
         keyWindow = window;
     }
-    return keyWindow ?: (windows.count == 1 ? windows.firstObject : nil);
+    UIWindow *window = keyWindow ?: (windows.count == 1 ? windows.firstObject : nil);
+    if (window && result) *result = LCTapSyncResultAccepted;
+    return window;
 }
+static UIWindow *LCTapSyncGuestWindow(void) { return LCTapSyncGuestWindowWithResult(NULL); }
 
 @interface LCMultiTouchContact : NSObject
 @property(nonatomic) UITouch *touch;
@@ -106,13 +117,11 @@ static UIWindow *LCTapSyncGuestWindow(void) {
 @implementation LCMultiTouchContact
 @end
 
-static BOOL LCTapHasRealTouches(UIEvent *event, UITouch *syntheticTouch, NSArray<LCMultiTouchContact *> *multiTouches) {
+static BOOL LCTapHasRealTouches(UIEvent *event, LCTapSyncClientState *state) {
     for (UITouch *touch in event.allTouches) {
-        // UIKit may retain our contact between streamed frames; only a different active touch interrupts it.
-        if (touch == syntheticTouch || touch.phase == UITouchPhaseEnded || touch.phase == UITouchPhaseCancelled) continue;
-        BOOL owned = NO;
-        for (LCMultiTouchContact *contact in multiTouches) if (contact.touch == touch) { owned = YES; break; }
-        if (!owned) return YES;
+        // Ownership survives finishReplay and a new session, including retained UIKit events.
+        if (touch.phase == UITouchPhaseEnded || touch.phase == UITouchPhaseCancelled || [state ownsTouch:touch]) continue;
+        return YES;
     }
     return NO;
 }
@@ -137,6 +146,9 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 
 @interface LCTapSyncClient : NSObject <LCTapSyncGuestProtocol>
 @property(nonatomic) NSXPCConnection *connection;
+@property(nonatomic) NSXPCListenerEndpoint *hostEndpoint;
+@property(nonatomic) LCTapSyncClientState *inputState;
+@property(nonatomic) BOOL connectionRetryScheduled;
 @property(nonatomic, copy) NSString *session;
 @property(nonatomic) BOOL source, replaying, supported, keyboardVisible;
 @property(nonatomic) LCTapSyncMode mode;
@@ -169,35 +181,85 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 @property(nonatomic) NSUInteger multiReplayGeneration;
 - (void)observeEvent:(UIEvent *)event;
 - (void)interrupt:(LCTapSyncResult)reason;
+- (void)interruptAfterCurrentEvent:(LCTapSyncResult)reason;
+- (void)connectToHost;
+- (void)connectionDidDisconnect:(NSXPCConnection *)connection;
 @end
 
 static LCTapSyncClient *tapSyncClient;
 
 @implementation LCTapSyncClient
+- (instancetype)init {
+    if ((self = [super init])) _inputState = [LCTapSyncClientState new];
+    return self;
+}
+- (NSString *)session { return self.inputState.session; }
+- (void)setSession:(NSString *)session { self.inputState.session = session; }
+- (void)connectToHost {
+    if (self.connection || !self.hostEndpoint) return;
+    NSXPCConnection *connection = [[NSXPCConnection alloc] initWithListenerEndpoint:self.hostEndpoint];
+    self.connection = connection;
+    connection.exportedInterface = LCTapSyncGuestInterface();
+    connection.exportedObject = self;
+    connection.remoteObjectInterface = LCTapSyncHostInterface();
+    __weak typeof(self) weakSelf = self;
+    __weak NSXPCConnection *weakConnection = connection;
+    void (^disconnected)(void) = ^{
+        dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf connectionDidDisconnect:weakConnection]; });
+    };
+    connection.interruptionHandler = disconnected;
+    connection.invalidationHandler = disconnected;
+    [connection resume];
+    id<LCTapSyncHostProtocol> host = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { disconnected(); }];
+    [host readyWithVersion:LCTapSyncProtocolVersion canReplay:self.supported];
+}
+- (void)connectionDidDisconnect:(NSXPCConnection *)connection {
+    // An old connection can report invalidation after its replacement is already ready.
+    if (!connection || self.connection != connection) return;
+    self.connection = nil;
+    self.session = nil;
+    [self discardCapture];
+    [self finishReplay:LCTapSyncResultUnavailable];
+    [connection invalidate];
+    if (self.connectionRetryScheduled) return;
+    NSTimeInterval delay = [self.inputState nextConnectionRetryDelay];
+    if (delay <= 0) return;
+    self.connectionRetryScheduled = YES;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self.connectionRetryScheduled = NO;
+        [self connectToHost]; // Reconnect transport only. Input stays paused until a fresh start.
+    });
+}
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply {
     // NSXPC calls this on its service queue. Sampling does not use the guest's UI loop.
     reply(LCReadProcessMetrics());
 }
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode reply:(void (^)(LCTapSyncResult))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self finishReplay:LCTapSyncResultStopped];
+        if (!sender || self.connection != sender) { reply(LCTapSyncResultUnavailable); return; }
+        [self.inputState resetConnectionRecovery];
         self.session = nil;
+        [self finishReplay:LCTapSyncResultStopped];
         [self discardCapture];
         if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers) {
             reply(LCTapSyncResultUnsupported); return;
         }
-        UIWindow *window = LCTapSyncGuestWindow();
-        if (![session isKindOfClass:NSString.class] || session.length != 36 || !window || self.keyboardVisible) {
-            reply(LCTapSyncResultUnavailable); return;
+        if (![session isKindOfClass:NSString.class] || session.length != 36) {
+            reply(LCTapSyncResultInvalidGesture); return;
         }
+        if (self.keyboardVisible) { reply(LCTapSyncResultKeyboardVisible); return; }
+        LCTapSyncResult windowResult;
+        UIWindow *window = LCTapSyncGuestWindowWithResult(&windowResult);
+        if (!window) { reply(windowResult); return; }
         if (window.bounds.size.width < 1 || window.bounds.size.height < 1 || window.windowScene.interfaceOrientation == UIInterfaceOrientationUnknown) {
-            reply(LCTapSyncResultUnavailable); return;
+            reply(LCTapSyncResultWindowNotReady); return;
         }
         if (!source && !self.supported) { reply(LCTapSyncResultUnsupported); return; }
         @try {
             if ([UIApplication.sharedApplication respondsToSelector:@selector(_touchesEvent)] &&
-                LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.syntheticTouch, self.replayContacts)) {
-                reply(LCTapSyncResultBusy); return;
+                LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) {
+                reply(LCTapSyncResultPhysicalTouch); return;
             }
         } @catch (NSException *exception) { reply(LCTapSyncResultUnsupported); return; }
         self.session = session;
@@ -211,7 +273,9 @@ static LCTapSyncClient *tapSyncClient;
     });
 }
 - (void)stopSession:(NSString *)session {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) return;
         if (![self.session isEqualToString:session]) return;
         self.session = nil;
         [self discardCapture];
@@ -227,6 +291,10 @@ static LCTapSyncClient *tapSyncClient;
         id<LCTapSyncHostProtocol> host = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {}];
         [host interruptSession:session reason:reason];
     }
+}
+- (void)interruptAfterCurrentEvent:(LCTapSyncResult)reason {
+    dispatch_block_t action = [self.inputState actionForCurrentSession:^{ [self interrupt:reason]; }];
+    if (action) dispatch_async(dispatch_get_main_queue(), action);
 }
 - (void)discardCapture {
     self.candidate = nil;
@@ -407,7 +475,7 @@ static LCTapSyncClient *tapSyncClient;
     if (event.type == UIEventTypePresses) { [self interrupt:LCTapSyncResultBusy]; return; }
     if (event.type != UIEventTypeTouches) return;
     if (!self.source) {
-        if (LCTapHasRealTouches(event, self.syntheticTouch, self.replayContacts)) [self interrupt:LCTapSyncResultBusy];
+        if (LCTapHasRealTouches(event, self.inputState)) [self interrupt:LCTapSyncResultPhysicalTouch];
         return;
     }
     if (self.mode == LCTapSyncModeTwoFingers) { [self captureMultiTouchEvent:event]; return; }
@@ -548,11 +616,12 @@ static LCTapSyncClient *tapSyncClient;
     if ([touch respondsToSelector:@selector(setGestureView:)]) [touch setGestureView:responder];
     if ([touch respondsToSelector:@selector(_setIsFirstTouchForView:)]) [touch _setIsFirstTouchForView:YES];
     else if (self.mode == LCTapSyncModeTapsOnly && [touch respondsToSelector:@selector(_setIsTapToClick:)]) [touch _setIsTapToClick:YES];
+    [self.inputState rememberSyntheticTouch:touch];
     return touch;
 }
 - (LCTapSyncResult)createSyntheticTouchInWindow:(UIWindow *)window point:(CGPoint)point tapCount:(NSUInteger)tapCount {
     UITouch *touch = [self newSyntheticTouchInWindow:window point:point tapCount:tapCount];
-    if (!touch) return LCTapSyncResultUnavailable;
+    if (!touch) return LCTapSyncResultWindowNotReady;
     UIEvent *event = LCTapNewEvent();
     if (!event) return LCTapSyncResultUnsupported;
     self.syntheticTouch = touch;
@@ -570,13 +639,15 @@ static LCTapSyncClient *tapSyncClient;
 }
 - (void)replayTouch:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence
              reply:(void (^)(LCTapSyncResult))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) { reply(LCTapSyncResultUnavailable); return; }
         if (![self.session isEqualToString:session] || self.source) { reply(LCTapSyncResultStopped); return; }
         if (self.mode != LCTapSyncModeSingleFinger) { reply(LCTapSyncResultInvalidGesture); return; }
         if (self.replayReply) { reply(LCTapSyncResultBusy); return; }
         self.replayReply = reply;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
-        if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
+        if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
         LCTouchSyncSample sample = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTouchSyncDecode(packet, &sample) ||
             !LCTouchSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
@@ -584,13 +655,14 @@ static LCTapSyncClient *tapSyncClient;
         }
         LCTouchSyncStream stream = self.replayStream;
         if (!LCTouchSyncAdvance(&stream, sample)) { [self finishReplay:LCTapSyncResultInvalidGesture]; return; }
-        UIWindow *window = LCTapSyncGuestWindow();
-        if (!window) { [self finishReplay:LCTapSyncResultUnavailable]; return; }
+        LCTapSyncResult windowResult;
+        UIWindow *window = LCTapSyncGuestWindowWithResult(&windowResult);
+        if (!window) { [self finishReplay:windowResult]; return; }
         if (!LCTouchSyncCanMap(sample, window.bounds.size.width, window.bounds.size.height, (int)window.windowScene.interfaceOrientation)) {
             [self finishReplay:LCTapSyncResultGeometryChanged]; return;
         }
         @try {
-            if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.syntheticTouch, self.replayContacts)) { [self finishReplay:LCTapSyncResultBusy]; return; }
+            if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) { [self finishReplay:LCTapSyncResultPhysicalTouch]; return; }
             CGPoint point = CGPointMake(CGRectGetMinX(window.bounds) + sample.x * window.bounds.size.width,
                                         CGRectGetMinY(window.bounds) + sample.y * window.bounds.size.height);
             if (sample.phase == LCTouchSyncPhaseBegan) {
@@ -611,7 +683,7 @@ static LCTapSyncClient *tapSyncClient;
                     [self finishReplay:LCTapSyncResultExpired]; return;
                 }
                 if (![self replayWindowIsUnchanged:window]) { [self finishReplay:LCTapSyncResultGeometryChanged]; return; }
-                if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
+                if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
                 @try {
                     [touch _setLocationInWindow:point resetPrevious:sample.phase == LCTouchSyncPhaseBegan];
                     UITouchPhase phase = sample.phase == LCTouchSyncPhaseBegan ? UITouchPhaseBegan :
@@ -727,13 +799,15 @@ static LCTapSyncClient *tapSyncClient;
 }
 - (void)replayTouchFrame:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) { reply(LCTapSyncResultUnavailable); return; }
         if (![self.session isEqualToString:session] || self.source) { reply(LCTapSyncResultStopped); return; }
         if (self.mode != LCTapSyncModeTwoFingers) { reply(LCTapSyncResultInvalidGesture); return; }
         if (self.replayReply) { reply(LCTapSyncResultBusy); return; }
         self.replayReply = reply;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
-        if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
+        if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
         LCMultiTouchSyncFrame frame = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCMultiTouchSyncDecode(packet, &frame) ||
             !LCMultiTouchSyncFrameIsFresh(frame, NSProcessInfo.processInfo.systemUptime)) {
@@ -741,8 +815,9 @@ static LCTapSyncClient *tapSyncClient;
         }
         LCMultiTouchSyncStream stream = self.replayMultiStream;
         if (!LCMultiTouchSyncAdvance(&stream, frame)) { [self finishReplay:LCTapSyncResultInvalidGesture]; return; }
-        UIWindow *window = LCTapSyncGuestWindow();
-        if (!window) { [self finishReplay:LCTapSyncResultUnavailable]; return; }
+        LCTapSyncResult windowResult;
+        UIWindow *window = LCTapSyncGuestWindowWithResult(&windowResult);
+        if (!window) { [self finishReplay:windowResult]; return; }
         if (!LCMultiTouchSyncCanMap(frame, window.bounds.size.width, window.bounds.size.height, (int)window.windowScene.interfaceOrientation)) {
             [self finishReplay:LCTapSyncResultGeometryChanged]; return;
         }
@@ -761,10 +836,10 @@ static LCTapSyncClient *tapSyncClient;
                 self.sequence != sequence || !self.replayReply) return;
             if (!LCMultiTouchSyncFrameIsFresh(frame, NSProcessInfo.processInfo.systemUptime)) { [self finishReplay:LCTapSyncResultExpired]; return; }
             if (![self replayWindowIsUnchanged:window]) { [self finishReplay:LCTapSyncResultGeometryChanged]; return; }
-            if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
+            if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
             @try {
-                if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.syntheticTouch, self.replayContacts)) {
-                    [self finishReplay:LCTapSyncResultBusy]; return;
+                if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) {
+                    [self finishReplay:LCTapSyncResultPhysicalTouch]; return;
                 }
                 if (firstFrame) {
                     self.multiEvent = LCTapNewEvent();
@@ -780,7 +855,7 @@ static LCTapSyncClient *tapSyncClient;
                     if (sample.phase == LCMultiTouchSyncPhaseBegan) {
                         if (contact) { [self finishReplay:LCTapSyncResultInvalidGesture]; return; }
                         UITouch *touch = [self newSyntheticTouchInWindow:window point:point tapCount:(NSUInteger)sample.tapCount];
-                        if (!touch) { [self finishReplay:LCTapSyncResultUnavailable]; return; }
+                        if (!touch) { [self finishReplay:LCTapSyncResultWindowNotReady]; return; }
                         for (LCMultiTouchContact *existing in self.replayContacts) {
                             if (existing.touch.phase != UITouchPhaseEnded && existing.touch.phase != UITouchPhaseCancelled &&
                                 existing.touch.view == touch.view && [touch respondsToSelector:@selector(_setIsFirstTouchForView:)]) {
@@ -822,23 +897,27 @@ static LCTapSyncClient *tapSyncClient;
 }
 - (void)replayTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence
             reply:(void (^)(LCTapSyncResult))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) { reply(LCTapSyncResultUnavailable); return; }
         if (![self.session isEqualToString:session] || self.source) { reply(LCTapSyncResultStopped); return; }
         if (self.mode != LCTapSyncModeTapsOnly) { reply(LCTapSyncResultInvalidGesture); return; }
         if (!self.supported) { reply(LCTapSyncResultUnsupported); return; }
-        if (self.syntheticTouch || self.keyboardVisible) { reply(LCTapSyncResultBusy); return; }
+        if (self.syntheticTouch) { reply(LCTapSyncResultBusy); return; }
+        if (self.keyboardVisible) { reply(LCTapSyncResultKeyboardVisible); return; }
         LCTapSyncSample sample = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTapSyncDecode(tap, &sample) ||
             !LCTapSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
             reply(LCTapSyncResultExpired); return;
         }
-        UIWindow *window = LCTapSyncGuestWindow();
-        if (!window) { reply(LCTapSyncResultUnavailable); return; }
+        LCTapSyncResult windowResult;
+        UIWindow *window = LCTapSyncGuestWindowWithResult(&windowResult);
+        if (!window) { reply(windowResult); return; }
         if (!LCTapSyncCanMap(sample, window.bounds.size.width, window.bounds.size.height, (int)window.windowScene.interfaceOrientation)) {
             reply(LCTapSyncResultGeometryChanged); return;
         }
         @try {
-            if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.syntheticTouch, self.replayContacts)) { reply(LCTapSyncResultBusy); return; }
+            if (LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) { reply(LCTapSyncResultPhysicalTouch); return; }
             CGPoint point = CGPointMake(CGRectGetMinX(window.bounds) + sample.x * window.bounds.size.width,
                                         CGRectGetMinY(window.bounds) + sample.y * window.bounds.size.height);
             LCTapSyncResult prepared = [self createSyntheticTouchInWindow:window point:point tapCount:(NSUInteger)sample.tapCount];
@@ -887,35 +966,29 @@ static void LCTapSyncClientInit(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
         tapSyncClient = [LCTapSyncClient new];
         tapSyncClient.supported = LCTapReplayAvailable();
-        NSXPCConnection *connection = [[NSXPCConnection alloc] initWithListenerEndpoint:endpoint];
-        tapSyncClient.connection = connection;
-        connection.exportedInterface = LCTapSyncGuestInterface();
-        connection.exportedObject = tapSyncClient;
-        connection.remoteObjectInterface = LCTapSyncHostInterface();
-        void (^disconnected)(void) = ^{
-            dispatch_async(dispatch_get_main_queue(), ^{
-                tapSyncClient.session = nil;
-                [tapSyncClient discardCapture];
-                [tapSyncClient finishReplay:LCTapSyncResultUnavailable];
-            });
-        };
-        connection.interruptionHandler = disconnected;
-        connection.invalidationHandler = disconnected;
-        [connection resume];
-        id<LCTapSyncHostProtocol> host = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { disconnected(); }];
-        [host readyWithVersion:LCTapSyncProtocolVersion canReplay:tapSyncClient.supported];
+        tapSyncClient.hostEndpoint = endpoint;
+        [tapSyncClient connectToHost];
         NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+        [center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+            [tapSyncClient.inputState resetConnectionRecovery];
+            if (!tapSyncClient.connectionRetryScheduled) [tapSyncClient connectToHost];
+        }];
         for (NSString *name in @[UIApplicationWillResignActiveNotification, UIApplicationDidEnterBackgroundNotification]) {
             [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
-                dispatch_async(dispatch_get_main_queue(), ^{ [tapSyncClient interrupt:LCTapSyncResultUnavailable]; });
+                if ([note.name isEqualToString:UIApplicationDidEnterBackgroundNotification]) tapSyncClient.keyboardVisible = NO;
+                [tapSyncClient interruptAfterCurrentEvent:LCTapSyncResultSceneInactive];
             }];
         }
         [center addObserverForName:UIKeyboardWillShowNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+            if ([note.userInfo[UIKeyboardIsLocalUserInfoKey] isEqual:@NO]) return;
             tapSyncClient.keyboardVisible = YES;
-            dispatch_async(dispatch_get_main_queue(), ^{ [tapSyncClient interrupt:LCTapSyncResultBusy]; });
+            [tapSyncClient interruptAfterCurrentEvent:LCTapSyncResultKeyboardVisible];
         }];
-        [center addObserverForName:UIKeyboardDidHideNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
-            tapSyncClient.keyboardVisible = NO;
-        }];
+        for (NSString *name in @[UIKeyboardWillHideNotification, UIKeyboardDidHideNotification]) {
+            [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                if ([note.userInfo[UIKeyboardIsLocalUserInfoKey] isEqual:@NO]) return;
+                tapSyncClient.keyboardVisible = NO;
+            }];
+        }
     });
 }

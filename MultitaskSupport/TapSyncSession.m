@@ -1,5 +1,33 @@
 #import "TapSyncSession.h"
 
+@interface LCTapSyncPreparation ()
+@property(nonatomic) NSMutableOrderedSet<NSString *> *pending;
+@property(nonatomic) NSMutableDictionary<NSString *, NSNumber *> *failedResults;
+@end
+
+@implementation LCTapSyncPreparation
+- (instancetype)initWithContainers:(NSArray<NSString *> *)containers {
+    if ((self = [super init])) {
+        _pending = [NSMutableOrderedSet orderedSetWithArray:containers];
+        _failedResults = [NSMutableDictionary dictionary];
+    }
+    return self;
+}
+- (NSArray<NSString *> *)pendingContainers { return self.pending.array; }
+- (NSDictionary<NSString *, NSNumber *> *)failures { return self.failedResults.copy; }
+- (BOOL)recordResult:(LCTapSyncResult)result forContainer:(NSString *)container {
+    if (![self.pending containsObject:container]) return NO;
+    [self.pending removeObject:container];
+    if (result != LCTapSyncResultAccepted) self.failedResults[container] = @(result);
+    return YES;
+}
+- (NSDictionary<NSString *, NSNumber *> *)failuresIncludingTimeouts {
+    NSMutableDictionary *failures = self.failedResults.mutableCopy;
+    for (NSString *container in self.pending) failures[container] = @(LCTapSyncResultPreparationTimedOut);
+    return failures.copy;
+}
+@end
+
 @interface LCTapSyncSession ()
 @property(nonatomic) NSMutableArray<NSDictionary *> *queue;
 @property(nonatomic) uint64_t lastSequence;

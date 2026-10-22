@@ -2,6 +2,15 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Collect all preparation replies before enabling the source, including failures/timeouts.
+@interface LCTapSyncPreparation : NSObject
+@property(nonatomic, copy, readonly) NSArray<NSString *> *pendingContainers;
+@property(nonatomic, copy, readonly) NSDictionary<NSString *, NSNumber *> *failures;
+- (instancetype)initWithContainers:(NSArray<NSString *> *)containers;
+- (BOOL)recordResult:(LCTapSyncResult)result forContainer:(NSString *)container;
+- (NSDictionary<NSString *, NSNumber *> *)failuresIncludingTimeouts;
+@end
+
 // Main-thread session state. Neither active state nor queued input is persisted in a workspace.
 @interface LCTapSyncSession : NSObject
 @property(nonatomic, copy, readonly) NSString *identifier;

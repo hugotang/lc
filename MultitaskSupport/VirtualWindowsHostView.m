@@ -297,6 +297,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 
 - (void)performanceDidChange:(NSNotification *)notification {
     BOOL visible = LCPerformanceMonitor.shared.enabled;
+    BOOL wasVisible = self.performanceOverlay && !self.performanceOverlay.hidden;
     if (visible && !self.performanceOverlay) {
         self.performanceOverlay = [LCGridControlsOverlay new];
         self.performanceControls = [LCTapSyncControlsView new];
@@ -310,7 +311,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     if (!visible) return;
     [self.performanceControls refresh];
     [self layoutPerformanceOverlay];
-    [self bringGridControlsToFront];
+    if (!wasVisible) [self bringGridControlsToFront];
 }
 - (void)layoutPerformanceOverlay {
     if (!self.performanceOverlay || self.performanceOverlay.hidden) return;
@@ -1140,7 +1141,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     } else {
         self.shouldForwardTapAction = !((self.dividerOverlay && [hitView isDescendantOfView:self.dividerOverlay]) ||
                                         (self.swapOverlay && [hitView isDescendantOfView:self.swapOverlay]) ||
-                                        (self.tapSyncOverlay && [hitView isDescendantOfView:self.tapSyncOverlay]));
+                                        (self.tapSyncOverlay && [hitView isDescendantOfView:self.tapSyncOverlay]) ||
+                                        (self.performanceOverlay && [hitView isDescendantOfView:self.performanceOverlay]));
         return hitView;
     }
 }

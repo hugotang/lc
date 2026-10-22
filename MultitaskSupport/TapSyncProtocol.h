@@ -24,6 +24,12 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
     LCTapSyncResultInvalidGesture,
     LCTapSyncResultMultipleTouches,
     LCTapSyncResultTooManyTouches,
+    LCTapSyncResultSceneInactive,
+    LCTapSyncResultWindowCovered,
+    LCTapSyncResultWindowNotReady,
+    LCTapSyncResultKeyboardVisible,
+    LCTapSyncResultPhysicalTouch,
+    LCTapSyncResultPreparationTimedOut,
 };
 
 @protocol LCTapSyncGuestProtocol

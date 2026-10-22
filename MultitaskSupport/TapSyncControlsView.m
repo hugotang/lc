@@ -12,6 +12,7 @@
 @property(nonatomic) UIEdgeInsets placementInsets;
 @property(nonatomic) CGPoint dragStartCenter;
 @property(nonatomic) BOOL dragging, landscape, dragLandscape;
+@property(nonatomic, copy) NSString *lastAnnouncedInterruption;
 @end
 
 @implementation LCTapSyncControlsView
@@ -66,25 +67,27 @@
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     BOOL compact = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncCompactControls"];
     BOOL running = sync.active || sync.starting;
+    BOOL interrupted = sync.hasInterruption;
     NSString *title = [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
         (long)sync.targetContainers.count];
     UIButtonConfiguration *configuration = UIButtonConfiguration.tintedButtonConfiguration;
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    configuration.baseBackgroundColor = running ? UIColor.systemOrangeColor : UIColor.systemBlueColor;
+    configuration.baseBackgroundColor = running ? UIColor.systemOrangeColor : interrupted ? UIColor.systemYellowColor : UIColor.systemBlueColor;
     configuration.baseForegroundColor = UIColor.labelColor;
-    configuration.image = [UIImage systemImageNamed:running ? @"pause.fill" : @"play.fill"];
+    configuration.image = [UIImage systemImageNamed:running ? @"pause.fill" : interrupted ? @"exclamationmark.triangle.fill" : @"play.fill"];
     configuration.imagePadding = 7;
     configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 12);
-    configuration.title = compact ? [NSString stringWithFormat:@"1 → %lu", (unsigned long)sync.targetContainers.count] :
-        sync.starting ? @"lc.tapSync.starting".loc : title;
+    configuration.title = sync.starting ? @"lc.tapSync.starting".loc : compact ?
+        [NSString stringWithFormat:@"1 → %lu", (unsigned long)sync.targetContainers.count] : title;
     NSMutableArray *affected = [NSMutableArray array];
     for (NSString *container in sync.interruptedContainers) {
         [affected addObject:[NSString stringWithFormat:@"#%lu", (unsigned long)[sync windowNumberForContainer:container]]];
     }
     NSString *status = affected.count ? [NSString stringWithFormat:@"%@ · %@", [affected componentsJoinedByString:@", "], sync.statusKey.loc] : sync.statusKey.loc;
-    configuration.subtitle = !compact && !running ? status : nil;
+    // Compact controls must not hide a failed start behind a momentary icon change.
+    configuration.subtitle = !running && (!compact || interrupted) ? status : nil;
     configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
-    configuration.subtitleLineBreakMode = NSLineBreakByTruncatingTail;
+    configuration.subtitleLineBreakMode = interrupted ? NSLineBreakByWordWrapping : NSLineBreakByTruncatingTail;
     configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
         NSMutableDictionary *result = attributes.mutableCopy;
         result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
@@ -105,6 +108,10 @@
     settings.baseForegroundColor = UIColor.labelColor;
     self.settingsButton.configuration = settings;
     self.settingsButton.accessibilityLabel = @"lc.tapSync.configure".loc;
+    if (interrupted && ![self.lastAnnouncedInterruption isEqualToString:status]) {
+        self.lastAnnouncedInterruption = status;
+        if (self.window) UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, status);
+    } else if (!interrupted) self.lastAnnouncedInterruption = nil;
     [self refreshPlacementActions];
 }
 - (void)refreshPlacementActions {

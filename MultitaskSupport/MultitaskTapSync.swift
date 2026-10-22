@@ -151,7 +151,8 @@ private struct MultitaskTapSyncPanel: View {
         NavigationStack {
             Form {
                 Section {
-                    Label(manager.coordinator.statusKey.loc, systemImage: manager.coordinator.mode == .tapsOnly ? "hand.tap" : "hand.draw")
+                    Label(manager.coordinator.statusKey.loc, systemImage: manager.coordinator.hasInterruption ? "exclamationmark.triangle" :
+                          manager.coordinator.mode == .tapsOnly ? "hand.tap" : "hand.draw")
                     ForEach(manager.coordinator.interruptedContainers, id: \.self) { container in
                         VStack(alignment: .leading, spacing: 8) {
                             if let window = manager.windows.first(where: { $0.dataUUID == container }) {
@@ -160,6 +161,9 @@ private struct MultitaskTapSyncPanel: View {
                                 Label("lc.tapSync.affectedMissingWindow".localizeWithFormat(manager.coordinator.windowNumber(forContainer: container)),
                                       systemImage: "exclamationmark.circle")
                             }
+                            Text(manager.coordinator.statusKey(forContainer: container).loc)
+                                .font(.footnote).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             if manager.targets.contains(container) {
                                 Button("lc.tapSync.removeFollower".loc) { manager.coordinator.removeTarget(container) }
                             } else if manager.source == container {

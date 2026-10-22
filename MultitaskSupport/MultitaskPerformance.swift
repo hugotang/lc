@@ -74,12 +74,20 @@ struct PerformanceProcessSnapshot: Identifiable {
 
 @available(iOS 16.0, *)
 struct MultitaskPerformanceActions: View {
-    @ObservedObject private var manager = MultitaskPerformanceManager.shared
+    private let manager = MultitaskPerformanceManager.shared
+    @State private var overlayEnabled = LCPerformanceMonitor.shared.isEnabled
 
     var body: some View {
-        Toggle("lc.performance.showOverlay".loc, isOn: Binding(get: { manager.monitor.isEnabled }, set: { manager.setEnabled($0) }))
-        Button { manager.presentPanel() } label: {
-            Label("lc.performance.title".loc, systemImage: "gauge.with.dots.needle.33percent")
+        Group {
+            Toggle("lc.performance.showOverlay".loc, isOn: Binding(get: { overlayEnabled }, set: { manager.setEnabled($0) }))
+            Button { manager.presentPanel() } label: {
+                Label("lc.performance.title".loc, systemImage: "gauge.with.dots.needle.33percent")
+            }
+        }
+        // A live Menu loses its scroll position when its contents are republished.
+        // Only the toggle state belongs here; the panel observes the full readings.
+        .onReceive(manager.$revision.map { _ in manager.monitor.isEnabled }.removeDuplicates()) { enabled in
+            if overlayEnabled != enabled { overlayEnabled = enabled }
         }
     }
 }

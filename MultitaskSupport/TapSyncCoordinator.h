@@ -24,6 +24,8 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, copy, readonly) NSArray<LCWorkspaceWindow *> *availableWindows;
 @property(nonatomic, copy, readonly) NSDictionary *selectionPropertyList;
 @property(nonatomic, readonly) BOOL canStart;
+@property(nonatomic, readonly) BOOL hasInterruption;
+- (NSString *)statusKeyForContainer:(NSString *)container NS_SWIFT_NAME(statusKey(forContainer:));
 - (BOOL)isReadyForContainer:(NSString *)container NS_SWIFT_NAME(isReady(forContainer:));
 - (BOOL)canReplayForContainer:(NSString *)container NS_SWIFT_NAME(canReplay(forContainer:));
 - (void)registerScene:(AppSceneViewController *)scene;

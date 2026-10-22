@@ -220,6 +220,8 @@
 				DocumentPicker.m,
 				Notification.m,
 				TapSyncClient.m,
+				TapSyncClientState.h,
+				TapSyncClientState.m,
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
 			);

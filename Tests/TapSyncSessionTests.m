@@ -167,10 +167,34 @@ static void testTwoFingerSessions(void) {
     assert(enqueueFrame(session, 106, frame) == LCTapSyncResultStopped);
 }
 
+static void testPreparationResults(void) {
+    LCTapSyncPreparation *preparation = [[LCTapSyncPreparation alloc] initWithContainers:@[@"B", @"C", @"D"]];
+    assert([preparation recordResult:LCTapSyncResultSceneInactive forContainer:@"D"]);
+    assert(preparation.pendingContainers.count == 2);
+    assert([preparation recordResult:LCTapSyncResultKeyboardVisible forContainer:@"B"]);
+    assert(![preparation recordResult:LCTapSyncResultAccepted forContainer:@"B"]);
+    assert(![preparation recordResult:LCTapSyncResultAccepted forContainer:@"unknown"]);
+    NSDictionary *timeout = preparation.failuresIncludingTimeouts;
+    assert(timeout.count == 3);
+    assert([timeout[@"D"] integerValue] == LCTapSyncResultSceneInactive);
+    assert([timeout[@"B"] integerValue] == LCTapSyncResultKeyboardVisible);
+    assert([timeout[@"C"] integerValue] == LCTapSyncResultPreparationTimedOut);
+    assert([preparation recordResult:LCTapSyncResultSceneInactive forContainer:@"C"]);
+    assert(preparation.pendingContainers.count == 0 && preparation.failures.count == 3);
+
+    preparation = [[LCTapSyncPreparation alloc] initWithContainers:@[@"B", @"C"]];
+    assert([preparation recordResult:LCTapSyncResultAccepted forContainer:@"C"]);
+    assert(preparation.pendingContainers.count == 1 && preparation.failures.count == 0);
+    assert(preparation.failuresIncludingTimeouts.count == 1);
+    assert([preparation recordResult:LCTapSyncResultAccepted forContainer:@"B"]);
+    assert(preparation.pendingContainers.count == 0 && preparation.failuresIncludingTimeouts.count == 0);
+}
+
 int main(void) {
     @autoreleasepool {
         testSingleFingerSessions();
         testTwoFingerSessions();
+        testPreparationResults();
         assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[]] == nil);
         assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"A"]] == nil);
         assert(([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B", @"B"]] == nil));

@@ -33782,19 +33782,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately."
+            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately. If sync cannot start or is interrupted, the reason stays visible even with Compact Controls on. Open the gear for each affected window's details."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。"
+            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。同步无法开始或中断时，即使开启精简显示也会保留原因；点击齿轮可查看各个受影响窗口的详情。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。"
+            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。同步無法開始或中斷時，即使開啟精簡顯示也會保留原因；點擊齒輪可查看各個受影響視窗的詳情。"
           }
         }
       }
@@ -33979,6 +33979,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已暫停：有視窗正在處理其他觸控或鍵盤輸入。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.keyboardVisible" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: the app's keyboard is open. Dismiss the keyboard, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：App 的键盘已打开。请先收起键盘再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：App 的鍵盤已開啟。請先收起鍵盤再繼續。"
           }
         }
       }
@@ -34443,6 +34466,75 @@
         }
       }
     },
+    "lc.tapSync.physicalTouch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: a finger is still touching an app window. Lift all fingers, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：仍有手指正在触碰 App 窗口。请抬起所有手指再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：仍有手指正在觸碰 App 視窗。請抬起所有手指再繼續。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.preparationTimedOut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not start sync: the app did not finish its input check in time. Wait for it to respond, then try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法开始同步：App 未及时完成输入检查。请等待 App 恢复响应后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開始同步：App 未及時完成輸入檢查。請等待 App 恢復回應後重試。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.reconnectedPaused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input reconnected. Check that the app screens match, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入已重新连接。请先确认各 App 画面一致，再继续同步。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入已重新連線。請先確認各 App 畫面一致，再繼續同步。"
+          }
+        }
+      }
+    },
     "lc.tapSync.removeFollower" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34623,6 +34715,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編輯此 workspace 的來源、接收視窗和同步模式，再點按「儲存」。還原後同步保持暫停。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.sceneInactive" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: this app has not returned to the foreground. Bring its window forward, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：此 App 尚未返回前台。请切回该 App 窗口后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：此 App 尚未返回前景。請切回該 App 視窗後再繼續。"
           }
         }
       }
@@ -34834,6 +34949,29 @@
         }
       }
     },
+    "lc.tapSync.startFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not start sync. Open sync settings to see each affected window's reason."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法开始同步。请打开同步设置，查看各个受影响窗口的原因。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開始同步。請開啟同步設定，查看各個受影響視窗的原因。"
+          }
+        }
+      }
+    },
     "lc.tapSync.starting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35024,19 +35162,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused: a window is not ready or its input connection was interrupted."
+            "value" : "Paused: the app's input connection is unavailable. Wait for it to reconnect, or reopen this app window, then resume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暂停：有窗口尚未就绪或输入连接已中断。"
+            "value" : "已暂停：App 的输入连接不可用。请等待重新连接，或重新打开该 App 窗口后再继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暫停：有視窗尚未就緒或輸入連線已中斷。"
+            "value" : "已暫停：App 的輸入連線無法使用。請等待重新連線，或重新開啟該 App 視窗後再繼續。"
           }
         }
       }
@@ -35083,6 +35221,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設為同步來源"
+          }
+        }
+      }
+    },
+    "lc.tapSync.windowCovered" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: a dialog or another window is covering this app. Dismiss it, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：对话框或其他窗口遮住了此 App。请关闭遮挡后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：對話框或其他視窗遮住了此 App。請關閉遮擋後再繼續。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.windowNotReady" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: the app's input window is not ready. Wait for it to finish loading or changing layout, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：App 的输入窗口尚未就绪。请等待加载或布局切换完成后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：App 的輸入視窗尚未就緒。請等待載入或佈局切換完成後再繼續。"
           }
         }
       }

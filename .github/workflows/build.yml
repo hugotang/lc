@@ -48,6 +48,8 @@ jobs:
           "$RUNNER_TEMP/multi-touch-sync-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSession.m Tests/TapSyncSessionTests.m -o "$RUNNER_TEMP/tap-sync-session-tests"
           "$RUNNER_TEMP/tap-sync-session-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncClientState.m Tests/TapSyncClientStateTests.m -o "$RUNNER_TEMP/tap-sync-client-state-tests"
+          "$RUNNER_TEMP/tap-sync-client-state-tests"
       - name: Test performance metrics
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
