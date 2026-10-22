@@ -9,7 +9,7 @@ struct LCResourceCompactionView: View {
     @State private var result: LCResourceCompactionResult?
     @State private var progress: Progress?
     @State private var progressFraction = 0.0
-    @State private var progressObservation: NSKeyValueObservation?
+    @State private var progressRefresh: Task<Void, Never>?
     @State private var isApplying = false
     @State private var operation: Task<Void, Never>?
     @State private var errorInfo: String?
@@ -138,16 +138,22 @@ struct LCResourceCompactionView: View {
         progressFraction = 0
         let next = Progress(totalUnitCount: 0)
         progress = next
-        progressObservation = next.observe(\.fractionCompleted, options: [.new]) { value, _ in
-            Task { @MainActor in
-                if progress === next { progressFraction = value.fractionCompleted }
+        progressRefresh = Task {
+            while !Task.isCancelled {
+                progressFraction = next.fractionCompleted
+                do {
+                    try await Task.sleep(nanoseconds: 250_000_000)
+                } catch {
+                    break
+                }
             }
         }
         return next
     }
 
     private func finishProgress() {
-        progressObservation = nil
+        progressRefresh?.cancel()
+        progressRefresh = nil
         progress = nil
         operation = nil
     }

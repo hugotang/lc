@@ -57,6 +57,11 @@ cancellation, target metadata, manifests, a third account, symlink/hard-link
 rejection and cross-process leases. iOS game and protection-class behavior also
 require the checks below; passing CI is not game compatibility confirmation.
 
+While the operation is running, progress refreshes four times per second and only
+for the duration of the operation. Leaving the page or backgrounding it cancels
+the work. Guest leases use the existing suspend-safe lock-file convention; only
+the empty lease file is marked, not account resources.
+
 - Record device free space. Stop two accounts, analyze, and compact. Confirm the
   operation remains responsive and reports an understandable result in English,
   Simplified Chinese and Traditional Chinese, including large text and VoiceOver.

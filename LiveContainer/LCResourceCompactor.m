@@ -165,7 +165,7 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
         }
     }
     // A clone inherits source metadata. Restore the TARGET's permissions, ACLs,
-    // extended attributes (including protection class) and modification time.
+    // extended attributes and modification time, then verify iOS protection.
     if (fcopyfile(targetFD, cloneFD, NULL, COPYFILE_METADATA) || fsync(cloneFD)) {
         LCFail(error, LCResourceCompactionErrorIO, @"Unable to preserve resource metadata. The original file was preserved.");
         goto cleanup;
@@ -197,7 +197,7 @@ static BOOL LCReplace(LCResourceReplacement *replacement, NSProgress *progress, 
     createdClone = NO;
     succeeded = YES;
     // Losing the advisory manifest on a crash only causes a later re-scan.
-    // All data is already durable and valid at the original file name.
+    // The file's data was synced before its atomic replacement.
     if (!fstat(cloneFD, &clonedStat)) {
         target.identity = clonedStat;
         *manifestRecord = @{@"sourceContainer": source.containerURL.lastPathComponent,
