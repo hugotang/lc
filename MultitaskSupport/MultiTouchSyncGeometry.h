@@ -2,6 +2,7 @@
 #define LC_MULTI_TOUCH_SYNC_GEOMETRY_H
 
 #include "TouchSyncGeometry.h"
+#include <stddef.h>
 
 enum { LCMultiTouchSyncMaximumContacts = 2, LCMultiTouchSyncMaximumFrameContacts = 4 };
 typedef enum {
