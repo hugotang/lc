@@ -57,8 +57,8 @@ static NSURL *MakeContainer(NSURL *root, NSString *name) {
        withIntermediateDirectories:YES attributes:nil error:nil]);
     assert([fm createDirectoryAtURL:[container URLByAppendingPathComponent:@"Documents"]
        withIntermediateDirectories:YES attributes:nil error:nil]);
-    assert([@{@"appIdentifier": LCResourceCompactor.supportedBundleIdentifier, @"keychainGroupId": @12}
-            writeToURL:[container URLByAppendingPathComponent:@"LCContainerInfo.plist"] atomically:YES]);
+    assert(([@{@"appIdentifier": LCResourceCompactor.supportedBundleIdentifier, @"keychainGroupId": @12}
+            writeToURL:[container URLByAppendingPathComponent:@"LCContainerInfo.plist"] atomically:YES]));
     return container;
 }
 
@@ -134,8 +134,8 @@ int main(void) {
             NSError *error = nil;
             int shared = [LCResourceCompactor acquireSharedLeaseForContainerAtURL:b error:&error];
             assert(shared >= 0 && !error);
-            assert(![LCResourceCompactor scanContainers:@[a,b] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
-                                                  progress:Progress() error:&error]);
+            assert((![LCResourceCompactor scanContainers:@[a,b] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
+                                                  progress:Progress() error:&error]));
             assert(error.code == LCResourceCompactionErrorBusy);
             close(shared);
 
@@ -224,16 +224,16 @@ int main(void) {
             assert(Apply(Scan(@[d,e])).compactedFileCount == 1);
 
             error = nil;
-            assert(![LCResourceCompactor scanContainers:@[a,a] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
-                                                  progress:Progress() error:&error]);
+            assert((![LCResourceCompactor scanContainers:@[a,a] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
+                                                  progress:Progress() error:&error]));
             assert(error.code == LCResourceCompactionErrorInvalidContainer);
             NSURL *resourceDir = [b URLByAppendingPathComponent:LCResourceCompactor.resourceRelativePath];
             NSURL *moved = [root URLByAppendingPathComponent:@"moved-resources"];
             assert([fm moveItemAtURL:resourceDir toURL:moved error:nil]);
             assert([fm createSymbolicLinkAtURL:resourceDir withDestinationURL:moved error:nil]);
             error = nil;
-            assert(![LCResourceCompactor scanContainers:@[a,b] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
-                                                  progress:Progress() error:&error]);
+            assert((![LCResourceCompactor scanContainers:@[a,b] bundleIdentifier:LCResourceCompactor.supportedBundleIdentifier
+                                                  progress:Progress() error:&error]));
             assert(error.code == LCResourceCompactionErrorInvalidContainer);
             assert([fm removeItemAtURL:resourceDir error:nil]);
             assert([fm moveItemAtURL:moved toURL:resourceDir error:nil]);
