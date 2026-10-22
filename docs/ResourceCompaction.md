@@ -76,6 +76,25 @@ that figure by itself does not prove the device gained 10.84 GB of free space.
 
 ## Verification
 
+### Current scope and iPad observation (2026-10-23)
+
+The user's screenshot from build `afb59c7` shows 45 files processed, 744.2 MB
+of resource data, and 45 files with verified shared physical blocks. Available
+space increased from 12.98 GB to 13.72 GB; the recorded available-space change is
++737.3 MB. This confirms that the tested operation retained APFS sharing on
+the iPad, with an observed free-space increase close to its processed data size.
+These result counts describe that operation, not all previously shared files.
+The screenshot does not measure cumulative savings from the earlier operation
+that processed 2,259 files, and does not establish full gameplay/update coverage.
+
+Retain the manual compaction prototype as an optional storage tool with four
+independent account containers. Defer a shared writable resource directory and
+single-download update coordination. Revisit those extensions if repeated device
+measurements show that resource growth or duplicate downloads remain a material
+problem. Before expanding the scope, complete independent gameplay/save, update
+and deletion checks below. No resource migration or reversal is required by the
+observed storage result.
+
 `ResourceCompactionTests.m` runs against the actual APFS clone implementation on
 macOS CI. It covers equality, differing equal-size data, format/name exclusions,
 private saves, clone inode separation, full physical extent sharing after
