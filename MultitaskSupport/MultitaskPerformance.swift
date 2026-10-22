@@ -88,6 +88,10 @@ struct MultitaskPerformanceActions: View {
 private struct MultitaskPerformancePanel: View {
     @ObservedObject private var manager = MultitaskPerformanceManager.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var exportURL: URL?
+    @State private var exportDirectory: URL?
+    @State private var showingExport = false
+    @State private var exportError: String?
 
     var body: some View {
         NavigationStack {
@@ -141,6 +145,8 @@ private struct MultitaskPerformancePanel: View {
                     }
                 }
                 Section {
+                    Text("lc.performance.segmentSummary".localizeWithFormat(integer("segment"), manager.snapshot["segmentElapsed"] as? Double ?? 0))
+                        .font(.footnote).foregroundStyle(.secondary)
                     metric("lc.performance.averageCPU", value: formatted(manager.snapshot["averageCPU"], unit: "%"))
                     metric("lc.performance.peakCPU", value: formatted(manager.snapshot["peakCPU"], unit: "%"))
                     metric("lc.performance.peakMemory", value: formatted(manager.snapshot["peakMemoryMiB"], unit: " MiB"))
@@ -148,6 +154,8 @@ private struct MultitaskPerformancePanel: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 } header: {
                     Text("lc.performance.sinceReset".loc)
+                } footer: {
+                    Text("lc.performance.segmentHelp".loc)
                 }
                 Section {
                     metric("lc.performance.responseMedian", value: formatted(manager.sync["responseP50Ms"], unit: " ms"))
@@ -163,10 +171,12 @@ private struct MultitaskPerformancePanel: View {
                     Text("lc.performance.responseHelp".loc)
                 }
                 Section {
-                    ShareLink(item: manager.monitor.csvReport) {
+                    Button(action: exportReport) {
                         Label("lc.performance.export".loc, systemImage: "square.and.arrow.up")
                     }
-                    .disabled(manager.snapshot["processCount"] == nil)
+                    .disabled(manager.monitor.reportSampleCount == 0)
+                    Text("lc.performance.retainedSamples".localizeWithFormat(manager.monitor.reportSampleCount))
+                        .font(.footnote).foregroundStyle(.secondary)
                     DisclosureGroup("lc.performance.testGuide".loc) {
                         Text("lc.performance.testProcedure".loc).font(.footnote)
                     }
@@ -179,7 +189,48 @@ private struct MultitaskPerformancePanel: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("lc.common.done".loc) { dismiss() } }
             }
+            .sheet(isPresented: $showingExport, onDismiss: removeExportFile) {
+                if let exportURL {
+                    ActivityViewController(activityItems: [exportURL])
+                }
+            }
+            .alert("lc.performance.exportFailed".loc, isPresented: Binding(
+                get: { exportError != nil }, set: { if !$0 { exportError = nil } }
+            )) {
+                Button("lc.common.ok".loc, role: .cancel) { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
         }
+    }
+
+    private func exportReport() {
+        guard manager.monitor.reportSampleCount > 0 else { return }
+        let files = FileManager.default
+        let directory = files.temporaryDirectory.appendingPathComponent("LCPerformance-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try files.createDirectory(at: directory, withIntermediateDirectories: true)
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.dateFormat = "yyyyMMdd-HHmmss"
+            let url = directory.appendingPathComponent("LiveContainer-performance-\(formatter.string(from: Date())).csv")
+            // Snapshot only when requested. The shared file stays fixed while live sampling continues.
+            try manager.monitor.csvReport.write(to: url, atomically: true, encoding: .utf8)
+            exportDirectory = directory
+            exportURL = url
+            showingExport = true
+        } catch {
+            try? files.removeItem(at: directory)
+            exportError = error.localizedDescription
+        }
+    }
+
+    private func removeExportFile() {
+        // This directory is created solely for this share sheet; never touch other temporary files.
+        if let exportDirectory { try? FileManager.default.removeItem(at: exportDirectory) }
+        exportURL = nil
+        exportDirectory = nil
     }
 
     private func integer(_ key: String) -> Int { manager.snapshot[key] as? Int ?? 0 }

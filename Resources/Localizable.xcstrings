@@ -18862,19 +18862,42 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share CSV Data"
+            "value" : "Share CSV File"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分享 CSV 数据"
+            "value" : "分享 CSV 文件"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分享 CSV 數據"
+            "value" : "分享 CSV 檔案"
+          }
+        }
+      }
+    },
+    "lc.performance.exportFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could Not Export Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导出报告"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法匯出報告"
           }
         }
       }
@@ -18885,19 +18908,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keeps up to five minutes of numeric samples in memory. Sharing is optional. No touch coordinates, app names, account data or container identifiers are included."
+            "value" : "Shares a CSV file with combined and per-process CPU and memory, segment numbers and build information. Up to 300 foreground sample rounds are kept in memory (about five minutes). Processes use anonymous numbers. No app names, account data, touch coordinates or container identifiers are included."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仅在内存中保留最多五分钟的数值取样，可自行选择分享。不会包含触控坐标、App 名称、账号数据或容器标识。"
+            "value" : "分享 CSV 文件，包含合计及各进程的 CPU、内存、分段编号和版本信息。内存中保留最近最多 300 轮前台取样（约五分钟）。进程使用匿名编号，不包含 App 名称、账号数据、触控坐标或容器标识。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "僅在記憶體中保留最多五分鐘的數值取樣，可自行選擇分享。不會包含觸控座標、App 名稱、帳號資料或容器識別碼。"
+            "value" : "分享 CSV 檔案，包含合計及各處理程序的 CPU、記憶體、分段編號和版本資訊。記憶體中保留最近最多 300 輪前景取樣（約五分鐘）。處理程序使用匿名編號，不包含 App 名稱、帳號資料、觸控座標或容器識別碼。"
           }
         }
       }
@@ -19138,19 +19161,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Time from the host sending a frame until all followers acknowledge input delivery. Includes scheduling and intentional tap/gesture timing; it does not measure screen response or network latency. p95 is the value at or below which 95% of these replies fall. Coalescing replaces superseded movement, not touch beginnings or releases."
+            "value" : "Time from the host sending a frame until all followers acknowledge input delivery. Includes scheduling and intentional tap/gesture timing; it does not measure screen response or network latency. p95 is the value at or below which 95% of these replies fall. Reply statistics reset when the measurement segment changes. Coalescing replaces superseded movement, not touch beginnings or releases."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从主程序发送一帧到所有接收窗口确认输入已送达的时间。包括调度及刻意保留的点按／手势时序，不代表画面响应或网络延迟。p95 表示 95% 的这些回复不超过该数值。合并只替换已被更新的移动，不会删除按下或抬起。"
+            "value" : "从主程序发送一帧到所有接收窗口确认输入已送达的时间。包括调度及刻意保留的点按／手势时序，不代表画面响应或网络延迟。p95 表示 95% 的这些回复不超过该数值。测量分段变更时会重置回复统计。合并只替换已被更新的移动，不会删除按下或抬起。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "從主程式傳送一幀到所有接收視窗確認輸入已送達的時間。包括排程及刻意保留的點按／手勢時序，不代表畫面回應或網絡延遲。p95 表示 95% 的這些回覆不超過該數值。合併只替換已被更新的移動，不會刪除按下或抬起。"
+            "value" : "從主程式傳送一幀到所有接收視窗確認輸入已送達的時間。包括排程及刻意保留的點按／手勢時序，不代表畫面回應或網絡延遲。p95 表示 95% 的這些回覆不超過該數值。量測分段變更時會重設回覆統計。合併只替換已被更新的移動，不會刪除按下或抬起。"
           }
         }
       }
@@ -19224,6 +19247,29 @@
         }
       }
     },
+    "lc.performance.retainedSamples" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld sample rounds ready to export · latest 300 retained"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 轮取样可导出 · 保留最近 300 轮"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld 輪取樣可匯出 · 保留最近 300 輪"
+          }
+        }
+      }
+    },
     "lc.performance.sampling" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19270,6 +19316,52 @@
         }
       }
     },
+    "lc.performance.segmentHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new segment starts when the sync mode, group, running processes or window numbering changes, when sync starts or stops, or when sampling resumes. Averages and peaks apply only to this segment. Earlier samples remain available in the CSV until you start a new measurement."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改同步模式、群组、运行中的进程或窗口编号，开始或暂停同步，以及恢复取样时，都会开始新分段。平均值和峰值仅针对当前分段。开始新测量之前，CSV 会保留之前的取样。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改同步模式、群組、執行中的處理程序或視窗編號，開始或暫停同步，以及恢復取樣時，都會開始新分段。平均值和峰值僅針對目前分段。開始新量測之前，CSV 會保留之前的取樣。"
+          }
+        }
+      }
+    },
+    "lc.performance.segmentSummary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segment %ld · %.0f seconds"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %ld 段 · %.0f 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %ld 段 · %.0f 秒"
+          }
+        }
+      }
+    },
     "lc.performance.showOverlay" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19299,19 +19391,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Since Measurement Started"
+            "value" : "Current Measurement Segment"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本次测量"
+            "value" : "当前测量分段"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本次量測"
+            "value" : "目前量測分段"
           }
         }
       }
@@ -19460,19 +19552,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep brightness, charging, Low Power Mode, layout and app content the same. Start each run at a similar thermal state.\n\n1. Warm up for 2 minutes, then start a new measurement.\n2. Measure 60–120 seconds with sync off, active but idle, and active while repeating the same gestures. Reset and export each run separately.\n3. Repeat with one, two and four app windows. One window measures multitasking overhead; syncing needs at least two. Repeat each condition three times.\n\nFor Spotify, use the same downloaded track and keep the player/Canvas and foreground state unchanged. Watch CPU averages, memory and thermal state. Accurate power/GPU profiling and comparisons with ordinary single-app mode require external tools such as Xcode Instruments; this overlay cannot measure them."
+            "value" : "Keep brightness, charging, Low Power Mode, layout and app content the same. Start each run at a similar thermal state.\n\n1. Choose one condition: sync off, active but idle, or active while repeating the same gestures. Warm up for 2 minutes.\n2. Start a new measurement and return to the windows. Keep the condition unchanged for 60–120 seconds, then turn off monitoring and share the CSV file. Export before starting another measurement.\n3. Repeat with one, two and four app windows. Syncing needs at least two. Repeat each condition three times.\n\nFor Spotify, use the same downloaded track and keep the player/Canvas and foreground state unchanged. Compare CPU averages, per-process readings and thermal state. Accurate power/GPU profiling and comparisons with ordinary single-app mode require external tools such as Xcode Instruments."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请保持亮度、充电、低电量模式、布局及 App 内容一致，各轮从相近热状态开始。\n\n1. 预热两分钟，再开始新测量。\n2. 分别测量 60–120 秒：关闭同步、同步开启但不操作、同步开启并重复相同手势。每轮分别重置并分享数据。\n3. 对比一个、两个和四个 App 窗口。单窗口用于测量多任务本身的开销，同步至少需要两个窗口。每个条件重复三次。\n\nSpotify 使用同一首已下载歌曲，保持播放器／Canvas 和前台状态一致。观察平均 CPU、内存和热状态。准确的功耗／GPU 分析，以及与普通单 App 模式的比较，需要 Xcode Instruments 等外部工具；此浮窗无法测量。"
+            "value" : "请保持亮度、充电、低电量模式、布局及 App 内容一致，各轮从相近热状态开始。\n\n1. 选择一个条件：关闭同步、同步开启但不操作，或同步开启并重复相同手势。预热两分钟。\n2. 开始新测量并返回窗口，保持该条件 60–120 秒，然后关闭监测并分享 CSV 文件。开始下一轮之前先导出。\n3. 对比一个、两个和四个 App 窗口，同步至少需要两个窗口。每个条件重复三次。\n\nSpotify 使用同一首已下载歌曲，保持播放器／Canvas 和前台状态一致。比较平均 CPU、各进程读数和热状态。准确的功耗／GPU 分析，以及与普通单 App 模式的比较，需要 Xcode Instruments 等外部工具。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請保持亮度、充電、低耗電模式、佈局及 App 內容一致，各輪從相近熱狀態開始。\n\n1. 預熱兩分鐘，再開始新量測。\n2. 分別量測 60–120 秒：關閉同步、同步開啟但不操作、同步開啟並重複相同手勢。每輪分別重設並分享數據。\n3. 比較一個、兩個和四個 App 視窗。單視窗用於量測多工本身的開銷，同步至少需要兩個視窗。每個條件重複三次。\n\nSpotify 使用同一首已下載歌曲，保持播放器／Canvas 和前景狀態一致。觀察平均 CPU、記憶體和熱狀態。準確的功耗／GPU 分析，以及與普通單 App 模式的比較，需要 Xcode Instruments 等外部工具；此浮窗無法量測。"
+            "value" : "請保持亮度、充電、低耗電模式、佈局及 App 內容一致，各輪從相近熱狀態開始。\n\n1. 選擇一個條件：關閉同步、同步開啟但不操作，或同步開啟並重複相同手勢。預熱兩分鐘。\n2. 開始新量測並返回視窗，保持該條件 60–120 秒，然後關閉監測並分享 CSV 檔案。開始下一輪之前先匯出。\n3. 比較一個、兩個和四個 App 視窗，同步至少需要兩個視窗。每個條件重複三次。\n\nSpotify 使用同一首已下載歌曲，保持播放器／Canvas 和前景狀態一致。比較平均 CPU、各處理程序讀數和熱狀態。準確的功耗／GPU 分析，以及與普通單 App 模式的比較，需要 Xcode Instruments 等外部工具。"
           }
         }
       }

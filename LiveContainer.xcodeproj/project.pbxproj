@@ -279,6 +279,8 @@
 				PiPManager.m,
 				PerformanceMonitor.h,
 				PerformanceMonitor.m,
+				PerformanceRecording.h,
+				PerformanceRecording.m,
 				ResizeHandleView.h,
 				ResizeHandleView.m,
 				TapSyncCoordinator.h,

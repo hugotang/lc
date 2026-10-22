@@ -52,6 +52,9 @@ jobs:
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
           "$RUNNER_TEMP/performance-metrics-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/PerformanceRecording.m Tests/PerformanceRecordingTests.m -o "$RUNNER_TEMP/performance-recording-tests"
+          "$RUNNER_TEMP/performance-recording-tests" "$RUNNER_TEMP/performance-recording.csv"
+          python3 Tests/PerformanceCSVTests.py "$RUNNER_TEMP/performance-recording.csv"
       - name: Test app language selection
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"

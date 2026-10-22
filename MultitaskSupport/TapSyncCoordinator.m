@@ -152,6 +152,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     NSMutableOrderedSet *unique = [NSMutableOrderedSet orderedSetWithArray:targets];
     if (source) [unique removeObject:source];
     _targetContainers = unique.array;
+    [self resetPerformanceData];
     _forwardedTapCount = 0;
     _statusKey = source && unique.count ? @"lc.tapSync.paused" : @"lc.tapSync.chooseWindows";
     [self changed];
@@ -161,6 +162,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (_mode == mode) return;
     [self pause];
     _mode = mode;
+    [self resetPerformanceData];
     _forwardedTapCount = 0;
     _statusKey = self.sourceContainer && self.targetContainers.count ? @"lc.tapSync.paused" : @"lc.tapSync.chooseWindows";
     [NSUserDefaults.lcSharedDefaults setInteger:mode forKey:@"LCTapSyncMode"];
@@ -258,6 +260,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
                 if (self.session != session) return;
                 self->_starting = NO;
                 self->_active = YES;
+                [self resetPerformanceData];
                 self->_statusKey = @"lc.tapSync.active";
                 [self changed];
                 [self sendNext];
@@ -396,6 +399,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     _starting = NO;
     _statusKey = status;
     if (session) {
+        [self resetPerformanceData];
         for (NSString *container in [@[session.source] arrayByAddingObjectsFromArray:session.targets]) {
             [[self.scenes objectForKey:container].tapSyncPeer stopSession:session.identifier];
         }
@@ -440,7 +444,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 - (void)setCollectsPerformanceData:(BOOL)collectsPerformanceData {
     if (_collectsPerformanceData == collectsPerformanceData) return;
     _collectsPerformanceData = collectsPerformanceData;
-    self.performanceGeneration++;
+    [self resetPerformanceData];
 }
 - (void)resetPerformanceData {
     self.performanceGeneration++;
@@ -459,7 +463,8 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     unsigned count = LCPerformanceResponsePercentiles(&_responseHistory, NSProcessInfo.processInfo.systemUptime, &p50, &p95);
     NSMutableDictionary *snapshot = [@{@"packets": @(self.measuredPackets), @"coalesced": @(self.measuredCoalescedMoves),
         @"queuePeak": @(self.measuredQueuePeak), @"pending": @(self.session.pendingCount), @"inFlight": @(self.inFlightSequence != 0),
-        @"responseSamples": @(count), @"mode": @(self.mode), @"active": @(self.active), @"targets": @(self.targetContainers.count)} mutableCopy];
+        @"responseSamples": @(count), @"mode": @(self.mode), @"active": @(self.active), @"targets": @(self.targetContainers.count),
+        @"epoch": @(self.performanceGeneration)} mutableCopy];
     if (count) { snapshot[@"responseP50Ms"] = @(p50); snapshot[@"responseP95Ms"] = @(p95); }
     return snapshot.copy;
 }

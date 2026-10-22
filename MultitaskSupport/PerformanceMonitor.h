@@ -10,6 +10,7 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, getter=isEnabled) BOOL enabled;
 @property(nonatomic, readonly, getter=isSampling) BOOL sampling;
 @property(nonatomic, copy, readonly) NSDictionary<NSString *, id> *snapshot;
+@property(nonatomic, readonly) NSUInteger reportSampleCount;
 @property(nonatomic, copy, readonly) NSString *csvReport;
 - (void)updateVisibility;
 - (void)resetMeasurements;
