@@ -257,7 +257,7 @@ static LCTapSyncClient *tapSyncClient;
     self.pendingMove = nil;
     self.moveFlushScheduled = NO;
     self.moveFlushGeneration += 1;
-    LCTouchSyncSample sample;
+    LCTouchSyncSample sample = {0};
     if (LCTouchSyncDecode(pending, &sample)) [self submitTouchSample:sample];
 }
 - (void)captureLiveTouch:(UITouch *)touch point:(CGPoint)point {
@@ -318,7 +318,7 @@ static LCTapSyncClient *tapSyncClient;
     self.pendingFrame = nil;
     self.moveFlushScheduled = NO;
     self.moveFlushGeneration += 1;
-    LCMultiTouchSyncFrame frame;
+    LCMultiTouchSyncFrame frame = {0};
     if (LCMultiTouchSyncDecode(pending, &frame)) [self submitMultiFrame:frame];
 }
 - (void)captureMultiTouchEvent:(UIEvent *)event {
@@ -577,7 +577,7 @@ static LCTapSyncClient *tapSyncClient;
         self.replayReply = reply;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
         if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
-        LCTouchSyncSample sample;
+        LCTouchSyncSample sample = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTouchSyncDecode(packet, &sample) ||
             !LCTouchSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
             [self finishReplay:LCTapSyncResultExpired]; return;
@@ -734,7 +734,7 @@ static LCTapSyncClient *tapSyncClient;
         self.replayReply = reply;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
         if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultBusy]; return; }
-        LCMultiTouchSyncFrame frame;
+        LCMultiTouchSyncFrame frame = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCMultiTouchSyncDecode(packet, &frame) ||
             !LCMultiTouchSyncFrameIsFresh(frame, NSProcessInfo.processInfo.systemUptime)) {
             [self finishReplay:LCTapSyncResultExpired]; return;
@@ -827,7 +827,7 @@ static LCTapSyncClient *tapSyncClient;
         if (self.mode != LCTapSyncModeTapsOnly) { reply(LCTapSyncResultInvalidGesture); return; }
         if (!self.supported) { reply(LCTapSyncResultUnsupported); return; }
         if (self.syntheticTouch || self.keyboardVisible) { reply(LCTapSyncResultBusy); return; }
-        LCTapSyncSample sample;
+        LCTapSyncSample sample = {0};
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTapSyncDecode(tap, &sample) ||
             !LCTapSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
             reply(LCTapSyncResultExpired); return;

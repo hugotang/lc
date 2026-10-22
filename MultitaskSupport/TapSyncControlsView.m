@@ -131,7 +131,7 @@
     configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 4);
     configuration.title = [NSString localizedStringWithFormat:@"lc.performance.overlayTotals".loc,
         number(sample[@"totalCPU"]), number(sample[@"totalMemoryMiB"])];
-    NSArray *thermalKeys = @[@"lc.performance.thermal.nominal", @"lc.performance.thermal.fair", @"lc.performance.thermal.serious", @"lc.performance.thermal.critical"];
+    NSArray<NSString *> *thermalKeys = @[@"lc.performance.thermal.nominal", @"lc.performance.thermal.fair", @"lc.performance.thermal.serious", @"lc.performance.thermal.critical"];
     NSInteger thermal = [sample[@"thermalState"] integerValue];
     NSString *state = sample[@"thermalState"] && thermal >= 0 && thermal < (NSInteger)thermalKeys.count ? thermalKeys[thermal].loc : @"lc.performance.waiting".loc;
     configuration.subtitle = monitor.sampling ? [NSString localizedStringWithFormat:@"lc.performance.overlayResponse".loc,
