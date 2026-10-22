@@ -27,6 +27,7 @@
 		E1292C072DCA434C0065E12D /* dyld_bypass_validation.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CA8542D9D721700CF6989 /* dyld_bypass_validation.m */; };
 		E1292C082DCA434F0065E12D /* LCSharedUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CA8572D9D721700CF6989 /* LCSharedUtils.m */; };
 		CA4A6E3F30A0000100000003 /* LCAppLanguage.m in Sources */ = {isa = PBXBuildFile; fileRef = CA4A6E3F30A0000100000002 /* LCAppLanguage.m */; };
+		CA4A6E3F30A0000300000003 /* LCResourceCompactor.m in Sources */ = {isa = PBXBuildFile; fileRef = CA4A6E3F30A0000300000002 /* LCResourceCompactor.m */; };
 		E1292C092DCA43510065E12D /* Localization.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CA8592D9D721700CF6989 /* Localization.m */; };
 		E1292C0A2DCA43540065E12D /* utils.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CA85E2D9D721700CF6989 /* utils.m */; };
 		E1292C0B2DCA43560065E12D /* LCBootstrap.m in Sources */ = {isa = PBXBuildFile; fileRef = 172CA85A2D9D721700CF6989 /* LCBootstrap.m */; };
@@ -163,6 +164,8 @@
 		172CA8572D9D721700CF6989 /* LCSharedUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCSharedUtils.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000001 /* LCAppLanguage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppLanguage.h; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000002 /* LCAppLanguage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCAppLanguage.m; sourceTree = "<group>"; };
+		CA4A6E3F30A0000300000001 /* LCResourceCompactor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCResourceCompactor.h; sourceTree = "<group>"; };
+		CA4A6E3F30A0000300000002 /* LCResourceCompactor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCResourceCompactor.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCWorkspaceLaunch.h; sourceTree = "<group>"; };
 		172CA8582D9D721700CF6989 /* Localization.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Localization.h; sourceTree = "<group>"; };
 		172CA8592D9D721700CF6989 /* Localization.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Localization.m; sourceTree = "<group>"; };
@@ -449,6 +452,8 @@
 				172CA8572D9D721700CF6989 /* LCSharedUtils.m */,
 				CA4A6E3F30A0000100000001 /* LCAppLanguage.h */,
 				CA4A6E3F30A0000100000002 /* LCAppLanguage.m */,
+				CA4A6E3F30A0000300000001 /* LCResourceCompactor.h */,
+				CA4A6E3F30A0000300000002 /* LCResourceCompactor.m */,
 				CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */,
 				172CA8582D9D721700CF6989 /* Localization.h */,
 				172CA8592D9D721700CF6989 /* Localization.m */,
@@ -1048,6 +1053,7 @@
 				E16D95742E1CD2980068EB63 /* LCMachOUtils.m in Sources */,
 				E1292C082DCA434F0065E12D /* LCSharedUtils.m in Sources */,
 				CA4A6E3F30A0000100000003 /* LCAppLanguage.m in Sources */,
+				CA4A6E3F30A0000300000003 /* LCResourceCompactor.m in Sources */,
 				E1292C0B2DCA43560065E12D /* LCBootstrap.m in Sources */,
 				E1292C0A2DCA43540065E12D /* utils.m in Sources */,
 			);

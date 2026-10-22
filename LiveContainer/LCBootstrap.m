@@ -1,6 +1,7 @@
 #import "FoundationPrivate.h"
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
+#import "LCResourceCompactor.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
 
@@ -33,6 +34,7 @@ bool isLiveProcess = false;
 bool isSharedBundle = false;
 bool isSideStore = false;
 bool sideStoreExist = false;
+static int guestResourceLease = -1;
 
 @implementation NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults {
@@ -434,6 +436,20 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     
+    NSString *resourceBundleIdentifier = guestAppInfo[@"LCOrignalBundleIdentifier"] ?: appBundle.bundleIdentifier;
+    if ([resourceBundleIdentifier isEqual:LCResourceCompactor.supportedBundleIdentifier]) {
+        NSURL *containerURL = [NSURL fileURLWithPath:newHomePath isDirectory:YES];
+        NSError *resourceLeaseError = nil;
+        if (![fm createDirectoryAtURL:containerURL withIntermediateDirectories:YES attributes:nil error:&resourceLeaseError]) {
+            return resourceLeaseError.localizedDescription;
+        }
+        guestResourceLease = [LCResourceCompactor acquireSharedLeaseForContainerAtURL:containerURL error:&resourceLeaseError];
+        if (guestResourceLease < 0) {
+            return resourceLeaseError.code == LCResourceCompactionErrorBusy
+                ? @"lc.resourceCompaction.busy".loc : resourceLeaseError.localizedDescription;
+        }
+    }
+
     NSString *newTmpPath = [newHomePath stringByAppendingPathComponent:@"tmp"];
     remove(newTmpPath.UTF8String);
     symlink(getenv("TMPDIR"), newTmpPath.UTF8String);

@@ -231,6 +231,12 @@ class LCAppModel: ObservableObject, Hashable {
             uiSelectedContainer = uiContainers.first { $0.folderName == containerFolderName } ?? uiSelectedContainer
         }
         let currentDataFolder = containerFolderName ?? uiSelectedContainer?.folderName
+
+        if appInfo.bundleIdentifier() == LCResourceCompactor.supportedBundleIdentifier,
+           let selected = uiContainers.first(where: { $0.folderName == currentDataFolder }),
+           LCResourceCompactor.isCompactingContainer(at: selected.containerURL) {
+            throw "lc.resourceCompaction.busy".loc
+        }
         
         let classicMode = appInfo.defaultClassicMode
         let multitask = classicMode == 0 ? (multitask ?? shouldLaunchInMultitaskMode) : false

@@ -61,6 +61,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"
           "$RUNNER_TEMP/app-language-tests"
+      - name: Test resource compaction
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations -framework Foundation LiveContainer/LCResourceCompactor.m Tests/ResourceCompactionTests.m -o "$RUNNER_TEMP/resource-compaction-tests"
+          "$RUNNER_TEMP/resource-compaction-tests"
       - name: Test keyboard geometry
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowKeyboardGeometryTests.c -lm -o "$RUNNER_TEMP/window-keyboard-tests"
