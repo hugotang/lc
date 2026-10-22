@@ -1192,6 +1192,8 @@ private struct DockGridActions: View {
         }
         .disabled(!dockManager.canUndoGridSwap)
         Divider()
+        MultitaskTapSyncActions()
+        Divider()
         MultitaskWorkspaceActions()
     }
 

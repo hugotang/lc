@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) BOOL singleRowInLandscape;
 @property(nonatomic, readonly) BOOL reservePortraitTop;
 @property(nonatomic, readonly) BOOL reservePortraitBottom;
+// Only the source/target container identifiers are saved; restoring never enables input forwarding.
+@property(nonatomic, copy, readonly) NSDictionary *tapSyncGroup;
 @property(nonatomic, copy, readonly) NSDictionary *propertyList;
 - (nullable instancetype)initWithPropertyList:(nullable id)propertyList;
 - (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions

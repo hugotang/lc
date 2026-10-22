@@ -19,6 +19,7 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, readonly) BOOL isAdjustingGridDividers;
 @property(nonatomic, readonly) BOOL isChoosingGridSwap;
 @property(nonatomic, readonly) BOOL canUndoGridSwap;
+@property(nonatomic, copy, readonly) NSArray<DecoratedAppSceneViewController *> *tapSyncWindows;
 - (void)arrangeWindowsInGrid;
 - (void)setNeedsGridLayout;
 - (void)toggleGridDividerAdjustment;

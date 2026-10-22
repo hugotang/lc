@@ -212,6 +212,31 @@ static void testUnreadableDataIsPreserved(NSUserDefaults *defaults) {
     assert([[defaults objectForKey:@"LCWindowWorkspace"] isEqual:@"bad"]);
 }
 
+static void testTapSyncGroupPreserved(NSUserDefaults *defaults) {
+    LCWorkspaceWindow *first = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"First" scale:1];
+    LCWorkspaceWindow *second = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"Second" scale:1];
+    LCWindowWorkspace *base = [[LCWindowWorkspace alloc] initWithWindows:@[first, second] proportions:@{} singleRowInLandscape:YES];
+    NSMutableDictionary *plist = base.propertyList.mutableCopy;
+    NSDictionary *group = @{@"source": @"Second", @"targets": @[@"First"]};
+    plist[@"tapSync"] = group;
+    LCWorkspaceLibrary *library = openLibrary(defaults);
+    LCNamedWorkspace *saved = [library saveWorkspace:[[LCWindowWorkspace alloc] initWithPropertyList:plist]
+        name:@"Synced apps" replacingIdentifier:nil];
+    assert(saved);
+    LCWorkspaceLibrary *staleReader = openLibrary(defaults);
+    assert([library renameWorkspace:saved.identifier name:@"Renamed synced apps"]);
+    assert([staleReader setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitTop enabled:NO forWorkspace:saved.identifier]);
+    assert([library reload]);
+    LCNamedWorkspace *updated = [library workspaceWithIdentifier:saved.identifier];
+    assert([updated.snapshot.tapSyncGroup isEqual:group]);
+    assert(!updated.snapshot.reservePortraitTop && [updated.name isEqualToString:@"Renamed synced apps"]);
+    LCNamedWorkspace *duplicate = [library saveWorkspace:updated.snapshot name:@"Sync copy" replacingIdentifier:nil];
+    assert(duplicate && [duplicate.snapshot.tapSyncGroup isEqual:group] && ![duplicate.identifier isEqualToString:updated.identifier]);
+    assert([library setLayoutPreference:LCWorkspaceLayoutPreferenceReservePortraitBottom enabled:YES forWorkspace:duplicate.identifier]);
+    assert([[library workspaceWithIdentifier:duplicate.identifier].snapshot.tapSyncGroup isEqual:group]);
+    assert(![library workspaceWithIdentifier:updated.identifier].snapshot.reservePortraitBottom);
+}
+
 int main(void) {
     @autoreleasepool {
         NSString *suite = [@"LCWorkspaceLibraryTests." stringByAppendingString:NSUUID.UUID.UUIDString];
@@ -219,6 +244,7 @@ int main(void) {
         testMigrationAndNamedLinks(defaults);
         testSavedLayoutEditing(defaults);
         testValidationAndFailedEdits(defaults);
+        testTapSyncGroupPreserved(defaults);
         testUnreadableDataIsPreserved(defaults);
         [defaults removePersistentDomainForName:suite];
         puts("Workspace library tests passed (migration, saved layout edits, independent copies, stable links, rename/update/delete, stale readers and invalid data preservation).");

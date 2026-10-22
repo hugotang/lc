@@ -1,4 +1,5 @@
 #import "DecoratedAppSceneViewController.h"
+#import "TapSyncCoordinator.h"
 #import "ResizeHandleView.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "AppSceneViewController.h"
@@ -228,6 +229,7 @@
 }
 
 - (void)updateContentScale:(CGFloat)scale {
+    if (scale != self.scaleRatio) [LCTapSyncCoordinator.shared pauseForWindowChange];
     self.scaleRatio = MIN(2.0, MAX(0.5, scale));
     self.appSceneVC.scaleRatio = _scaleRatio;
     if(self.appSceneVC.usesHostingControllerAPI) {
@@ -250,6 +252,7 @@
 }
 
 - (void)closeWindow {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     _isAppTerminationRequested = true;
     if([_appSceneVC isAppRunning]) {
@@ -260,6 +263,7 @@
 }
 
 - (void)togglePictureInPicture {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
         [PiPManager.shared stopPiP];
@@ -270,6 +274,7 @@
 
 - (void)minimizeWindow {
     if (self.view.hidden) return;
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
@@ -284,6 +289,7 @@
 }
 
 - (void)minimizeWindowPiP {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.alpha = 0;
@@ -352,6 +358,7 @@
 }
 
 - (void)maximizeWindow {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     void (^updateSettingsBlock)(UIMutableApplicationSceneSettings *settings);
     
@@ -545,6 +552,7 @@
 
 - (void)moveWindow:(UIPanGestureRecognizer*)sender {
     if(_isMaximized) return;
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [self leaveGridLayoutForManualAdjustment];
     
     CGPoint point = [sender translationInView:self.view];
@@ -557,6 +565,7 @@
 
 - (void)resizeWindow:(UIPanGestureRecognizer*)sender {
     if(_isMaximized) return;
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [self leaveGridLayoutForManualAdjustment];
     
     CGPoint point = [sender translationInView:self.view];

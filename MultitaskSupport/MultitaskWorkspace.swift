@@ -155,6 +155,7 @@ final class MultitaskWorkspaceManager: ObservableObject {
         feedbackMessage = nil
         isRestoring = true
         restoringIdentifier = entry.identifier
+        LCTapSyncCoordinator.shared.pause()
         defer {
             isRestoring = false
             restoringIdentifier = nil
@@ -569,6 +570,12 @@ private struct MultitaskWorkspaceDetailView: View {
 
     private var workspace: LCNamedWorkspace? { manager.workspaces.first { $0.identifier == identifier } }
 
+    private func tapSyncRole(_ window: LCWorkspaceWindow, snapshot: LCWindowWorkspace) -> String? {
+        if snapshot.tapSyncGroup["source"] as? String == window.dataUUID { return "lc.tapSync.source".loc }
+        if (snapshot.tapSyncGroup["targets"] as? [String])?.contains(window.dataUUID) == true { return "lc.tapSync.follower".loc }
+        return nil
+    }
+
     private func preference(_ preference: LCWorkspaceLayoutPreference, _ keyPath: KeyPath<LCWindowWorkspace, Bool>) -> Binding<Bool> {
         Binding {
             workspace?.snapshot[keyPath: keyPath] ?? false
@@ -609,10 +616,15 @@ private struct MultitaskWorkspaceDetailView: View {
                     }
                     Section {
                         ForEach(Array(workspace.snapshot.windows.enumerated()), id: \.element.dataUUID) { index, window in
-                            MultitaskWorkspaceWindowRow(window: window, position: index + 1)
+                            MultitaskWorkspaceWindowRow(window: window, position: index + 1,
+                                annotation: tapSyncRole(window, snapshot: workspace.snapshot))
                         }
                     } header: {
                         Text("lc.workspace.windowCount".localizeWithFormat(workspace.snapshot.windows.count))
+                    } footer: {
+                        if !workspace.snapshot.tapSyncGroup.isEmpty {
+                            Text("lc.tapSync.workspaceHelp".loc)
+                        }
                     }
                     Section {
                         Button { manager.copyRestoreLink(identifier: identifier) } label: {
@@ -653,9 +665,10 @@ private struct MultitaskWorkspaceDetailView: View {
 }
 
 @available(iOS 16.0, *)
-private struct MultitaskWorkspaceWindowRow: View {
+struct MultitaskWorkspaceWindowRow: View {
     let window: LCWorkspaceWindow
     let position: Int
+    var annotation: String? = nil
     @ObservedObject private var sharedModel = DataManager.shared.model
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) private var darkModeIcon = false
 
@@ -691,6 +704,7 @@ private struct MultitaskWorkspaceWindowRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                 Text(details).font(.caption).foregroundStyle(.secondary)
+                if let annotation { Text(annotation).font(.caption).foregroundStyle(Color.accentColor) }
             }
         }
         .accessibilityElement(children: .combine)

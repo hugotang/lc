@@ -13,6 +13,7 @@
 #import "LCSharedUtils.h"
 #import "utils.h"
 #import "UIKitPrivate+MultitaskSupport.h"
+#import "TapSyncCoordinator.h"
 
 @interface AppSceneViewController()
 @property int resizeDebounceToken;
@@ -58,6 +59,10 @@
         return self;
     }
     _extension.preferredLanguages = @[];
+    if (!self.isNativeWindow) {
+        self.tapSyncPeer = [LCTapSyncPeer new];
+        [LCTapSyncCoordinator.shared registerScene:self];
+    }
     
     NSExtensionItem *item = [NSExtensionItem new];
     NSMutableArray* bookmarks = [NSMutableArray array];
@@ -68,6 +73,7 @@
         @"bookmarks": bookmarks,
         @"lcHomePath": NSHomeDirectory(),
     }.mutableCopy;
+    if (self.tapSyncPeer) userInfo[@"tapSyncEndpoint"] = self.tapSyncPeer.endpoint;
     
     NSString* launchAppUrlScheme = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
     [NSUserDefaults.lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];
@@ -114,6 +120,7 @@
             if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
             self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
             if (identifier && self.pid > 0) {
+                self.tapSyncPeer.expectedProcessIdentifier = self.pid;
                 [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
                 self.identifier = identifier;
                 [self completeInitializationWithError:nil];
@@ -372,6 +379,7 @@
         return;
     }
     _isAppTerminationCleanUpCalled = true;
+    [LCTapSyncCoordinator.shared unregisterScene:self];
     if (!self.didCompleteInitialization) [self completeInitializationWithError:[self startupError]];
     [PiPManager.shared stopPiPForVC:self];
     dispatch_async(dispatch_get_main_queue(), ^{

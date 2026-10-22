@@ -9,6 +9,7 @@
 #import "WindowGridLayout.h"
 #import "WindowGridOrder.h"
 #import "WindowKeyboardGeometry.h"
+#import "TapSyncCoordinator.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
@@ -184,6 +185,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic, strong) NSMutableDictionary<NSString *, LCGridProportions *> *savedGridProportions;
 @property(nonatomic, strong) LCGridControlsOverlay *dividerOverlay;
 @property(nonatomic, strong) LCGridControlsOverlay *swapOverlay;
+@property(nonatomic, strong) LCGridControlsOverlay *tapSyncOverlay;
+@property(nonatomic, strong) UIButton *tapSyncButton;
 @property(nonatomic, copy) NSArray<UIView *> *swapCandidates;
 @property(nonatomic, weak) UIView *selectedSwapWindow;
 @property(nonatomic, weak) LCGridDividerView *activeDivider;
@@ -216,6 +219,9 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     self.keyboardScreenFrame = CGRectNull;
     self.keyboardOriginalFrames = [NSMapTable weakToStrongObjectsMapTable];
     self.wasKeyboardAvoidanceEnabled = self.keyboardAvoidanceEnabled;
+    LCTapSyncCoordinator.shared.host = self;
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(tapSyncStateDidChange:)
+                                               name:LCTapSyncDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(defaultsDidChange:)
                                                name:NSUserDefaultsDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationWillResignActive:)
@@ -268,6 +274,58 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
         }
     }
     return visible;
+}
+
+- (NSArray<DecoratedAppSceneViewController *> *)tapSyncWindows {
+    NSMutableArray *windows = [NSMutableArray array];
+    for (UIView *view in self.visibleWindows) {
+        DecoratedAppSceneViewController *controller = (id)view._viewDelegate;
+        if (!controller.isAppTerminated && controller.appSceneVC.isAppRunning && view.window == self.window) {
+            [windows addObject:controller];
+        }
+    }
+    return windows.copy;
+}
+
+- (void)tapSyncStateDidChange:(NSNotification *)notification {
+    LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
+    BOOL visible = sync.sourceContainer && sync.targetContainers.count > 0 && self.tapSyncWindows.count > 0;
+    if (visible && !self.tapSyncOverlay) {
+        self.tapSyncOverlay = [LCGridControlsOverlay new];
+        self.tapSyncOverlay.escapeHandler = ^{ [LCTapSyncCoordinator.shared pause]; };
+        self.tapSyncButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        [self.tapSyncButton addTarget:self action:@selector(tapSyncButtonPressed) forControlEvents:UIControlEventTouchUpInside];
+        self.tapSyncButton.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        self.tapSyncButton.titleLabel.adjustsFontForContentSizeCategory = YES;
+        [self.tapSyncOverlay addSubview:self.tapSyncButton];
+        [self addSubview:self.tapSyncOverlay];
+    }
+    self.tapSyncOverlay.hidden = !visible;
+    if (!visible) return;
+    UIButtonConfiguration *configuration = UIButtonConfiguration.filledButtonConfiguration;
+    configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+    configuration.imagePadding = 6;
+    configuration.baseBackgroundColor = sync.active ? UIColor.systemOrangeColor : UIColor.systemBlueColor;
+    configuration.image = [UIImage systemImageNamed:sync.active || sync.starting ? @"pause.fill" : @"hand.tap"];
+    configuration.title = sync.starting ? @"lc.tapSync.starting".loc : sync.active ?
+        [NSString localizedStringWithFormat:@"lc.tapSync.overlayActive".loc, (long)sync.targetContainers.count] : @"lc.tapSync.overlayPaused".loc;
+    self.tapSyncButton.configuration = configuration;
+    self.tapSyncButton.accessibilityLabel = configuration.title;
+    self.tapSyncButton.accessibilityHint = (sync.active || sync.starting ? @"lc.tapSync.pause" : @"lc.tapSync.configure").loc;
+    [self layoutTapSyncOverlay];
+    [self bringGridControlsToFront];
+}
+- (void)layoutTapSyncOverlay {
+    if (!self.tapSyncOverlay || self.tapSyncOverlay.hidden) return;
+    self.tapSyncOverlay.frame = self.bounds;
+    CGFloat width = MAX(0, self.bounds.size.width - self.safeAreaInsets.left - self.safeAreaInsets.right - 16);
+    CGSize size = [self.tapSyncButton sizeThatFits:CGSizeMake(width, CGFLOAT_MAX)];
+    self.tapSyncButton.frame = CGRectMake(CGRectGetMinX(self.bounds) + self.safeAreaInsets.left + 8,
+        CGRectGetMinY(self.bounds) + self.safeAreaInsets.top + 8, MIN(width, size.width), MAX(44, size.height));
+}
+- (void)tapSyncButtonPressed {
+    if (LCTapSyncCoordinator.shared.active || LCTapSyncCoordinator.shared.starting) [LCTapSyncCoordinator.shared pause];
+    else [MultitaskTapSyncManager.shared presentPanel];
 }
 
 - (BOOL)canAdjustGridDividers {
@@ -434,11 +492,13 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (void)bringGridControlsToFront {
     if (self.dividerOverlay.superview == self) [super bringSubviewToFront:self.dividerOverlay];
     if (self.swapOverlay.superview == self) [super bringSubviewToFront:self.swapOverlay];
+    if (self.tapSyncOverlay.superview == self) [super bringSubviewToFront:self.tapSyncOverlay];
 }
 
 - (void)didMoveToWindow {
     [super didMoveToWindow];
     if (!self.window) [self finishGridEditing];
+    [LCTapSyncCoordinator.shared validateWindows];
 }
 
 - (void)safeAreaInsetsDidChange {
@@ -469,6 +529,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     }
     self.wasAvoidingKeyboard = avoidingKeyboard;
     [self updateGridBackdrop];
+    [LCTapSyncCoordinator.shared validateWindows];
+    [self layoutTapSyncOverlay];
 }
 
 - (void)setNeedsGridLayout {
@@ -503,12 +565,17 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     }
     NSMutableDictionary *proportions = [NSMutableDictionary dictionary];
     for (NSString *key in self.savedGridProportions) proportions[key] = self.savedGridProportions[key].propertyList;
-    return [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
+    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
                                singleRowInLandscape:self.singleRowInLandscape reservePortraitTop:self.reservePortraitTop
                               reservePortraitBottom:self.reservePortraitBottom];
+    if (!snapshot) return nil;
+    NSMutableDictionary *propertyList = snapshot.propertyList.mutableCopy;
+    propertyList[@"tapSync"] = LCTapSyncCoordinator.shared.selectionPropertyList;
+    return [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
 }
 
 - (void)applyWorkspace:(LCWindowWorkspace *)workspace {
+    [LCTapSyncCoordinator.shared pause];
     [self finishGridEditing];
     [NSUserDefaults.lcSharedDefaults setBool:workspace.singleRowInLandscape forKey:@"LCGridSingleRowInLandscape"];
     [NSUserDefaults.lcSharedDefaults setBool:workspace.reservePortraitTop forKey:@"LCGridReservePortraitTop"];
@@ -533,6 +600,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
         self.savedGridProportions[key] = [[LCGridProportions alloc] initWithPropertyList:workspace.proportions[key]];
     }
     [self arrangeVisibleWindowsInGrid:YES];
+    [LCTapSyncCoordinator.shared restoreSelection:workspace.tapSyncGroup];
 }
 
 - (void)arrangeVisibleWindowsInGrid:(BOOL)force {
@@ -638,6 +706,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 }
 
 - (void)toggleGridDividerAdjustment {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     if (self.isAdjustingGridDividers) {
         [self finishGridDividerAdjustment];
         return;
@@ -671,6 +740,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 }
 
 - (void)beginGridWindowSwapFromWindow:(UIView *)window {
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
     [self finishGridEditing];
     if (!self.canAdjustGridDividers) return;
     if (window && [self.visibleWindows indexOfObjectIdenticalTo:window] == NSNotFound) return;
@@ -1008,7 +1078,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
         return self.hasVisibleGridWindows ? self : nil;
     } else {
         self.shouldForwardTapAction = !((self.dividerOverlay && [hitView isDescendantOfView:self.dividerOverlay]) ||
-                                        (self.swapOverlay && [hitView isDescendantOfView:self.swapOverlay]));
+                                        (self.swapOverlay && [hitView isDescendantOfView:self.swapOverlay]) ||
+                                        (self.tapSyncOverlay && [hitView isDescendantOfView:self.tapSyncOverlay]));
         return hitView;
     }
 }

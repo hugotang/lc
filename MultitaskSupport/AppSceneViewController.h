@@ -6,6 +6,7 @@
 //
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "FoundationPrivate.h"
+#import "TapSyncPeer.h"
 @import UIKit;
 @import Foundation;
 
@@ -31,6 +32,7 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) BOOL shouldIgnoreSceneUpdates, shouldSkipDebounceOnce;
 @property(nonatomic) CGFloat scaleRatio;
 @property(nonatomic) UIView* contentView;
+@property(nonatomic) LCTapSyncPeer *tapSyncPeer;
 @property(nonatomic) _UIScenePresenter *presenter;
 @property(nonatomic) _UISceneHostingController *hostingController API_AVAILABLE(ios(17.0));
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;

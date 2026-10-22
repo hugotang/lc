@@ -16,6 +16,7 @@
 #include "../MultitaskSupport/LCStatusBarManager.h"
 #include "../MultitaskSupport/PiPManager.h"
 #include "../MultitaskSupport/VirtualWindowsHostView.h"
+#include "../MultitaskSupport/TapSyncCoordinator.h"
 #include "../LiveContainer/FoundationPrivate.h"
 
 #endif /* LiveContainerSwiftUI_Bridging_Header_h_h */

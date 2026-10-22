@@ -83,10 +83,40 @@ static void testPortraitReservations(void) {
     }
 }
 
+static void testTapSyncGroup(void) {
+    NSMutableDictionary *plist = [decode(@[window(@"A"), window(@"B"), window(@"C")], @{}).propertyList mutableCopy];
+    NSDictionary *group = @{@"source": @"B", @"targets": @[@"C", @"A"]};
+    plist[@"tapSync"] = group;
+    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+    assert([snapshot.tapSyncGroup isEqual:group]);
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:snapshot.propertyList
+        format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    LCWindowWorkspace *copy = [[LCWindowWorkspace alloc] initWithPropertyList:
+        [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:nil]];
+    assert([copy.tapSyncGroup isEqual:group]);
+    // Active state and pending input must never be restored, even if inserted into a property list.
+    plist[@"tapSync"] = @{@"source": @"B", @"targets": @[@"C", @"A"], @"active": @YES, @"queue": @[@1]};
+    snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+    assert([snapshot.tapSyncGroup isEqual:group] && snapshot.propertyList[@"tapSync"][@"active"] == nil);
+    for (id invalid in @[@"bad", @{}, @{@"source": @"D", @"targets": @[@"A"]},
+                          @{@"source": @"A", @"targets": @[@"A"]}, @{@"source": @"A", @"targets": @[@"B", @"B"]},
+                          @{@"source": @"A", @"targets": @[@"D"]}, @{@"source": @"A", @"targets": @[]},
+                          @{@"source": @"A", @"targets": @[@1]}]) {
+        plist[@"tapSync"] = invalid;
+        snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
+        assert(snapshot && snapshot.windows.count == 3 && snapshot.tapSyncGroup.count == 0);
+    }
+    plist[@"windows"] = @[window(@"A"), @{@"bundleName": @"Other.app", @"dataUUID": @"B", @"scale": @1}];
+    plist[@"tapSync"] = @{@"source": @"A", @"targets": @[@"B"]};
+    assert([[LCWindowWorkspace alloc] initWithPropertyList:plist].tapSyncGroup.count == 0);
+    assert(decode(@[window(@"A")], @{}).tapSyncGroup.count == 0);
+}
+
 int main(void) {
     @autoreleasepool {
         testLandscapePreference();
         testPortraitReservations();
+        testTapSyncGroup();
         NSDictionary *validGrid = @{@"rows": @[@0.4], @"columns": @[@0.65], @"lastRowColumns": @[]};
         LCWindowWorkspace *workspace = decode(@[window(@"A"), window(@"B")], @{@"3:2:2:1": validGrid});
         assert(workspace.windows.count == 2);

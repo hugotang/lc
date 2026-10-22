@@ -88,6 +88,11 @@ struct LCMultitaskSettingView: View {
                     Text("lc.workspace.description".loc)
                 }
                 Section {
+                    MultitaskTapSyncActions()
+                } footer: {
+                    Text("lc.tapSync.description".loc)
+                }
+                Section {
                     Toggle(isOn: $autoTileMultitaskWindows) {
                         Text("lc.settings.autoTileMultitaskWindows".loc)
                     }

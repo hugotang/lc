@@ -78,6 +78,26 @@ static BOOL LCWorkspaceBoolean(id value, BOOL fallback) {
     return fallback;
 }
 
+static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow *> *windows) {
+    if (![value isKindOfClass:NSDictionary.class] || ![value[@"source"] isKindOfClass:NSString.class] ||
+        ![value[@"targets"] isKindOfClass:NSArray.class]) return @{};
+    NSMutableDictionary<NSString *, LCWorkspaceWindow *> *byContainer = [NSMutableDictionary dictionary];
+    for (LCWorkspaceWindow *window in windows) byContainer[window.dataUUID] = window;
+    LCWorkspaceWindow *source = byContainer[value[@"source"]];
+    NSArray *targets = value[@"targets"];
+    if (!source || targets.count == 0 || targets.count > 63) return @{};
+    NSMutableArray *validTargets = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet setWithObject:source.dataUUID];
+    for (id target in targets) {
+        if (![target isKindOfClass:NSString.class] || [seen containsObject:target]) return @{};
+        LCWorkspaceWindow *window = byContainer[target];
+        if (!window || ![window.bundleName isEqualToString:source.bundleName]) return @{};
+        [seen addObject:target];
+        [validTargets addObject:window.dataUUID];
+    }
+    return @{@"source": source.dataUUID, @"targets": validTargets.copy};
+}
+
 @implementation LCWindowWorkspace
 - (instancetype)initWithPropertyList:(id)propertyList {
     if (![propertyList isKindOfClass:NSDictionary.class] || ![propertyList[@"version"] isEqual:@1]) return nil;
@@ -101,6 +121,7 @@ static BOOL LCWorkspaceBoolean(id value, BOOL fallback) {
         _singleRowInLandscape = LCWorkspaceBoolean(propertyList[@"singleRowInLandscape"], NO);
         _reservePortraitTop = LCWorkspaceBoolean(propertyList[@"reservePortraitTop"], YES);
         _reservePortraitBottom = LCWorkspaceBoolean(propertyList[@"reservePortraitBottom"], NO);
+        _tapSyncGroup = LCWorkspaceTapSyncGroup(propertyList[@"tapSync"], _windows);
     }
     return self;
 }
@@ -122,9 +143,11 @@ static BOOL LCWorkspaceBoolean(id value, BOOL fallback) {
 - (NSDictionary *)propertyList {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in self.windows) [entries addObject:window.propertyList];
-    return @{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
+    NSMutableDictionary *result = [@{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
              @"singleRowInLandscape": @(self.singleRowInLandscape),
-             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom)};
+             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom)} mutableCopy];
+    if (self.tapSyncGroup.count) result[@"tapSync"] = self.tapSyncGroup;
+    return result.copy;
 }
 @end
 
@@ -277,8 +300,11 @@ static NSString *LCWorkspaceDisplayName(id value) {
         default: return NO;
     }
     if (singleRow == current.singleRowInLandscape && top == current.reservePortraitTop && bottom == current.reservePortraitBottom) return YES;
-    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithWindows:current.windows proportions:current.proportions
-        singleRowInLandscape:singleRow reservePortraitTop:top reservePortraitBottom:bottom];
+    NSMutableDictionary *propertyList = current.propertyList.mutableCopy;
+    propertyList[@"singleRowInLandscape"] = @(singleRow);
+    propertyList[@"reservePortraitTop"] = @(top);
+    propertyList[@"reservePortraitBottom"] = @(bottom);
+    LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
     LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
     if (!updated) return NO;
     NSMutableArray *entries = self.workspaces.mutableCopy;
