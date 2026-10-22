@@ -94,11 +94,11 @@
     self.settingsButton.accessibilityLabel = @"lc.tapSync.configure".loc;
     __weak typeof(self) weakSelf = self;
     NSMutableArray *actions = [NSMutableArray array];
-    NSArray *keys = @[@"lc.tapSync.moveTopLeft", @"lc.tapSync.moveTopRight", @"lc.tapSync.moveBottomLeft", @"lc.tapSync.moveBottomRight"];
+    NSArray<NSString *> *keys = @[@"lc.tapSync.moveTopLeft", @"lc.tapSync.moveTopRight", @"lc.tapSync.moveBottomLeft", @"lc.tapSync.moveBottomRight"];
     for (NSUInteger index = 0; index < keys.count; index++) {
         BOOL right = index % 2 != 0;
         CGFloat fraction = index >= 2 ? 1 : 0;
-        [actions addObject:[[UIAccessibilityCustomAction alloc] initWithName:[keys[index] loc] actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+        [actions addObject:[[UIAccessibilityCustomAction alloc] initWithName:keys[index].loc actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
             [weakSelf dockRight:right fraction:fraction];
             return YES;
         }]];
