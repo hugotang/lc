@@ -169,11 +169,12 @@
     UIWindow *other = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
     UIGestureRecognizer *unrelated = [UITapGestureRecognizer new];
     [other addGestureRecognizer:unrelated];
+    NSSet *otherOriginalGestures = [NSSet setWithArray:other.gestureRecognizers];
     [self.control showInWindow:other frame:CGRectMake(0, 400, 44, 44) right:NO hideArrow:NO reveal:^{}];
     XCTAssertEqual([self addedWindowGestures].count, 0u);
     XCTAssertEqual(self.control.superview, other);
     XCTAssertTrue([other.gestureRecognizers containsObject:unrelated]);
     [self.control hide];
-    XCTAssertEqualObjects(other.gestureRecognizers, @[unrelated]);
+    XCTAssertEqualObjects([NSSet setWithArray:other.gestureRecognizers], otherOriginalGestures);
 }
 @end
