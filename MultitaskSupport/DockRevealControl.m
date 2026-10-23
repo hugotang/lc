@@ -27,7 +27,10 @@
         [self addTarget:self action:@selector(handleHideGesture:)];
         self.delegate = self;
         self.cancelsTouchesInView = YES;
-        self.delaysTouchesBegan = NO;
+        // A native Menu opens on touch-down and takes over the contact. Keep
+        // view/control delivery pending until swipe intent fails or recognizes;
+        // other recognizers still receive it for scrolling and long presses.
+        self.delaysTouchesBegan = YES;
         self.delaysTouchesEnded = NO;
     }
     return self;
@@ -105,13 +108,6 @@
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
     return YES;
-}
-- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
-    // A native SwiftUI Menu can recognize its press before a short swipe has
-    // accumulated enough movement. Keep observing this Dock touch until its
-    // own direction/end rules decide; taps and long presses still recognize
-    // simultaneously, and the handle was never admitted to this gesture.
-    return NO;
 }
 @end
 

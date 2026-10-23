@@ -223,11 +223,8 @@
     dock.alpha = 1;
     UIPanGestureRecognizer *scroll = [UIPanGestureRecognizer new];
     XCTAssertTrue([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:scroll]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:scroll]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:[UITapGestureRecognizer new]]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:[UILongPressGestureRecognizer new]]);
     XCTAssertTrue(hide.cancelsTouchesInView);
-    XCTAssertFalse(hide.delaysTouchesBegan);
+    XCTAssertTrue(hide.delaysTouchesBegan);
     XCTAssertFalse(hide.delaysTouchesEnded);
     [hide detach];
     XCTAssertFalse([hide gestureRecognizerShouldBegin:hide]);
