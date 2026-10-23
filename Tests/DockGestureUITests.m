@@ -71,9 +71,24 @@
     [self waitForStatus:@"visible"];
 }
 - (void)testOutwardSwipeAlsoWorksOnMenuButton {
-    [self launchRight:YES narrow:NO];
-    [self dragElement:self.app.buttons[@"DockMenu"] dx:22 dy:4 hold:0];
-    [self waitForStatus:@"hidden"];
-    XCTAssertEqualObjects(self.app.staticTexts[@"DockTaps"].label, @"0");
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self launchRight:right.boolValue narrow:YES];
+        NSLog(@"DockMenu frame: %@", NSStringFromCGRect(self.app.buttons[@"DockMenu"].frame));
+        [self dragElement:self.app.buttons[@"DockMenu"] dx:(right.boolValue ? 22 : -22) dy:4 hold:0];
+        if (![self.app.staticTexts[@"DockStatus"].label isEqualToString:@"hidden"]) {
+            NSLog(@"Menu swipe hierarchy: %@", self.app.debugDescription);
+        }
+        [self waitForStatus:@"hidden"];
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockTaps"].label, @"0");
+        [self.app.buttons[@"ShowDock"] tap];
+        [self waitForStatus:@"visible"];
+        [self.app.buttons[@"DockMenu"] tap];
+        XCUIElement *layout = self.app.buttons[@"Layout"];
+        XCTAssertTrue([layout waitForExistenceWithTimeout:3]);
+        [layout tap];
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockContextActions"].label, @"1");
+        [self waitForStatus:@"visible"];
+        [self.app terminate];
+    }
 }
 @end

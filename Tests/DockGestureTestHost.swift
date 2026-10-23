@@ -61,7 +61,7 @@ private struct FixtureDock: View {
             }
             .accessibilityIdentifier("DockCollapse")
             Menu {
-                Button("Layout") {}
+                Button("Layout") { fixture.contextActions += 1 }
             } label: {
                 Image(systemName: "ellipsis").frame(maxWidth: .infinity).frame(height: 44)
                     .contentShape(Rectangle())

@@ -106,6 +106,13 @@
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
     return YES;
 }
+- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    // A native SwiftUI Menu can recognize its press before a short swipe has
+    // accumulated enough movement. Keep observing this Dock touch until its
+    // own direction/end rules decide; taps and long presses still recognize
+    // simultaneously, and the handle was never admitted to this gesture.
+    return NO;
+}
 @end
 
 @implementation LCDockRevealControl
