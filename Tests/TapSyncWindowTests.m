@@ -54,7 +54,16 @@
         window.windowScene = nil;
         window.rootViewController = nil;
     }
-    [LCTapSyncTestHostWindow() makeKeyWindow];
+    UIWindow *host = LCTapSyncTestHostWindow();
+    [host makeKeyWindow];
+    // Removing auxiliary windows schedules UIKit appearance work. Let it finish
+    // before the next case presents an alert on the scene's stable root.
+    XCTestExpectation *settled = [self expectationWithDescription:@"auxiliary windows removed"];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [host layoutIfNeeded];
+        [settled fulfill];
+    });
+    [self waitForExpectations:@[settled] timeout:5];
     self.createdWindows = nil;
     [super tearDown];
 }
@@ -211,15 +220,27 @@
     XCTAssertNotNil(guest);
     [guest makeKeyWindow];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest]));
+    // Present from a fresh child of the stable scene root. Earlier auxiliary
+    // windows must not leave this case dependent on their appearance callbacks.
+    UIViewController *presenter = [UIViewController new];
+    [guest.rootViewController addChildViewController:presenter];
+    presenter.view.frame = guest.bounds;
+    presenter.view.backgroundColor = UIColor.clearColor;
+    [guest.rootViewController.view addSubview:presenter.view];
+    [presenter didMoveToParentViewController:guest.rootViewController];
+    [guest layoutIfNeeded];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Test" message:@"Dialog" preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     XCTestExpectation *shown = [self expectationWithDescription:@"alert shown"];
-    [guest.rootViewController presentViewController:alert animated:NO completion:^{ [shown fulfill]; }];
+    [presenter presentViewController:alert animated:NO completion:^{ [shown fulfill]; }];
     [self waitForExpectations:@[shown] timeout:5];
     XCTAssertTrue(LCTapSyncWindowIsCovered(guest, @[guest]));
     XCTestExpectation *dismissed = [self expectationWithDescription:@"alert dismissed"];
-    [guest.rootViewController dismissViewControllerAnimated:NO completion:^{ [dismissed fulfill]; }];
+    [presenter dismissViewControllerAnimated:NO completion:^{ [dismissed fulfill]; }];
     [self waitForExpectations:@[dismissed] timeout:5];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest]));
+    [presenter willMoveToParentViewController:nil];
+    [presenter.view removeFromSuperview];
+    [presenter removeFromParentViewController];
 }
 @end

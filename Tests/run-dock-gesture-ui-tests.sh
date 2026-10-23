@@ -83,9 +83,12 @@ scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
 PY
 
 simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if "iPad" in d["name"]]; print(devices[0]["udid"])')"
+xcodebuild build-for-testing -project "$project" -scheme DockGestures -configuration Debug \
+    -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
+    -derivedDataPath "$test_root/DerivedData"
 simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
 if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
 xcrun simctl bootstatus "$simulator_id" -b
-xcodebuild test -project "$project" -scheme DockGestures -configuration Debug \
+xcodebuild test-without-building -project "$project" -scheme DockGestures -configuration Debug \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
     -derivedDataPath "$test_root/DerivedData" -resultBundlePath "$test_root/results.xcresult"
