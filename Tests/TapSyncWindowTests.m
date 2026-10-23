@@ -1,11 +1,14 @@
 #import <XCTest/XCTest.h>
 #import "../TweakLoader/TapSyncWindow.h"
 
-@interface LCTestScene : UIWindowScene
+// Stub only the scene enumeration used by window selection. Constructing another UIKit
+// scene with the host's session reattaches its windows and invalidates geometry tests.
+@interface LCTestScene : NSObject
 @property(nonatomic) UISceneActivationState testActivation;
 @property(nonatomic, copy) NSArray<UIWindow *> *testWindows;
 @end
 @implementation LCTestScene
+- (BOOL)isKindOfClass:(Class)class { return class == UIWindowScene.class || [super isKindOfClass:class]; }
 - (UISceneActivationState)activationState { return self.testActivation; }
 - (NSArray<UIWindow *> *)windows { return self.testWindows ?: @[]; }
 @end
@@ -34,31 +37,6 @@
 @property(nonatomic) NSMutableArray<UIWindow *> *createdWindows;
 @end
 @implementation TapSyncWindowTests
-- (void)diagnoseWindows:(NSArray<UIWindow *> *)windows guest:(UIWindow *)guest {
-    for (UIWindow *window in windows) {
-        NSLog(@"Window %@ scene %@ (guest %@), level %.0f, hidden %d alpha %.2f interactive %d root %@",
-              window, window.windowScene, guest.windowScene, (double)window.windowLevel, window.hidden,
-              (double)window.alpha, window.userInteractionEnabled, window.rootViewController);
-        NSMutableArray<UIView *> *pending = [NSMutableArray arrayWithObject:window];
-        NSUInteger remaining = 32;
-        while (pending.count && remaining--) {
-            UIView *view = pending.lastObject;
-            [pending removeLastObject];
-            NSMutableArray<NSString *> *custom = [NSMutableArray array];
-            Class base = [view isKindOfClass:UIWindow.class] ? UIWindow.class : UIView.class;
-            for (NSString *name in @[@"drawRect:", @"touchesBegan:withEvent:", @"touchesMoved:withEvent:",
-                                     @"touchesEnded:withEvent:", @"touchesCancelled:withEvent:"]) {
-                SEL selector = NSSelectorFromString(name);
-                if ([view.class instanceMethodForSelector:selector] != [base instanceMethodForSelector:selector]) [custom addObject:name];
-            }
-            NSLog(@"View %@ hidden %d alpha %.2f interactive %d background %@ contents %@ border %.1f gestures %@ custom %@ guestRect %@",
-                  view, view.hidden, (double)view.alpha, view.userInteractionEnabled, view.backgroundColor,
-                  view.layer.contents, (double)view.layer.borderWidth, view.gestureRecognizers, custom,
-                  NSStringFromCGRect([view convertRect:view.bounds toView:guest]));
-            [pending addObjectsFromArray:view.subviews];
-        }
-    }
-}
 - (void)setUp {
     [super setUp];
     self.createdWindows = [NSMutableArray array];
@@ -82,11 +60,7 @@
     return nil;
 }
 - (LCTestScene *)scene {
-    UISceneSession *session = UIApplication.sharedApplication.openSessions.anyObject;
-    XCTAssertNotNil(session);
-    UISceneConnectionOptions *options = [(NSObject *)UIApplication.sharedApplication.delegate valueForKey:@"connectionOptions"];
-    XCTAssertNotNil(options);
-    LCTestScene *scene = [[LCTestScene alloc] initWithSession:session connectionOptions:options];
+    LCTestScene *scene = [LCTestScene new];
     scene.testActivation = UISceneActivationStateForegroundActive;
     return scene;
 }
@@ -112,7 +86,6 @@
     UIView *emptyWrapper = [[UIView alloc] initWithFrame:overlay.bounds];
     [overlay.rootViewController.view addSubview:emptyWrapper];
     XCTAssertTrue(CGRectEqualToRect([overlay convertRect:overlay.bounds toWindow:guest], guest.bounds));
-    [self diagnoseWindows:scene.windows guest:guest];
     LCTapSyncResult result;
     XCTAssertEqual(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result), guest);
     XCTAssertEqual(result, LCTapSyncResultAccepted);
@@ -123,17 +96,11 @@
     overlay.passesTouches = YES;
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, scene.windows));
     overlay.passesTouches = NO;
-    NSLog(@"Overlay bounds %@ -> %@, content %@, button %@, hit %@; levels %.0f/%.0f, hidden %d, interactive %d",
-          NSStringFromCGRect(overlay.bounds), NSStringFromCGRect([overlay convertRect:overlay.bounds toWindow:guest]),
-          NSStringFromCGRect([overlay.rootViewController.view convertRect:overlay.rootViewController.view.bounds toView:guest]),
-          NSStringFromCGRect([button convertRect:button.bounds toView:guest]),
-          [overlay hitTest:CGPointMake(60, 50) withEvent:nil], (double)guest.windowLevel, (double)overlay.windowLevel,
-          overlay.hidden, overlay.userInteractionEnabled);
+    XCTAssertEqual([overlay hitTest:CGPointMake(60, 50) withEvent:nil], button);
     XCTAssertTrue(LCTapSyncWindowIsCovered(guest, scene.windows));
     XCTAssertNil(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result));
     XCTAssertEqual(result, LCTapSyncResultWindowCovered);
     button.hidden = YES;
-    [self diagnoseWindows:@[guest, overlay] guest:guest];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, scene.windows));
 }
 - (void)testSmallVisibleContentAndGestureReceivers {
@@ -157,6 +124,15 @@
     LCTestDrawingView *drawing = [[LCTestDrawingView alloc] initWithFrame:CGRectMake(2, 2, 10, 10)];
     [overlay.rootViewController.view addSubview:drawing];
     XCTAssertTrue(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
+    drawing.hidden = YES;
+    XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
+    // An app's own transparent window recognizer must still block. UIKit's
+    // automatically installed private window recognizers must not.
+    UITapGestureRecognizer *windowTap = [[UITapGestureRecognizer alloc] initWithTarget:nil action:nil];
+    [overlay addGestureRecognizer:windowTap];
+    XCTAssertTrue(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
+    windowTap.enabled = NO;
+    XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
 }
 - (void)testVisibilityAndGuestRelativeCoordinates {
     UIWindowScene *scene = [self connectedScene];
@@ -180,32 +156,37 @@
     overlay.windowLevel = UIWindowLevelNormal - 1;
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
 }
-- (void)testOtherScenesAndAmbiguousContent {
+- (void)testUnattachedWindowsAndAmbiguousContent {
     LCTestScene *scene = [self scene], *other = [self scene];
     LCTestWindow *guest = [self windowInScene:[self connectedScene] level:UIWindowLevelNormal];
-    LCTestWindow *unrelated = [self windowInScene:other level:UIWindowLevelAlert];
+    LCTestWindow *unrelated = [[LCTestWindow alloc] initWithFrame:CGRectMake(0, 0, 1024, 768)];
+    [self.createdWindows addObject:unrelated];
+    unrelated.windowLevel = UIWindowLevelAlert;
+    unrelated.rootViewController = [UIViewController new];
     unrelated.rootViewController.view.backgroundColor = UIColor.blackColor;
+    unrelated.hidden = NO;
+    unrelated.windowScene = nil;
+    XCTAssertNil(unrelated.windowScene);
     scene.testWindows = @[guest];
     other.testWindows = @[unrelated];
-    NSLog(@"Other-scene fixture: synthetic %@, real %@, guest %@, unrelated %@", other, scene, guest.windowScene, unrelated.windowScene);
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[unrelated, guest]));
     LCTapSyncResult result;
-    XCTAssertEqual(LCTapSyncFindGuestWindow([NSSet setWithArray:@[other, scene]], &result), guest);
+    XCTAssertEqual(LCTapSyncFindGuestWindow((id)[NSSet setWithArray:@[other, scene]], &result), guest);
     XCTAssertEqual(result, LCTapSyncResultAccepted);
     scene.testActivation = UISceneActivationStateBackground;
-    XCTAssertNil(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result));
+    XCTAssertNil(LCTapSyncFindGuestWindow((id)[NSSet setWithObject:scene], &result));
     XCTAssertEqual(result, LCTapSyncResultSceneInactive);
     scene.testActivation = UISceneActivationStateForegroundActive;
     LCTestWindow *second = [self windowInScene:[self connectedScene] level:UIWindowLevelNormal];
     guest.testKey = NO;
     second.testKey = NO;
     scene.testWindows = @[guest, second];
-    XCTAssertNil(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result));
+    XCTAssertNil(LCTapSyncFindGuestWindow((id)[NSSet setWithObject:scene], &result));
     XCTAssertEqual(result, LCTapSyncResultWindowNotReady);
     second.testKey = YES;
-    XCTAssertEqual(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result), second);
+    XCTAssertEqual(LCTapSyncFindGuestWindow((id)[NSSet setWithObject:scene], &result), second);
     guest.testKey = YES;
-    XCTAssertNil(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result));
+    XCTAssertNil(LCTapSyncFindGuestWindow((id)[NSSet setWithObject:scene], &result));
 }
 - (void)testRealPresentedAlerts {
     UIWindowScene *scene = [self connectedScene];

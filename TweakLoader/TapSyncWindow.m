@@ -14,7 +14,15 @@ static BOOL LCTapSyncViewHasContentOrInput(UIView *view) {
     if ([view isKindOfClass:UIVisualEffectView.class] && ((UIVisualEffectView *)view).effect) return YES;
     if ([view isKindOfClass:UIControl.class] && ((UIControl *)view).enabled) return YES;
     if ([view.layer isKindOfClass:CAMetalLayer.class] || [view.layer isKindOfClass:NSClassFromString(@"CAEAGLLayer")]) return YES;
-    for (UIGestureRecognizer *gesture in view.gestureRecognizers) if (gesture.enabled) return YES;
+    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
+        if (!gesture.enabled) continue;
+        // UIKit installs focus, pointer and passthrough recognizers on even an empty window.
+        // Those private window recognizers are infrastructure, not app overlay content.
+        // Public recognizers and app-defined subclasses still count, including on UIWindow.
+        if ([view isKindOfClass:UIWindow.class] && [NSStringFromClass(gesture.class) hasPrefix:@"_"] &&
+            [[NSBundle bundleForClass:gesture.class] isEqual:[NSBundle bundleForClass:UIWindow.class]]) continue;
+        return YES;
+    }
     // Transparent structural views are not content. Custom drawing/touch receivers are.
     Class base = [view isKindOfClass:UIWindow.class] ? UIWindow.class : UIView.class;
     for (NSString *name in @[@"drawRect:", @"touchesBegan:withEvent:", @"touchesMoved:withEvent:",
