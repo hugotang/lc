@@ -34,6 +34,31 @@
 @property(nonatomic) NSMutableArray<UIWindow *> *createdWindows;
 @end
 @implementation TapSyncWindowTests
+- (void)diagnoseWindows:(NSArray<UIWindow *> *)windows guest:(UIWindow *)guest {
+    for (UIWindow *window in windows) {
+        NSLog(@"Window %@ scene %@ (guest %@), level %.0f, hidden %d alpha %.2f interactive %d root %@",
+              window, window.windowScene, guest.windowScene, (double)window.windowLevel, window.hidden,
+              (double)window.alpha, window.userInteractionEnabled, window.rootViewController);
+        NSMutableArray<UIView *> *pending = [NSMutableArray arrayWithObject:window];
+        NSUInteger remaining = 32;
+        while (pending.count && remaining--) {
+            UIView *view = pending.lastObject;
+            [pending removeLastObject];
+            NSMutableArray<NSString *> *custom = [NSMutableArray array];
+            Class base = [view isKindOfClass:UIWindow.class] ? UIWindow.class : UIView.class;
+            for (NSString *name in @[@"drawRect:", @"touchesBegan:withEvent:", @"touchesMoved:withEvent:",
+                                     @"touchesEnded:withEvent:", @"touchesCancelled:withEvent:"]) {
+                SEL selector = NSSelectorFromString(name);
+                if ([view.class instanceMethodForSelector:selector] != [base instanceMethodForSelector:selector]) [custom addObject:name];
+            }
+            NSLog(@"View %@ hidden %d alpha %.2f interactive %d background %@ contents %@ border %.1f gestures %@ custom %@ guestRect %@",
+                  view, view.hidden, (double)view.alpha, view.userInteractionEnabled, view.backgroundColor,
+                  view.layer.contents, (double)view.layer.borderWidth, view.gestureRecognizers, custom,
+                  NSStringFromCGRect([view convertRect:view.bounds toView:guest]));
+            [pending addObjectsFromArray:view.subviews];
+        }
+    }
+}
 - (void)setUp {
     [super setUp];
     self.createdWindows = [NSMutableArray array];
@@ -87,6 +112,7 @@
     UIView *emptyWrapper = [[UIView alloc] initWithFrame:overlay.bounds];
     [overlay.rootViewController.view addSubview:emptyWrapper];
     XCTAssertTrue(CGRectEqualToRect([overlay convertRect:overlay.bounds toWindow:guest], guest.bounds));
+    [self diagnoseWindows:scene.windows guest:guest];
     LCTapSyncResult result;
     XCTAssertEqual(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result), guest);
     XCTAssertEqual(result, LCTapSyncResultAccepted);
@@ -107,6 +133,7 @@
     XCTAssertNil(LCTapSyncFindGuestWindow([NSSet setWithObject:scene], &result));
     XCTAssertEqual(result, LCTapSyncResultWindowCovered);
     button.hidden = YES;
+    [self diagnoseWindows:@[guest, overlay] guest:guest];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, scene.windows));
 }
 - (void)testSmallVisibleContentAndGestureReceivers {
@@ -160,6 +187,7 @@
     unrelated.rootViewController.view.backgroundColor = UIColor.blackColor;
     scene.testWindows = @[guest];
     other.testWindows = @[unrelated];
+    NSLog(@"Other-scene fixture: synthetic %@, real %@, guest %@, unrelated %@", other, scene, guest.windowScene, unrelated.windowScene);
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[unrelated, guest]));
     LCTapSyncResult result;
     XCTAssertEqual(LCTapSyncFindGuestWindow([NSSet setWithArray:@[other, scene]], &result), guest);
