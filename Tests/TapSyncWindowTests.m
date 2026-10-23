@@ -89,8 +89,13 @@
 }
 - (void)testEmptyAndPassThroughAuxiliaryWindows {
     UIWindowScene *scene = [self connectedScene];
-    LCTestWindow *guest = [self windowInScene:scene level:UIWindowLevelNormal];
+    UIWindow *guest = LCTapSyncTestHostWindow();
+    XCTAssertNotNil(guest);
+    [guest makeKeyWindow];
     LCTestWindow *overlay = [self windowInScene:scene level:UIWindowLevelAlert];
+    overlay.frame = guest.bounds;
+    overlay.rootViewController.view.frame = overlay.bounds;
+    [overlay layoutIfNeeded];
     UIView *emptyWrapper = [[UIView alloc] initWithFrame:overlay.bounds];
     [overlay.rootViewController.view addSubview:emptyWrapper];
     XCTAssertTrue(CGRectEqualToRect([overlay convertRect:overlay.bounds toWindow:guest], guest.bounds));
