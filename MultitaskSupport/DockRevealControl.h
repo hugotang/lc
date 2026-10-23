@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 // The top handle moves the Dock; an outward horizontal swipe elsewhere hides it.
-@interface LCDockHideGesture : UIPanGestureRecognizer <UIGestureRecognizerDelegate>
+@interface LCDockHideGesture : UIGestureRecognizer <UIGestureRecognizerDelegate>
 - (void)attachToView:(UIView *)view ignoredTopHeight:(CGFloat)ignoredTopHeight
               right:(BOOL)right hide:(void (^)(void))hide
     NS_SWIFT_NAME(attach(to:ignoredTopHeight:right:hide:));

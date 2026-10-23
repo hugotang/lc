@@ -1,4 +1,5 @@
 #import <XCTest/XCTest.h>
+#import <UIKit/UIGestureRecognizerSubclass.h>
 #import "../MultitaskSupport/DockRevealControl.h"
 #import "TapSyncTestWindow.h"
 
@@ -7,7 +8,7 @@
 @end
 
 @interface LCDockHideGesture (Testing)
-- (void)handleHidePan:(UIPanGestureRecognizer *)gesture;
+- (void)handleHideGesture:(UIGestureRecognizer *)gesture;
 @end
 
 @interface LCDockTestTouch : UITouch
@@ -24,6 +25,16 @@
 @implementation LCDockTestPan
 - (CGPoint)translationInView:(UIView *)view { return self.testTranslation; }
 - (UIGestureRecognizerState)state { return self.testState; }
+@end
+
+// Record the intent transitions without asking UIKit to deliver fabricated
+// touches. DockGestureUITests separately drive the real recognizer with events.
+@interface LCDockTestHideGesture : LCDockHideGesture
+@property(nonatomic) UIGestureRecognizerState testState;
+@end
+@implementation LCDockTestHideGesture
+- (UIGestureRecognizerState)state { return self.testState; }
+- (void)setState:(UIGestureRecognizerState)state { self.testState = state; }
 @end
 
 @interface DockRevealControlTests : XCTestCase
@@ -188,7 +199,7 @@
     [self.control hide];
     XCTAssertEqualObjects([NSSet setWithArray:other.gestureRecognizers], otherOriginalGestures);
 }
-- (void)testOutwardHideGestureKeepsHandleMovementAndVerticalAccountScrolling {
+- (void)testOutwardHideGestureExcludesHandleAndDisabledDock {
     UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(0, 100, 80, 400)];
     [self.window addSubview:dock];
     LCDockHideGesture *hide = [LCDockHideGesture new];
@@ -200,55 +211,127 @@
     }
     touch.testLocation = CGPointMake(40, 100);
     XCTAssertTrue([hide gestureRecognizer:hide shouldReceiveTouch:touch]);
-    LCDockTestPan *pan = [LCDockTestPan new];
-    for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(5, 40)],
-                            [NSValue valueWithCGPoint:CGPointMake(-40, 5)],
-                            [NSValue valueWithCGPoint:CGPointMake(30, 30)]]) {
-        pan.testTranslation = value.CGPointValue;
-        XCTAssertFalse([hide gestureRecognizerShouldBegin:pan]);
-    }
-    pan.testTranslation = CGPointMake(40, 5);
-    XCTAssertTrue([hide gestureRecognizerShouldBegin:pan]);
+    XCTAssertTrue([hide gestureRecognizerShouldBegin:hide]);
+    dock.hidden = YES;
+    XCTAssertFalse([hide gestureRecognizerShouldBegin:hide]);
+    dock.hidden = NO;
+    dock.alpha = 0;
+    XCTAssertFalse([hide gestureRecognizerShouldBegin:hide]);
+    dock.alpha = 1;
     UIPanGestureRecognizer *scroll = [UIPanGestureRecognizer new];
     XCTAssertTrue([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:scroll]);
-    XCTAssertEqual(hide.maximumNumberOfTouches, 1u);
     XCTAssertTrue(hide.cancelsTouchesInView);
+    XCTAssertFalse(hide.delaysTouchesBegan);
+    XCTAssertFalse(hide.delaysTouchesEnded);
     [hide detach];
-    XCTAssertFalse([hide gestureRecognizerShouldBegin:pan]);
+    XCTAssertFalse([hide gestureRecognizerShouldBegin:hide]);
     XCTAssertNil(hide.view);
     [dock removeFromSuperview];
 }
-- (void)testOutwardSwipeHidesOnReleaseOnEitherSideWithoutSmallOrCancelledDrags {
-    UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(0, 100, 80, 400)];
+- (LCDockTestTouch *)beginHide:(LCDockTestHideGesture *)hide {
+    [hide reset];
+    hide.testState = UIGestureRecognizerStatePossible;
+    LCDockTestTouch *touch = [LCDockTestTouch new];
+    touch.testLocation = CGPointMake(40, 100);
+    [hide touchesBegan:[NSSet setWithObject:touch] withEvent:nil];
+    return touch;
+}
+- (void)moveHide:(LCDockTestHideGesture *)hide touch:(LCDockTestTouch *)touch by:(CGPoint)translation {
+    touch.testLocation = CGPointMake(40 + translation.x, 100 + translation.y);
+    [hide touchesMoved:[NSSet setWithObject:touch] withEvent:nil];
+    [hide handleHideGesture:hide];
+}
+- (void)testShortOutwardSwipeHidesBeforeLiftDespiteInitialJitterOnEitherSide {
+    UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(0, 100, 56, 400)];
     [self.window addSubview:dock];
-    LCDockHideGesture *hide = [LCDockHideGesture new];
+    LCDockTestHideGesture *hide = [LCDockTestHideGesture new];
     __block NSUInteger hidden = 0;
-    LCDockTestPan *pan = [LCDockTestPan new];
     for (NSNumber *right in @[@NO, @YES]) {
         [hide attachToView:dock ignoredTopHeight:50 right:right.boolValue hide:^{ hidden += 1; }];
         CGFloat outward = right.boolValue ? 1 : -1;
         NSUInteger before = hidden;
-        pan.testState = UIGestureRecognizerStateEnded;
-        for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-40 * outward, 0)],
-                                [NSValue valueWithCGPoint:CGPointMake(15 * outward, 0)],
-                                [NSValue valueWithCGPoint:CGPointMake(40 * outward, 40)]]) {
-            pan.testTranslation = value.CGPointValue;
-            [hide handleHidePan:pan];
-        }
-        pan.testTranslation = CGPointMake(40 * outward, 5);
-        pan.testState = UIGestureRecognizerStateChanged;
-        [hide handleHidePan:pan];
-        pan.testState = UIGestureRecognizerStateCancelled;
-        [hide handleHidePan:pan];
+        LCDockTestTouch *touch = [self beginHide:hide];
+        [self moveHide:hide touch:touch by:CGPointMake(4 * outward, 8)];
+        XCTAssertEqual(hide.state, UIGestureRecognizerStatePossible);
+        [self moveHide:hide touch:touch by:CGPointMake(15 * outward, 8)];
         XCTAssertEqual(hidden, before);
-        pan.testState = UIGestureRecognizerStateEnded;
-        [hide handleHidePan:pan];
+        [self moveHide:hide touch:touch by:CGPointMake(16 * outward, 8)];
+        XCTAssertEqual(hide.state, UIGestureRecognizerStateRecognized);
         XCTAssertEqual(hidden, before + 1);
-        [hide handleHidePan:pan];
+        [hide handleHideGesture:hide];
         XCTAssertEqual(hidden, before + 1);
+        XCTAssertFalse([hide gestureRecognizerShouldBegin:hide]);
         [hide detach];
     }
     XCTAssertEqual(hidden, 2u);
     [dock removeFromSuperview];
+}
+- (void)testVerticalOrInwardIntentCannotBecomeHideLaterInTheSameGesture {
+    LCDockTestHideGesture *hide = [LCDockTestHideGesture new];
+    __block NSUInteger hidden = 0;
+    [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
+    for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(6, 22)],
+                            [NSValue valueWithCGPoint:CGPointMake(-16, 0)]]) {
+        LCDockTestTouch *touch = [self beginHide:hide];
+        [self moveHide:hide touch:touch by:value.CGPointValue];
+        XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+        [self moveHide:hide touch:touch by:CGPointMake(50, 0)];
+        XCTAssertEqual(hidden, 0u);
+    }
+    // Ambiguous diagonal motion stays possible until its accumulated direction
+    // is clear; it must not cancel a button or hide merely at 16pt of travel.
+    LCDockTestTouch *touch = [self beginHide:hide];
+    [self moveHide:hide touch:touch by:CGPointMake(16, 16)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStatePossible);
+    [hide touchesEnded:[NSSet setWithObject:touch] withEvent:nil];
+    [hide handleHideGesture:hide];
+    XCTAssertEqual(hidden, 0u);
+    [hide detach];
+}
+- (void)testTapsSmallDriftsCancellationAndMultipleFingersDoNotHide {
+    LCDockTestHideGesture *hide = [LCDockTestHideGesture new];
+    __block NSUInteger hidden = 0;
+    [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
+    for (NSNumber *distance in @[@0, @5, @15]) {
+        LCDockTestTouch *touch = [self beginHide:hide];
+        [self moveHide:hide touch:touch by:CGPointMake(distance.doubleValue, 0)];
+        [hide touchesEnded:[NSSet setWithObject:touch] withEvent:nil];
+        [hide handleHideGesture:hide];
+        XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+        XCTAssertEqual(hidden, 0u);
+    }
+    LCDockTestTouch *touch = [self beginHide:hide];
+    [self moveHide:hide touch:touch by:CGPointMake(10, 0)];
+    [hide touchesCancelled:[NSSet setWithObject:touch] withEvent:nil];
+    [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
+    XCTAssertEqual(hidden, 0u);
+    touch = [self beginHide:hide];
+    [hide touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:nil];
+    [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+    XCTAssertEqual(hidden, 0u);
+    [hide reset];
+    hide.testState = UIGestureRecognizerStatePossible;
+    [hide touchesBegan:[NSSet setWithObjects:touch, [LCDockTestTouch new], nil] withEvent:nil];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+    [hide detach];
+}
+- (void)testHideRearmsOnlyAfterDetachAndKeepsOtherRecognizers {
+    LCDockTestHideGesture *hide = [LCDockTestHideGesture new];
+    UIPanGestureRecognizer *unrelated = [UIPanGestureRecognizer new];
+    [self.guest addGestureRecognizer:unrelated];
+    __block NSUInteger hidden = 0;
+    for (NSUInteger index = 0; index < 4; ++index) {
+        [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
+        LCDockTestTouch *touch = [self beginHide:hide];
+        [self moveHide:hide touch:touch by:CGPointMake(20, 0)];
+        XCTAssertEqual(hidden, index + 1);
+        [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
+        [hide handleHideGesture:hide];
+        XCTAssertEqual(hidden, index + 1);
+        [hide detach];
+        XCTAssertTrue([self.guest.gestureRecognizers containsObject:unrelated]);
+        XCTAssertFalse([self.guest.gestureRecognizers containsObject:hide]);
+    }
 }
 @end

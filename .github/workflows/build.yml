@@ -165,12 +165,21 @@ jobs:
       - uses: actions/checkout@v6
       - name: Test input sync window coverage
         run: bash Tests/run-tap-sync-window-tests.sh
+      - name: Test Dock gestures through SwiftUI touch delivery
+        run: bash Tests/run-dock-gesture-ui-tests.sh
       - name: Upload input sync window test diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: input-sync-window-tests
           path: ${{ runner.temp }}/tap-sync-window-tests
+          if-no-files-found: ignore
+      - name: Upload Dock gesture UI test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dock-gesture-ui-tests
+          path: ${{ runner.temp }}/dock-gesture-ui-tests
           if-no-files-found: ignore
 
   release__nightly:
