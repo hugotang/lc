@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 // Keep hit targets and account identity independent of the number of open windows.
 struct LCDockLayout {
@@ -68,7 +69,7 @@ struct LCDockPlacement: Equatable {
     }
 }
 
-// Foundation-only geometry can also be checked without an iOS simulator.
+// UIKit-free geometry can also be checked without an iOS simulator.
 struct LCDockInsets {
     var top: CGFloat = 0
     var left: CGFloat = 0
