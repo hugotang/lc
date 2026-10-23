@@ -61,6 +61,11 @@ struct LCDockPlacement: Equatable {
                       y: minY + (maxY - minY) * fraction, width: size.width, height: size.height)
     }
 
+    func revealFrame(bounds: CGRect, insets: LCDockInsets) -> CGRect {
+        frame(size: CGSize(width: LCDockLayout.revealHitWidth, height: LCDockLayout.minimumHitSize),
+              bounds: bounds, insets: insets, hidden: false)
+    }
+
     static func from(frame: CGRect, bounds: CGRect, insets: LCDockInsets) -> LCDockPlacement {
         let minY = bounds.minY + insets.top + 8
         let travel = max(0, bounds.height - insets.top - insets.bottom - frame.height - 16)

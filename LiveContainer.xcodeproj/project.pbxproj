@@ -273,6 +273,8 @@
 				AppSceneViewController.m,
 				DecoratedAppSceneViewController.h,
 				DecoratedAppSceneViewController.m,
+				DockRevealControl.h,
+				DockRevealControl.m,
 				LCStatusBarManager.h,
 				LCStatusBarManager.m,
 				MultitaskAppWindow.swift,

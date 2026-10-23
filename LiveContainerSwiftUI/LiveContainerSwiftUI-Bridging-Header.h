@@ -16,6 +16,7 @@
 #include "../MultitaskSupport/LCStatusBarManager.h"
 #include "../MultitaskSupport/PiPManager.h"
 #include "../MultitaskSupport/VirtualWindowsHostView.h"
+#include "../MultitaskSupport/DockRevealControl.h"
 #include "../MultitaskSupport/TapSyncCoordinator.h"
 #include "../MultitaskSupport/PerformanceMonitor.h"
 #include "../LiveContainer/FoundationPrivate.h"

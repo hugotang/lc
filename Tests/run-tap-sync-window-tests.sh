@@ -56,6 +56,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/TweakLoader/TapSyncClientState.m" "$repo_root/TweakLoader/TapSyncReturnGesture.m" \
     "$repo_root/Tests/TapSyncClientTests.m" \
     "$repo_root/MultitaskSupport/WindowChromeLayout.m" "$repo_root/Tests/WindowChromeLayoutTests.m" \
+    "$repo_root/MultitaskSupport/DockRevealControl.m" "$repo_root/Tests/DockRevealControlTests.m" \
     -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"

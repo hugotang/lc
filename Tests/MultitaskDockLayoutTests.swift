@@ -46,6 +46,29 @@ enum MultitaskDockLayoutTests {
         require(LCDockPlacement(saved: ["edge": "left", "fraction": 9]).fraction == 1, "Saved fraction must clamp")
         require(LCDockPlacement(saved: ["fraction": Double.nan]).fraction == 0.5, "Nonfinite saved fraction was retained")
 
+        // The reveal control stays fully on screen, independent of Dock width,
+        // offscreen placement, safe-area cutouts and portrait/landscape hosts.
+        let hosts: [(CGRect, LCDockInsets)] = [
+            (CGRect(x: 0, y: 0, width: 393, height: 852), LCDockInsets(top: 59, bottom: 34)),
+            (CGRect(x: 0, y: 0, width: 852, height: 393), LCDockInsets(left: 59, bottom: 21, right: 59)),
+            (bounds, insets),
+            (CGRect(x: 0, y: 0, width: 444, height: 320), LCDockInsets(top: 24, bottom: 20))
+        ]
+        for (host, exclusions) in hosts {
+            let safe = CGRect(x: host.minX + exclusions.left, y: host.minY + exclusions.top,
+                              width: host.width - exclusions.left - exclusions.right,
+                              height: host.height - exclusions.top - exclusions.bottom)
+            for right in [false, true] {
+                for fraction in [0.0, 0.25, 0.5, 1.0] {
+                    let reveal = LCDockPlacement(right: right, fraction: fraction).revealFrame(bounds: host, insets: exclusions)
+                    require(safe.contains(reveal) && reveal.size == CGSize(width: 44, height: 44),
+                            "Reveal control escaped the host or lost its native 44pt target")
+                    require(right ? reveal.maxX == safe.maxX : reveal.minX == safe.minX,
+                            "Reveal control is not at its saved edge")
+                }
+            }
+        }
+
         let suite = "com.livecontainer.tests.dock.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }

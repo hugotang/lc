@@ -154,10 +154,11 @@ class AppInfoProvider {
     private let placementStore = LCDockPlacementStore(defaults: LCUtils.appGroupUserDefault)
     private let accountRegistry = LCDockAccountRegistry(defaults: LCUtils.appGroupUserDefault)
     private var subscriptions = Set<AnyCancellable>()
-    private var edgeGesture: UIScreenEdgePanGestureRecognizer?
+    private let revealControl = LCDockRevealControl(frame: .zero)
     private var dragStartFrame: CGRect?
     private var dragStartBounds = CGRect.zero
     private var dragCancelled = false
+    private weak var lastHostWindow: UIWindow?
     private var lastWindowBounds = CGRect.zero
     private var lastSafeAreaInsets = UIEdgeInsets.zero
     private var geometryUpdatePending = false
@@ -165,7 +166,6 @@ class AppInfoProvider {
 
     public struct Constants {
         static let defaultDockWidth: CGFloat = 80
-        static let edgeSwipeThreshold: CGFloat = 30.0
         
         static let standardAnimationDuration: TimeInterval = 0.3
         static let longAnimationDuration: TimeInterval = 0.4
@@ -292,19 +292,29 @@ class AppInfoProvider {
         isOnRightSide = placement.right
         let newFrame = placement.frame(size: CGSize(width: layout.width, height: layout.height),
                                        bounds: window.bounds, insets: placementInsets, hidden: isDockHidden)
+        hostingController.view.isUserInteractionEnabled = isVisible && !isDockHidden
         applyNewFrame(newFrame, for: hostingController, animated: animated)
-        setupEdgeGestureRecognizers()
+        if isVisible && isDockHidden {
+            revealControl.accessibilityLabel = "lc.multitask.showDock".loc
+            revealControl.show(in: window, frame: placement.revealFrame(bounds: window.bounds, insets: placementInsets),
+                               right: placement.right, dimmed: LCUtils.appGroupUserDefault.bool(forKey: "LCHideCollapsedDock")) { [weak self] in
+                self?.showDockFromHidden()
+            }
+        } else {
+            revealControl.hide()
+        }
     }
 
     // Called by the attached host after rotation, Stage Manager resizing or inset changes.
     @objc public func hostGeometryDidChange() {
         guard let window = keyWindow,
-              window.bounds != lastWindowBounds || window.safeAreaInsets != lastSafeAreaInsets,
+              window !== lastHostWindow || window.bounds != lastWindowBounds || window.safeAreaInsets != lastSafeAreaInsets,
               !geometryUpdatePending else { return }
         geometryUpdatePending = true
         DispatchQueue.main.async {
             self.geometryUpdatePending = false
             guard let window = self.keyWindow else { return }
+            self.lastHostWindow = window
             self.lastWindowBounds = window.bounds
             self.lastSafeAreaInsets = window.safeAreaInsets
             self.cancelDockDrag()
@@ -352,6 +362,8 @@ class AppInfoProvider {
     @objc public func resetDockPosition() {
         cancelDockDrag()
         placementStore.reset()
+        isDockHidden = false
+        if let view = hostingController?.view { view.superview?.bringSubviewToFront(view) }
         geometryRevision &+= 1
         if isVisible { updateDockFrame() }
     }
@@ -407,7 +419,7 @@ class AppInfoProvider {
                 delay: 0,
                 usingSpringWithDamping: Constants.standardSpringDamping,
                 initialSpringVelocity: Constants.standardSpringVelocity,
-                options: .curveEaseOut
+                options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction]
             ) {
                 hostingController.view.frame = newFrame
             }
@@ -472,8 +484,9 @@ class AppInfoProvider {
         DispatchQueue.main.async {
             self.windowHostingView.finishGridEditing()
             self.cancelDockDrag()
-            if let gesture = self.edgeGesture { gesture.view?.removeGestureRecognizer(gesture) }
-            self.edgeGesture = nil
+            self.revealControl.hide()
+            self.isDockHidden = false
+            hostingController.view.isUserInteractionEnabled = false
             UIView.animate(
                 withDuration: Constants.standardAnimationDuration,
                 delay: 0,
@@ -688,6 +701,7 @@ class AppInfoProvider {
     @objc public func showDockFromHidden() {
         DispatchQueue.main.async {
             self.isDockHidden = false
+            if let view = self.hostingController?.view { view.superview?.bringSubviewToFront(view) }
             self.updateDockFrame()
         }
     }
@@ -697,32 +711,6 @@ class AppInfoProvider {
             self.windowHostingView.finishGridEditing()
             self.isDockHidden = true
             self.updateDockFrame()
-        }
-    }
-    
-    // Add edge gesture recognition areas when dock is hidden
-    private func setupEdgeGestureRecognizers() {
-        if let edgeGesture, isVisible, isDockHidden, edgeGesture.view === keyWindow,
-           edgeGesture.edges == (isOnRightSide ? .right : .left) { return }
-        if let edgeGesture { edgeGesture.view?.removeGestureRecognizer(edgeGesture) }
-        edgeGesture = nil
-        guard isVisible, isDockHidden, let keyWindow else { return }
-        let gesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleEdgeSwipe(_:)))
-        gesture.edges = isOnRightSide ? .right : .left
-        keyWindow.addGestureRecognizer(gesture)
-        edgeGesture = gesture
-    }
-    
-    @objc private func handleEdgeSwipe(_ gesture: UIScreenEdgePanGestureRecognizer) {
-        guard isDockHidden, gesture.state == .began || gesture.state == .changed else {
-            return
-        }
-        
-        let translation = gesture.translation(in: gesture.view)
-        let swipeDistance = abs(translation.x)
-        
-        if swipeDistance > Constants.edgeSwipeThreshold {
-            showDockFromHidden()
         }
     }
     
@@ -737,28 +725,12 @@ class AppInfoProvider {
 @available(iOS 16.0, *)
 public struct MultitaskDockSwiftView: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
-    @AppStorage("LCHideCollapsedDock", store: LCUtils.appGroupUserDefault) private var hideCollapsedDock = false
 
     public var body: some View {
         let layout = dockManager.dockLayout
         Group {
             if dockManager.isDockHidden {
-                ZStack(alignment: dockManager.isOnRightSide ? .leading : .trailing) {
-                    Button { dockManager.showDockFromHidden() } label: {
-                        Image(systemName: dockManager.isOnRightSide ? "chevron.left" : "chevron.right")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 16, height: 44)
-                            .background(.black.opacity(0.7), in: Capsule())
-                            .frame(width: LCDockLayout.revealHitWidth, height: layout.height)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("lc.multitask.showDock".loc)
-                    .opacity(hideCollapsedDock ? 0.05 : 0.8)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity,
-                       alignment: dockManager.isOnRightSide ? .leading : .trailing)
+                Color.clear
             } else {
                 VStack(spacing: LCDockLayout.spacing) {
                     dragHandle
