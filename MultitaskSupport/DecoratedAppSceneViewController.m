@@ -6,11 +6,13 @@
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "PiPManager.h"
 #import "VirtualWindowsHostView.h"
+#import "WindowChromeLayout.h"
 #import "../LiveContainer/Localization.h"
 #import "utils.h"
 
 @interface DecoratedAppSceneViewController()
-@property(nonatomic) NSArray* activatedVerticalConstraints;
+@property(nonatomic) LCWindowChromeLayout *chromeLayout;
+@property(nonatomic) BOOL observingChromeDefaults;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) int pid;
 @property(nonatomic) CGRect originalFrame;
@@ -38,30 +40,26 @@
     
     [MultitaskDockManager.shared addRunningApp:windowName appUUID:dataUUID view:self.view];
     
-    NSArray *menuItems = @[
-        [UIAction actionWithTitle:@"lc.multitask.arrangeWindowsInGrid".loc image:[UIImage systemImageNamed:@"square.grid.2x2"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            [MultitaskDockManager.shared.windowHostingView arrangeWindowsInGrid];
-        }],
-        [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
-        }],
-        [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            [self togglePictureInPicture];
-        }],
-        [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
-            return [self scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:self.scaleRatio stepInterval:0.01];
-        }]
-    ];
-    
-
     __weak typeof(self) weakSelf = self;
     [self.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
-        if(!weakSelf.appSceneVC.isAppRunning) {
+        typeof(self) controller = weakSelf;
+        if(!controller.appSceneVC.isAppRunning) {
             return [UIMenu menuWithTitle:NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", nil) children:@[]];
         } else {
-            NSString *pidText = [NSString stringWithFormat:@"PID: %d", weakSelf.pid];
-            UIMenu *syncMenu = [MultitaskTapSyncManager.shared windowMenuForContainer:weakSelf.appSceneVC.dataUUID];
-            return [UIMenu menuWithTitle:pidText children:[menuItems arrayByAddingObject:syncMenu]];
+            UIAction *copyPID = [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction *action) {
+                UIPasteboard.generalPasteboard.string = @(weakSelf.appSceneVC.pid).stringValue;
+            }];
+            NSArray *menuItems = @[
+                [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction *action) {
+                    [weakSelf togglePictureInPicture];
+                }],
+                [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
+                    return [weakSelf scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:weakSelf.scaleRatio stepInterval:0.01];
+                }],
+                [MultitaskTapSyncManager.shared windowMenuForContainer:controller.appSceneVC.dataUUID],
+                [UIMenu menuWithTitle:@"lc.dock.diagnostics".loc image:[UIImage systemImageNamed:@"wrench.and.screwdriver"] identifier:nil options:0 children:@[copyPID]]
+            ];
+            return [UIMenu menuWithTitle:[MultitaskDockManager.shared accountTitleForContainer:controller.dataUUID] children:menuItems];
         }
     }];
     
@@ -130,13 +128,14 @@
 
     self.navigationBar = navigationBar;
     self.navigationItem = navigationBar.items.firstObject;
+    self.chromeLayout = [LCWindowChromeLayout new];
     if (!self.navigationBar.superview) {
         [self.view addArrangedSubview:self.navigationBar];
     }
     
     CGRect contentFrame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height - navBarHeight);
     UIView *fixedPositionContentView = [[UIView alloc] initWithFrame:contentFrame];
-    self.contentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    fixedPositionContentView.userInteractionEnabled = NO;
     if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
         [self.view insertArrangedSubview:fixedPositionContentView atIndex:0];
     } else {
@@ -171,16 +170,26 @@
     _appSceneVC.view.translatesAutoresizingMaskIntoConstraints = NO;
     
     [self updateVerticalConstraints];
-    [NSLayoutConstraint activateConstraints:@[
-        [_appSceneVC.view.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [_appSceneVC.view.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
-    ]];
     
     
     NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
 
     [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
+    [defaults addObserver:self forKeyPath:@"LCMultitaskOverlayMode" options:NSKeyValueObservingOptionNew context:NULL];
+    self.observingChromeDefaults = YES;
     [self updateOriginalFrame];
+}
+
+- (void)dealloc {
+    if (self.observingChromeDefaults) {
+        [NSUserDefaults.lcSharedDefaults removeObserver:self forKeyPath:@"LCMultitaskBottomWindowBar"];
+        [NSUserDefaults.lcSharedDefaults removeObserver:self forKeyPath:@"LCMultitaskOverlayMode"];
+    }
+}
+
+- (void)updateAccountTitle {
+    NSString *title = [MultitaskDockManager.shared accountTitleForContainer:self.dataUUID];
+    if (![self.navigationItem.title isEqualToString:title]) self.navigationItem.title = title;
 }
 
 
@@ -481,7 +490,7 @@
         } else {
             [self updateWindowedFrameWithSettings:settings];
         }
-        CGFloat barHeight = self.navigationBar.hidden ? 0 : self.navigationBar.frame.size.height / self.scaleRatio;
+        CGFloat barHeight = self.navigationBar.hidden || self.chromeLayout.isOverlay ? 0 : self.navigationBar.frame.size.height / self.scaleRatio;
         CGRect newFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height - barHeight);
         
         if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
@@ -526,29 +535,22 @@
 
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
-    [self.view layoutIfNeeded];
-    [UIView animateWithDuration:0.3 animations:^{
-        BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
-        if(bottomWindowBar) {
-            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
-            self.navigationItem.rightBarButtonItems = nil;
-            [self.view addArrangedSubview:self.navigationBar];
-        } else {
-            self.navigationItem.rightBarButtonItems = self.navigationItem.leftBarButtonItems;
-            self.navigationItem.leftBarButtonItems = nil;
-            [self.view insertArrangedSubview:self.navigationBar atIndex:0];
+    if (object != NSUserDefaults.lcSharedDefaults ||
+        ![@[@"LCMultitaskBottomWindowBar", @"LCMultitaskOverlayMode"] containsObject:keyPath]) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([keyPath isEqualToString:@"LCMultitaskBottomWindowBar"]) {
+            BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:keyPath];
+            NSArray *buttons = self.navigationItem.leftBarButtonItems ?: self.navigationItem.rightBarButtonItems;
+            self.navigationItem.leftBarButtonItems = bottomWindowBar ? buttons : nil;
+            self.navigationItem.rightBarButtonItems = bottomWindowBar ? nil : buttons;
         }
-        
         [self updateVerticalConstraints];
         [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
-        
-        if(_isMaximized) {
-            [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
-                [self updateMaximizedFrameWithSettings:settings];
-            }];
-        }
         [self.view layoutIfNeeded];
-    }];
+    });
 }
 
 - (void)moveWindow:(UIPanGestureRecognizer*)sender {
@@ -595,57 +597,47 @@
 }
 
 - (void)updateVerticalConstraints {
-    [self.view layoutIfNeeded];
-    [UIView animateWithDuration:0.3 animations:^{
-        BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
-        BOOL compactGrid = self.isInGridLayout && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars && !self.isAppTerminated;
-        BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized && !self.isAppTerminated);
-        CGFloat navBarHeight = hideWindowBar ? 0 : 44;
-        [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
-        self.navigationBar.alpha = hideWindowBar ? 0 : 1;
-        self.navigationBar.hidden = hideWindowBar;
-        self.resizeHandle.hidden = compactGrid;
-        self.resizeHandle.alpha = self.isMaximized ? 0 : 1;
-        self.view.layer.cornerRadius = compactGrid ? 0 : 10;
-        self.view.layer.borderWidth = (compactGrid || self.isMaximized) ? 0 : 1;
-        
-        // Update safe area insets
-        if(self.isMaximized) {
-            if (self.isAppTerminated) {
-                // The guest presenter has already been destroyed; update the host frame directly.
-                [self updateMaximizedFrameWithSettings:[UIMutableApplicationSceneSettings new]];
-            } else {
-                self.appSceneVC.shouldSkipDebounceOnce = YES;
-                __weak typeof(self) weakSelf = self;
-                [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
-                    [weakSelf updateMaximizedFrameWithSettings:settings];
-                }];
-            }
-        }
-        
-        if(bottomWindowBar) {
-            self.activatedVerticalConstraints = @[
-                [self.appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-                [self.appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-navBarHeight],
-                [self.navigationBar.heightAnchor constraintEqualToConstant:navBarHeight]
-            ];
-        } else {
-            self.activatedVerticalConstraints = @[
-                [self.appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:navBarHeight],
-                [self.appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-                [self.navigationBar.heightAnchor constraintEqualToConstant:navBarHeight]
-            ];
-        }
-        [NSLayoutConstraint activateConstraints:self.activatedVerticalConstraints];
+    BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
+    BOOL compactGrid = self.isInGridLayout && !self.isMaximized && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars && !self.isAppTerminated;
+    BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized && !self.isAppTerminated);
+    BOOL overlay = self.isMaximized && [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskOverlayMode"];
+    BOOL geometryChanged = [self.chromeLayout applyToContainer:self.view guest:self.appSceneVC.view bar:self.navigationBar
+                                                        bottom:bottomWindowBar hidden:hideWindowBar overlay:overlay];
+    self.resizeHandle.hidden = compactGrid;
+    self.resizeHandle.alpha = self.isMaximized ? 0 : 1;
+    self.view.layer.cornerRadius = compactGrid || overlay ? 0 : 10;
+    self.view.layer.borderWidth = (compactGrid || self.isMaximized) ? 0 : 1;
+    if (!hideWindowBar) [self.view bringSubviewToFront:self.navigationBar];
+    if (!self.isMaximized && !compactGrid) [self.view bringSubviewToFront:self.resizeHandle];
 
-        [self.view layoutIfNeeded];
-    }];
+    // Overlay visibility changes only chrome. Keep guest bounds, safe areas and pending input intact.
+    if (!geometryChanged) return;
+    [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
+    if (self.isMaximized) {
+        if (self.isAppTerminated) {
+            [self updateMaximizedFrameWithSettings:[UIMutableApplicationSceneSettings new]];
+        } else {
+            __weak typeof(self) weakSelf = self;
+            [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
+                [weakSelf updateMaximizedFrameWithSettings:settings];
+            }];
+        }
+    }
+    [self.view layoutIfNeeded];
+    if (!self.isAppTerminated) {
+        self.appSceneVC.shouldSkipDebounceOnce = YES;
+        __weak typeof(self) weakSelf = self;
+        [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
+            if (weakSelf.isMaximized) [weakSelf updateMaximizedSafeAreaWithSettings:settings];
+            else if (weakSelf.isInGridLayout) [weakSelf updateGridSafeAreaWithSettings:settings];
+        }];
+    }
 }
 
 - (UIEdgeInsets)updateMaximizedSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings {
     BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
     UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
-    if(self.navigationBar.hidden) {
+    if(self.navigationBar.hidden || self.chromeLayout.isOverlay) {
         settings.peripheryInsets = safeAreaInsets;
         safeAreaInsets = UIEdgeInsetsZero;
     } else if(bottomWindowBar) {

@@ -570,6 +570,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+    [MultitaskDockManager.shared hostGeometryDidChange];
     BOOL avoidingKeyboard = self.isAvoidingKeyboard;
     if (self.maintainsGridLayout || self.isAdjustingGridDividers || self.isChoosingGridSwap ||
         ((avoidingKeyboard || self.wasAvoidingKeyboard) && self.allVisibleWindowsAreInGrid)) {

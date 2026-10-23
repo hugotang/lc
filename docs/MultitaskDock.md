@@ -1,0 +1,15 @@
+# Dock accounts and fullscreen controls
+
+Starting in 3.8.15, each virtual-window Dock account has a number assigned in its app's container order. That number stays with the container when windows close, relaunch or swap grid positions. New containers receive the next number; removing a container does not renumber the others. The registry stores only container identifiers in shared preferences. It does not read or modify game files.
+
+The optional caption uses the existing container name. A hand badge identifies the current Input Sync source, and VoiceOver also identifies selected followers. Input Sync's existing window-position labels still describe the current participant order; Dock numbers describe persistent account identity. Hidden app names, captions, icons and account numbers follow the app list's unlock state.
+
+Use the Dock's ellipsis menu for Window Layout, Input Sync, Performance and Workspaces. Long-pressing the collapsed Dock opens the same menu. Long-press an account for its window actions, scale, PiP, sync role and Close. Copy PID is under Diagnostics. Account buttons retain a minimum 44 × 44 pt target and scroll when they exceed the available height. A very short host uses an account menu.
+
+Drag the top handle to move the Dock or cross to the other edge. Hide Dock to Edge is an explicit menu action; tap the edge tab or swipe its own edge to reveal it. Portrait and landscape placement are saved independently as an edge and a normalized height. Resizing clamps placement to the current host safe area. Reset Dock Positions clears both placements and leaves account numbers and Input Sync settings intact. VoiceOver provides corner placement actions, and Reduce Motion disables movement springs.
+
+**Overlay Fullscreen Controls** is an optional setting, off by default, inspired by [LiveContainer PR #1490](https://github.com/LiveContainer/LiveContainer/pull/1490). It applies only to maximized virtual windows. The bar overlays the guest at the selected top/bottom safe-area edge. Expanding or collapsing Dock changes chrome visibility without changing guest bounds or safe areas, rebuilding guest constraints or submitting a guest frame update. The visible controls cover that strip of game content and receive their own input.
+
+Returning to floating/grid layout or disabling overlay restores the existing reserved-row behavior. Actual layout/scale changes retain Input Sync's interruption handling. Foreground interruption still requires manual Resume. Keyboard avoidance, PiP and terminated-window controls retain their existing behavior.
+
+The Foundation suite covers stable identifiers, placement, reset, geometry and overflow. UIKit tests exercise the production chrome layout with repeated visibility/edge changes, safe areas, resized hosts, normal/grid transitions and hit testing. Real device checks for game layout, touch forwarding, keyboard, rotation and PiP are in [MultitaskManualChecks.md](../Tests/MultitaskManualChecks.md); simulator tests do not establish private guest-scene compatibility.

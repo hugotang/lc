@@ -25,6 +25,7 @@ API_AVAILABLE(ios(16.0))
 - (void)applyGridFrame:(CGRect)frame;
 - (void)applyGridFrame:(CGRect)frame updateSceneImmediately:(BOOL)immediate;
 - (void)updateVerticalConstraints;
+- (void)updateAccountTitle;
 - (void)updateFrameForKeyboard;
 @property(nonatomic, copy) void (^pidAvailableHandler)(NSNumber *pid, NSError *error);
 @end

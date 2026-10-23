@@ -38,6 +38,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
           "$RUNNER_TEMP/window-grid-order-tests"
+      - name: Test dock layout and account identity
+        run: |
+          swiftc -warnings-as-errors MultitaskSupport/MultitaskDockLayout.swift Tests/MultitaskDockLayoutTests.swift -o "$RUNNER_TEMP/dock-layout-tests"
+          "$RUNNER_TEMP/dock-layout-tests"
       - name: Test input sync geometry and sessions
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TapSyncGeometryTests.c -lm -o "$RUNNER_TEMP/tap-sync-geometry-tests"
@@ -152,7 +156,7 @@ jobs:
           if-no-files-found: error
 
   test_input_windows:
-    name: Test input sync on iPad simulator
+    name: Test input sync and window controls on iPad simulator
     runs-on: macos-latest
     steps:
       - uses: maxim-lobanov/setup-xcode@v1

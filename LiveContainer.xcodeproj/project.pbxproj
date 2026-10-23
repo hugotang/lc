@@ -277,6 +277,7 @@
 				LCStatusBarManager.m,
 				MultitaskAppWindow.swift,
 				MultitaskDockView.swift,
+				MultitaskDockLayout.swift,
 				MultitaskManager.swift,
 				MultitaskPerformance.swift,
 				MultitaskTapSync.swift,
@@ -307,6 +308,8 @@
 				VirtualWindowsHostView.m,
 				WindowGridOrder.h,
 				WindowGridOrder.m,
+				WindowChromeLayout.h,
+				WindowChromeLayout.m,
 				WindowWorkspace.h,
 				WindowWorkspace.m,
 			);
