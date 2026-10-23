@@ -33684,6 +33684,29 @@
         }
       }
     },
+    "lc.tapSync.autoResumeOnForeground" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume When Returning to Foreground"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到前台时自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到前景時自動繼續"
+          }
+        }
+      }
+    },
     "lc.tapSync.automaticResume" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33713,19 +33736,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Turn on Sync the First Returning Gesture to include it after followers are ready; input waits if another follower is still being touched. Rotation resumes after all fingers lift and the windows settle. All options are remembered. Manual Pause, keyboard, dialogs and background interruptions still need Resume."
+            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Sync the First Returning Gesture includes it after followers are ready. Rotation resumes after all fingers lift and the windows settle. Foreground resumes only a group running before backgrounding, after fresh window checks; old input is discarded. All options are remembered. Manual Pause, keyboard, dialogs, timeout and disconnection still need Resume. Relaunch stays paused."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后自动继续。默认第一次手势只在来源生效，所有手指放开后继续。打开「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势；其他跟随窗口仍被触碰时会等待。旋转后等所有手指离开、窗口稳定再继续。所有选项都会记住。手动暂停、键盘、对话框或切到后台造成的中断仍需手动继续。"
+            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后继续。默认第一次手势只在来源生效，所有手指放开后继续。「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势。旋转后等所有手指离开、窗口稳定再继续。回到前台只恢复切到后台前正在同步的组，重新检查所有窗口并丢弃旧输入。所有选项都会记住。手动暂停、键盘、对话框、超时或断开连接仍需手动继续；重新打开 App 保持暂停。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後自動恢復。預設第一個手勢只在來源生效，所有手指放開後恢復。開啟「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢；其他跟隨視窗仍被觸碰時會等待。旋轉後等所有手指離開、視窗穩定再恢復。所有選項都會記住。手動暫停、鍵盤、對話框或切到背景造成的中斷仍需手動繼續。"
+            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後繼續。預設第一個手勢只在來源生效，所有手指放開後繼續。「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢。旋轉後等所有手指離開、視窗穩定再繼續。回到前景只恢復切到背景前正在同步的群組，重新檢查所有視窗並丟棄舊輸入。所有選項都會記住。手動暫停、鍵盤、對話框、逾時或中斷連線仍需手動繼續；重新開啟 App 保持暫停。"
           }
         }
       }
@@ -33910,6 +33933,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拖動可移動控制項，也可使用輔助使用動作選擇角落。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.expiredInput" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: input arrived too late or out of order and was discarded. Wait for all windows to finish loading, align the screens, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：输入延迟过久或顺序异常，已丢弃。请等所有窗口加载完毕，对齐画面后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：輸入延遲過久或順序異常，已丟棄。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -35231,19 +35277,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused: a window did not respond in time. Align the screens before restarting."
+            "value" : "Paused: a window did not acknowledge input within 3 seconds. Wait for all windows to finish loading, align the screens, then resume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暂停：有窗口未及时响应。请对齐画面后再启动。"
+            "value" : "已暂停：有窗口超过 3 秒未确认输入。请等所有窗口加载完毕，对齐画面后再继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暫停：有視窗未及時回應。請對齊畫面後再啟動。"
+            "value" : "已暫停：有視窗超過 3 秒未確認輸入。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -35359,6 +35405,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "整組已暫停。觸碰來源後自動恢復，並同步這個手勢。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForForeground" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: waiting to return to the foreground and check all windows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：等待回到前台并检查所有窗口。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：等待回到前景並檢查所有視窗。"
           }
         }
       }

@@ -20,22 +20,30 @@
 - (NSArray *)currentGeometry;
 - (NSArray *)currentGeometryWithProblem:(NSString * __autoreleasing *)problem;
 - (BOOL)hostIsAnimatingRotation;
+- (BOOL)hostHasLostForeground;
 - (void)hostWillResignActive:(NSNotification *)notification;
+- (void)hostDidEnterBackground:(NSNotification *)notification;
+- (void)hostDidBecomeActive:(NSNotification *)notification;
+- (void)hostSceneWillDeactivate:(NSNotification *)notification;
 @end
 
 // Test only the UIKit rotation-transition signal; geometry validation, temporary
 // suspension, preparation and all recovery callbacks run through the real coordinator.
 @interface LCTestSyncCoordinator : LCTapSyncCoordinator
 @property(nonatomic) BOOL animatingRotation;
+@property(nonatomic) BOOL reportsHostInactive;
 @end
 @implementation LCTestSyncCoordinator
 - (BOOL)hostIsAnimatingRotation { return self.animatingRotation || [super hostIsAnimatingRotation]; }
+- (BOOL)hostHasLostForeground { return self.reportsHostInactive || [super hostHasLostForeground]; }
 @end
 
 @interface LCTestSyncPeer : NSObject
 @property(nonatomic) BOOL ready, canReplay, touching, suspended, resumeOnSource, holdSuspension;
 @property(nonatomic) BOOL syncReturnGesture, holdPreparation;
 @property(nonatomic) BOOL holdSourceReply, holdReturnPayload;
+@property(nonatomic) BOOL holdReplay;
+@property(nonatomic) LCTapSyncResult preparationResult;
 @property(nonatomic) uint64_t revision;
 @property(nonatomic) uint64_t returnRevision;
 @property(nonatomic) NSUInteger prepares, suspensions, stops, replays, sourceResumes, returnDiscards;
@@ -50,6 +58,7 @@
 @property(nonatomic, copy) void (^pendingSuspension)(LCTapSyncResult, BOOL, uint64_t);
 @property(nonatomic, copy) void (^pendingPreparation)(LCTapSyncResult);
 @property(nonatomic, copy) void (^pendingSourceReply)(LCTapSyncResult);
+@property(nonatomic, copy) void (^pendingReplay)(LCTapSyncResult);
 @property(nonatomic, copy) NSArray<NSDictionary *> *returnPackets;
 @end
 @implementation LCTestSyncPeer
@@ -62,6 +71,7 @@
          syncReturnGesture:(BOOL)syncReturnGesture
                  reply:(void (^)(LCTapSyncResult))reply {
     self.prepares++;
+    if (self.preparationResult != LCTapSyncResultAccepted) { reply(self.preparationResult); return; }
     if (self.touching) { reply(LCTapSyncResultPhysicalTouch); return; }
     self.session = session;
     self.suspended = NO;
@@ -99,7 +109,8 @@
 }
 - (void)replayTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence reply:(void (^)(LCTapSyncResult))reply {
     self.replays++;
-    reply(LCTapSyncResultAccepted);
+    if (self.holdReplay) self.pendingReplay = reply;
+    else reply(LCTapSyncResultAccepted);
 }
 - (void)inputTouching:(BOOL)touching began:(BOOL)began {
     self.touching = touching;
@@ -143,6 +154,7 @@
 @property(nonatomic) LCTestSyncHost *host;
 @property(nonatomic) UIWindow *window;
 @property(nonatomic, copy) NSArray<LCTestSyncPeer *> *peers;
+- (void)waitUntil:(BOOL (^)(void))condition timeout:(NSTimeInterval)timeout;
 @end
 @implementation TapSyncCoordinatorTests
 - (void)setUp {
@@ -215,8 +227,11 @@
     [super tearDown];
 }
 - (void)waitUntil:(BOOL (^)(void))condition {
+    [self waitUntil:condition timeout:2];
+}
+- (void)waitUntil:(BOOL (^)(void))condition timeout:(NSTimeInterval)timeout {
     NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) { return condition(); }];
-    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[[[XCTNSPredicateExpectation alloc] initWithPredicate:predicate object:nil]] timeout:2];
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[[[XCTNSPredicateExpectation alloc] initWithPredicate:predicate object:nil]] timeout:timeout];
     XCTAssertEqual(result, XCTWaiterResultCompleted, @"status=%@, recovering=%d, ready=%d, geometry=%@, initial=%@",
                    self.sync.statusKey, self.sync.recovering, [[self.sync valueForKey:@"recovery"] canResume],
                    self.sync.currentGeometry, [self.sync valueForKey:@"geometry"]);
@@ -350,6 +365,7 @@
     [self.sync hostWillResignActive:nil];
     XCTAssertFalse(self.sync.recovering);
     XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.backgroundPaused");
+    [self.sync hostDidBecomeActive:nil];
     self.peers[1].touching = NO;
     [self.sync start];
     [self.peers[1] inputTouching:YES began:YES];
@@ -362,9 +378,11 @@
     XCTAssertFalse(self.sync.resumeOnSource);
     XCTAssertFalse(self.sync.autoResumeAfterRotation);
     XCTAssertFalse(self.sync.syncReturnGesture);
+    XCTAssertFalse(self.sync.autoResumeOnForeground);
     self.sync.resumeOnSource = YES;
     self.sync.autoResumeAfterRotation = YES;
     self.sync.syncReturnGesture = YES;
+    self.sync.autoResumeOnForeground = YES;
     [self.sync start];
     [self.peers[1] inputTouching:YES began:YES];
     XCTAssertTrue(self.sync.recovering);
@@ -372,6 +390,7 @@
     XCTAssertTrue(restored.resumeOnSource);
     XCTAssertTrue(restored.autoResumeAfterRotation);
     XCTAssertTrue(restored.syncReturnGesture);
+    XCTAssertTrue(restored.autoResumeOnForeground);
     XCTAssertFalse(restored.active || restored.starting || restored.recovering);
     XCTAssertEqualObjects(restored.sourceContainer, @"A");
     XCTAssertEqualObjects(restored.targetContainers, (@[@"B", @"C", @"D"]));
@@ -500,5 +519,275 @@
         self.peers[3].holdPreparation = NO;
         self.peers[3].pendingPreparation = nil;
     }
+}
+- (NSDictionary *)freshTap {
+    CGSize size = self.host.tapSyncWindows[0].appSceneVC.view.bounds.size;
+    return LCTapSyncEncode((LCTapSyncSample){0.5, 0.5, size.width, size.height,
+                                           NSProcessInfo.processInfo.systemUptime, 0.05, 1, 1});
+}
+- (void)testDelayedAcknowledgmentAfterOneSecondKeepsDeliveredInputActive {
+    self.peers[3].holdReplay = YES;
+    [self.sync start];
+    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 1);
+    XCTestExpectation *reply = [self expectationWithDescription:@"late acknowledgment for already delivered input"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1200 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        XCTAssertTrue(self.sync.active);
+        self.peers[3].pendingReplay(LCTapSyncResultAccepted);
+        self.peers[3].pendingReplay = nil;
+        [reply fulfill];
+    });
+    [self waitForExpectations:@[reply] timeout:3];
+    XCTAssertTrue(self.sync.active);
+    XCTAssertEqual(self.sync.forwardedTapCount, 1u);
+}
+- (void)testReplyTimeoutAttributesOnlyOutstandingWindowAndLateReplyCannotRestart {
+    self.sync.autoResumeOnForeground = YES;
+    self.peers[3].holdReplay = YES;
+    [self.sync start];
+    NSString *session = self.peers[0].session;
+    self.peers[0].didReceiveTap(self.freshTap, session, 1);
+    [self waitUntil:^BOOL { return !self.sync.active; } timeout:5];
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.tooSlow");
+    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"D"]));
+    for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
+    self.peers[3].pendingReplay(LCTapSyncResultAccepted);
+    self.peers[0].didReceiveTap(self.freshTap, session, 2);
+    [self.sync hostDidEnterBackground:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.tooSlow");
+}
+- (void)testExpiredGuestReplyAndQueuedInputAreSeparateFromReplyTimeout {
+    [self.sync start];
+    self.peers[3].holdReplay = YES;
+    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 1);
+    self.peers[3].pendingReplay(LCTapSyncResultExpired);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.expiredInput");
+    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"D"]));
+    [self.sync start];
+    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 1);
+    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 2);
+    [self letRecoveryCheckFinish];
+    [self letRecoveryCheckFinish];
+    self.peers[3].pendingReplay(LCTapSyncResultAccepted);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.expiredInput");
+    XCTAssertFalse(self.sync.active);
+    // Only the first command reached any follower. The expired queue was dropped.
+    for (NSUInteger i = 1; i < 4; i++) XCTAssertEqual(self.peers[i].replays, 2u);
+}
+- (void)testLoadingPreparationCanRecoverAfterOriginalThreeSecondLimit {
+    self.peers[3].holdPreparation = YES;
+    [self.sync start];
+    XCTestExpectation *ready = [self expectationWithDescription:@"slow game startup"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3200 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        XCTAssertTrue(self.sync.starting);
+        self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+        self.peers[3].pendingPreparation = nil;
+        [ready fulfill];
+    });
+    [self waitForExpectations:@[ready] timeout:5];
+    XCTAssertTrue(self.sync.active);
+}
+- (void)testInitializingWindowRetriesBeyondFirstThreeAttemptsWithoutBypassingDialogs {
+    self.peers[3].preparationResult = LCTapSyncResultWindowNotReady;
+    [self.sync start];
+    XCTestExpectation *initializing = [self expectationWithDescription:@"unready window initializes"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1000 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        XCTAssertTrue(self.sync.starting);
+        XCTAssertGreaterThan(self.peers[3].prepares, 3u);
+        self.peers[3].preparationResult = LCTapSyncResultAccepted;
+        [initializing fulfill];
+    });
+    [self waitForExpectations:@[initializing] timeout:3];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    [self.sync pause];
+    NSUInteger prepares = self.peers[3].prepares;
+    self.peers[3].preparationResult = LCTapSyncResultWindowCovered;
+    [self.sync start];
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    XCTAssertEqual(self.peers[3].prepares, prepares + 1);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.windowCovered");
+}
+- (void)testForegroundOptionStartsFreshSessionWithoutAnExtraSourceTouch {
+    self.sync.autoResumeOnForeground = YES;
+    self.peers[3].holdReplay = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    self.peers[0].didReceiveTap(self.freshTap, previous, 1);
+    self.peers[0].didReceiveTap(self.freshTap, previous, 2);
+    void (^oldReply)(LCTapSyncResult) = self.peers[3].pendingReplay;
+    [self.sync hostWillResignActive:nil];
+    [self.sync hostDidEnterBackground:nil];
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertFalse(self.sync.canStart);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.waitingForForeground");
+    for (LCTestSyncPeer *peer in self.peers) { XCTAssertNil(peer.session); XCTAssertEqual(peer.stops, 1u); }
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active);
+    self.peers[3].holdReplay = NO;
+    [self.sync hostDidBecomeActive:nil];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+    oldReply(LCTapSyncResultAccepted);
+    self.peers[0].didReceiveTap(self.freshTap, previous, 3);
+    for (NSUInteger i = 1; i < 4; i++) XCTAssertEqual(self.peers[i].replays, 1u);
+    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 1);
+    XCTAssertEqual(self.sync.forwardedTapCount, 1u);
+    for (NSUInteger i = 1; i < 4; i++) XCTAssertEqual(self.peers[i].replays, 2u);
+}
+- (void)testForegroundDefaultOffAndTemporaryInactivePromptStayPaused {
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    [self.sync hostWillResignActive:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.backgroundPaused");
+    // A notification from another scene must not stop this scene's session.
+    [self.sync start];
+    [self.sync hostSceneWillDeactivate:[NSNotification notificationWithName:UISceneWillDeactivateNotification object:[NSObject new]]];
+    XCTAssertTrue(self.sync.active);
+}
+- (void)testForegroundManualPauseGroupAndPreferenceChangesCancelIntent {
+    self.sync.autoResumeOnForeground = YES;
+    for (NSNumber *change in @[@0, @1, @2, @3]) {
+        [self.sync start];
+        [self.sync hostDidEnterBackground:nil];
+        switch (change.integerValue) {
+            case 0: [self.sync pause]; break;
+            case 1: [self.sync selectSource:@"B" targets:@[@"A", @"C", @"D"]]; break;
+            case 2: self.sync.autoResumeOnForeground = NO; break;
+            case 3: self.sync.mode = LCTapSyncModeSingleFinger; break;
+        }
+        [self.sync hostDidBecomeActive:nil];
+        [self letRecoveryCheckFinish];
+        XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+        self.sync.autoResumeOnForeground = YES;
+    }
+}
+- (void)testForegroundDoesNotResumeStartingOrFollowerPausedSession {
+    self.sync.autoResumeOnForeground = YES;
+    self.peers[3].holdPreparation = YES;
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+    self.peers[3].holdPreparation = NO;
+    self.sync.resumeOnSource = YES;
+    [self.sync start];
+    [self.peers[1] inputTouching:YES began:YES];
+    [self.sync hostDidEnterBackground:nil];
+    self.peers[1].touching = NO;
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+}
+- (void)testForegroundWaitsForStableLayoutAndEveryFreshPreparation {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    self.sync.animatingRotation = YES;
+    self.peers[3].holdPreparation = YES;
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    self.sync.animatingRotation = NO;
+    [self.sync validateWindows];
+    [self waitUntil:^BOOL { return self.sync.starting; }];
+    XCTAssertFalse(self.sync.active);
+    self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+    XCTAssertTrue(self.sync.active);
+}
+- (void)testForegroundPreparationRejectsHeldTouchKeyboardDialogAndInactiveGuest {
+    self.sync.autoResumeOnForeground = YES;
+    for (NSNumber *reason in @[@(LCTapSyncResultPhysicalTouch), @(LCTapSyncResultKeyboardVisible),
+                               @(LCTapSyncResultWindowCovered), @(LCTapSyncResultSceneInactive)]) {
+        [self.sync start];
+        [self.sync hostDidEnterBackground:nil];
+        if (reason.integerValue == LCTapSyncResultSceneInactive) {
+            // Guest inactivity alone while the host is active is a real failure.
+            [self.sync hostDidBecomeActive:nil];
+            [self waitUntil:^BOOL { return self.sync.active; }];
+            self.peers[3].didInterrupt(self.peers[3].session, LCTapSyncResultSceneInactive);
+        } else {
+            self.peers[3].preparationResult = reason.integerValue;
+            [self.sync hostDidBecomeActive:nil];
+            [self waitUntil:^BOOL { return !self.sync.recovering && !self.sync.starting; }];
+        }
+        XCTAssertFalse(self.sync.active || self.sync.recovering);
+        XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"D"]));
+        self.peers[3].preparationResult = LCTapSyncResultAccepted;
+    }
+}
+- (void)testForegroundDisconnectAndRepeatedDepartureCannotRestartCancelledIntent {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    self.peers[3].ready = NO;
+    self.peers[3].stateDidChange();
+    XCTAssertFalse(self.sync.recovering);
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active);
+    self.peers[3].ready = YES;
+    self.peers[3].stateDidChange();
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self.sync hostWillResignActive:nil];
+    [self letRecoveryCheckFinish];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    // The latest interruption never entered the background, so it cancels intent.
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+}
+- (void)testGuestInactivityBeforeHostLifecycleNotificationPreservesOnlyRunningIntent {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    self.sync.reportsHostInactive = YES;
+    self.peers[3].didInterrupt(previous, LCTapSyncResultSceneInactive);
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.waitingForForeground");
+    [self.sync hostDidEnterBackground:nil];
+    self.sync.reportsHostInactive = NO;
+    [self.sync hostDidBecomeActive:nil];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
+- (void)testForegroundUnreadyLayoutTimesOutAndLateLayoutCannotRestart {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    [self.sync hostDidEnterBackground:nil];
+    self.host.tapSyncWindows[3].view.alpha = 0.5;
+    [self.sync hostDidBecomeActive:nil];
+    [self waitUntil:^BOOL { return !self.sync.recovering; } timeout:7];
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.alignWindows");
+    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"D"]));
+    self.host.tapSyncWindows[3].view.alpha = 1;
+    [self.sync validateWindows];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+}
+- (void)testPreparationDeadlinePreservesReportedFailuresAndIgnoresLateReadiness {
+    self.peers[1].preparationResult = LCTapSyncResultKeyboardVisible;
+    self.peers[3].holdPreparation = YES;
+    [self.sync start];
+    [self waitUntil:^BOOL { return !self.sync.starting; } timeout:7];
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.startFailed");
+    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"B", @"D"]));
+    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"B"], @"lc.tapSync.keyboardVisible");
+    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"D"], @"lc.tapSync.preparationTimedOut");
+    self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
 }
 @end

@@ -11,11 +11,22 @@
 
 NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 
+// A delayed acknowledgment can follow input that was delivered while fresh.
+// Give it more time without extending the separate 750 ms replay freshness limit.
+static NSTimeInterval const LCTapSyncReplyTimeout = 3;
+static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
+static NSTimeInterval const LCTapSyncForegroundReadyTimeout = 5;
+
 @interface LCTapSyncCoordinator ()
 @property(nonatomic) NSMapTable<NSString *, AppSceneViewController *> *scenes;
 @property(nonatomic) LCTapSyncSelectionStore *selectionStore;
 @property(nonatomic) LCTapSyncSession *session;
 @property(nonatomic) LCTapSyncPreparation *preparation;
+@property(nonatomic) NSTimeInterval preparationDeadline;
+@property(nonatomic) LCTapSyncSession *foregroundResumeSession;
+@property(nonatomic) BOOL hostInactive, foregroundResumeWasBackgrounded, foregroundResumeCheckScheduled;
+@property(nonatomic) NSArray *foregroundResumeLayout;
+@property(nonatomic) NSTimeInterval foregroundResumeLayoutSince, foregroundResumeDeadline;
 @property(nonatomic) LCTapSyncRecovery *recovery;
 @property(nonatomic) LCTapSyncSession *recoverySession;
 @property(nonatomic) NSMutableDictionary<NSString *, NSNumber *> *inputRevisions;
@@ -48,6 +59,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 - (BOOL)hostIsAnimatingRotation;
 - (void)startPreservingCount:(BOOL)preserveCount;
 - (void)finishStartingSession:(LCTapSyncSession *)session;
+- (void)cancelForegroundResume;
+- (void)scheduleForegroundResume;
+- (BOOL)hostHasLostForeground;
+- (void)hostWillResignActive:(nullable NSNotification *)note;
 @end
 
 @implementation LCTapSyncCoordinator
@@ -73,6 +88,14 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
                                                    name:UIApplicationWillResignActiveNotification object:nil];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostDidBecomeActive:)
                                                    name:UIApplicationDidBecomeActiveNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostDidEnterBackground:)
+                                                   name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostSceneWillDeactivate:)
+                                                   name:UISceneWillDeactivateNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostSceneDidEnterBackground:)
+                                                   name:UISceneDidEnterBackgroundNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostSceneDidActivate:)
+                                                   name:UISceneDidActivateNotification object:nil];
     }
     return self;
 }
@@ -145,10 +168,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self changed];
 }
 - (BOOL)isParticipant:(NSString *)container {
-    LCTapSyncSession *session = self.session ?: self.recoverySession;
+    LCTapSyncSession *session = self.session ?: self.recoverySession ?: self.foregroundResumeSession;
     return session && ([session.source isEqualToString:container] || [session.targets containsObject:container]);
 }
-- (BOOL)isRecovering { return self.recovery != nil; }
+- (BOOL)isRecovering { return self.recovery != nil || self.foregroundResumeSession != nil; }
 - (BOOL)resumeOnSource { return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncResumeOnSource"]; }
 - (void)setResumeOnSource:(BOOL)value {
     if (value == self.resumeOnSource) return;
@@ -168,6 +191,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (value == self.autoResumeAfterRotation) return;
     [self pause];
     [NSUserDefaults.lcSharedDefaults setBool:value forKey:@"LCTapSyncAutoResumeAfterRotation"];
+    [self changed];
+}
+- (BOOL)autoResumeOnForeground { return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncAutoResumeOnForeground"]; }
+- (void)setAutoResumeOnForeground:(BOOL)value {
+    if (value == self.autoResumeOnForeground) return;
+    [self pause];
+    [NSUserDefaults.lcSharedDefaults setBool:value forKey:@"LCTapSyncAutoResumeOnForeground"];
     [self changed];
 }
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
@@ -277,7 +307,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 - (NSArray *)currentGeometry { return [self currentGeometryWithProblem:NULL]; }
 - (NSArray *)currentGeometryWithProblem:(NSString * __autoreleasing *)problem {
     if (problem) *problem = nil;
-    if (!self.host.window || UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+    if (self.hostInactive || !self.host.window || UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
         self.host.window.windowScene.activationState != UISceneActivationStateForegroundActive ||
         !self.sourceContainer || self.targetContainers.count == 0 ||
         self.host.isAdjustingGridDividers || self.host.isChoosingGridSwap) return nil;
@@ -325,12 +355,14 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (!scene.tapSyncPeer) { reply(LCTapSyncResultUnavailable); return; }
     void (^completed)(LCTapSyncResult) = ^(LCTapSyncResult result) {
         if (self.session != session) return;
-        if (attempt < 3 && (result == LCTapSyncResultSceneInactive || result == LCTapSyncResultWindowNotReady)) {
+        BOOL canRetry = self.resumingSourceSession ? attempt < 3 :
+            NSProcessInfo.processInfo.systemUptime + 0.2 < self.preparationDeadline;
+        if (canRetry && (result == LCTapSyncResultSceneInactive || result == LCTapSyncResultWindowNotReady)) {
             [self validateWindows];
             if (self.session != session) return;
             // Hosted scenes can remain inactive after the host dismisses a sheet or returns
             // to the foreground (the same hosting issue handled on PiP restoration).
-            // Only a visible participant in an explicit foreground start may be reactivated.
+            // Only a visible participant in a fresh foreground check may be reactivated.
             if (result == LCTapSyncResultSceneInactive && attempt == 0 && scene.usesHostingControllerAPI) {
                 [scene setBackgroundNotificationEnabled:YES];
             }
@@ -354,6 +386,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 - (void)start { [self startPreservingCount:NO]; }
 - (void)startPreservingCount:(BOOL)preserveCount {
     if (self.active || self.starting) return;
+    [self cancelForegroundResume];
     NSString *previousSource = preserveCount && self.resumeOnSource && self.syncReturnGesture &&
         self.returnGestureRevision && self.recovery.canResumeWithSourceGesture ? self.recoverySession.identifier : nil;
     LCTapSyncSession *previousSession = self.recoverySession;
@@ -397,6 +430,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     for (LCWorkspaceWindow *window in self.availableWindows) numbers[window.dataUUID] = @(++number);
     self.participantNumbers = numbers.copy;
     self.preparation = [[LCTapSyncPreparation alloc] initWithContainers:session.targets];
+    self.preparationDeadline = NSProcessInfo.processInfo.systemUptime + LCTapSyncPreparationTimeout;
     if (!preserveCount) _forwardedTapCount = 0;
     _starting = YES;
     _statusKey = @"lc.tapSync.starting";
@@ -416,7 +450,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
             }];
         }];
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(LCTapSyncPreparationTimeout * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (self.session != session || !self.starting) return;
         if (self.preparation) [self stopWithPreparationFailures:self.preparation.failuresIncludingTimeouts];
         else [self stopWithResult:LCTapSyncResultPreparationTimedOut containers:@[session.source]];
@@ -430,6 +464,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (self.session != session) return;
     _starting = NO;
     _active = YES;
+    self.preparationDeadline = 0;
     self.resumingSourceSession = nil;
     self.resumingSourceRevision = 0;
     self.resumingSourceBeganAt = 0;
@@ -515,11 +550,12 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     NSUInteger measurementGeneration = self.performanceGeneration;
     NSTimeInterval sentAt = measure ? NSProcessInfo.processInfo.systemUptime : 0;
     self.replyTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-    dispatch_source_set_timer(self.replyTimer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 10 * NSEC_PER_MSEC);
+    dispatch_source_set_timer(self.replyTimer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(LCTapSyncReplyTimeout * NSEC_PER_SEC)), DISPATCH_TIME_FOREVER, 10 * NSEC_PER_MSEC);
     __weak typeof(self) weakSelf = self;
     dispatch_source_set_event_handler(self.replyTimer, ^{
         if (weakSelf.session == session && weakSelf.inFlightSequence == sequence) {
-            [weakSelf stopWithStatus:@"lc.tapSync.tooSlow" containers:weakSelf.awaitingReplies.array];
+            if ([weakSelf hostHasLostForeground]) [weakSelf hostWillResignActive:nil];
+            else [weakSelf stopWithStatus:@"lc.tapSync.tooSlow" containers:weakSelf.awaitingReplies.array];
         }
     });
     dispatch_resume(self.replyTimer);
@@ -560,7 +596,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         case LCTapSyncResultUnsupported: status = @"lc.tapSync.unsupported"; break;
         case LCTapSyncResultGeometryChanged: status = @"lc.tapSync.layoutChanged"; break;
         case LCTapSyncResultBusy: status = @"lc.tapSync.interrupted"; break;
-        case LCTapSyncResultExpired: status = @"lc.tapSync.tooSlow"; break;
+        case LCTapSyncResultExpired: status = @"lc.tapSync.expiredInput"; break;
         case LCTapSyncResultStopped: status = @"lc.tapSync.paused"; break;
         case LCTapSyncResultInvalidGesture: status = @"lc.tapSync.gestureInterrupted"; break;
         case LCTapSyncResultMultipleTouches: status = @"lc.tapSync.multipleTouches"; break;
@@ -577,6 +613,12 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     return status;
 }
 - (void)stopWithResult:(LCTapSyncResult)result containers:(NSArray<NSString *> *)containers {
+    // A guest can report inactivity before the host receives its lifecycle note.
+    // Only real host inactivity can preserve the running foreground-resume intent.
+    if (result == LCTapSyncResultSceneInactive && self.active && [self hostHasLostForeground]) {
+        [self hostWillResignActive:nil];
+        return;
+    }
     if (result == LCTapSyncResultGeometryChanged && [self shouldRecoverForRotation]) {
         [self beginRecovery:LCTapSyncRecoveryRotation containers:containers];
         return;
@@ -600,6 +642,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self stopWithStatus:status containers:containers reasons:@{}];
 }
 - (void)stopWithStatus:(NSString *)status containers:(NSArray<NSString *> *)containers reasons:(NSDictionary<NSString *, NSString *> *)reasons {
+    [self cancelForegroundResume];
     [self cancelRecoveryStoppingGuests:YES];
     if (self.resumingSourceSession) {
         [[self.scenes objectForKey:self.sourceContainer].tapSyncPeer stopSession:self.resumingSourceSession];
@@ -612,6 +655,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     LCTapSyncSession *session = self.session;
     self.session = nil;
     self.preparation = nil;
+    self.preparationDeadline = 0;
     self.awaitingSourceReturn = NO;
     [session invalidate];
     self.geometry = nil;
@@ -797,6 +841,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     });
 }
 - (void)validateWindows {
+    if (self.session && [self hostHasLostForeground]) {
+        [self hostWillResignActive:nil];
+        return;
+    }
     if (self.session) {
         NSString *problem;
         NSArray *current = [self currentGeometryWithProblem:&problem];
@@ -812,12 +860,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
             else [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:affected];
         }
     }
-    if (self.recovering) {
+    if (self.recovery) {
         if (!self.recoveryAllowsGeometryChange && self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry]) {
             self.recoveryAllowsGeometryChange = YES;
         }
         [self scheduleRecoveryCheck];
     }
+    if (self.foregroundResumeSession) [self scheduleForegroundResume];
     NSMutableArray *presentation = [NSMutableArray array];
     for (DecoratedAppSceneViewController *window in self.host.tapSyncWindows) {
         [presentation addObject:@[window.appSceneVC.dataUUID, [NSValue valueWithCGRect:window.view.frame],
@@ -828,12 +877,99 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         [self changed];
     }
 }
+- (BOOL)hostHasLostForeground {
+    return self.hostInactive || UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+        (self.host.window && self.host.window.windowScene.activationState != UISceneActivationStateForegroundActive);
+}
+- (void)cancelForegroundResume {
+    self.foregroundResumeSession = nil;
+    self.foregroundResumeWasBackgrounded = NO;
+    self.foregroundResumeCheckScheduled = NO;
+    self.foregroundResumeLayout = nil;
+    self.foregroundResumeLayoutSince = 0;
+    self.foregroundResumeDeadline = 0;
+}
 - (void)hostWillResignActive:(NSNotification *)note {
+    BOOL wasInactive = self.hostInactive;
+    self.hostInactive = YES;
+    // Application and scene notifications may both arrive for the same departure.
+    if (self.foregroundResumeSession) {
+        if (!wasInactive) self.foregroundResumeWasBackgrounded = NO;
+        self.foregroundResumeLayout = nil;
+        self.foregroundResumeDeadline = 0;
+        return;
+    }
+    LCTapSyncSession *running = self.autoResumeOnForeground && self.active ? self.session : nil;
     if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]];
+    if (running) {
+        // stopWithStatus has already invalidated queues and cancelled every guest.
+        // Retain only this session's identity/group, never its pending input.
+        self.foregroundResumeSession = running;
+        _statusKey = @"lc.tapSync.waitingForForeground";
+        [self changed];
+    }
+}
+- (void)hostDidEnterBackground:(NSNotification *)note {
+    [self hostWillResignActive:note];
+    if (self.foregroundResumeSession) self.foregroundResumeWasBackgrounded = YES;
 }
 - (void)hostDidBecomeActive:(NSNotification *)note {
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+        (self.host.window && self.host.window.windowScene.activationState != UISceneActivationStateForegroundActive)) {
+        // Another scene can activate the application while this host stays in
+        // the background. Wait for this host's activation instead of polling it.
+        [self changed];
+        return;
+    }
+    self.hostInactive = NO;
+    if (self.foregroundResumeSession && !self.foregroundResumeWasBackgrounded) {
+        // Control Center and temporary system prompts can deactivate the app
+        // without backgrounding it. Dismissing them must not start forwarding.
+        [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]];
+    }
     [self validateWindows];
     [self changed];
+}
+- (void)hostSceneWillDeactivate:(NSNotification *)note {
+    if (note.object == self.host.window.windowScene) [self hostWillResignActive:note];
+}
+- (void)hostSceneDidEnterBackground:(NSNotification *)note {
+    if (note.object == self.host.window.windowScene) [self hostDidEnterBackground:note];
+}
+- (void)hostSceneDidActivate:(NSNotification *)note {
+    if (note.object == self.host.window.windowScene && UIApplication.sharedApplication.applicationState == UIApplicationStateActive) {
+        [self hostDidBecomeActive:note];
+    }
+}
+- (void)scheduleForegroundResume {
+    LCTapSyncSession *intent = self.foregroundResumeSession;
+    if (!intent || self.hostInactive || !self.foregroundResumeWasBackgrounded || self.foregroundResumeCheckScheduled) return;
+    if (!self.foregroundResumeDeadline) self.foregroundResumeDeadline = NSProcessInfo.processInfo.systemUptime + LCTapSyncForegroundReadyTimeout;
+    self.foregroundResumeCheckScheduled = YES;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        if (self.foregroundResumeSession != intent) return;
+        self.foregroundResumeCheckScheduled = NO;
+        if (self.hostInactive || !self.foregroundResumeWasBackgrounded) return;
+        if (!self.autoResumeOnForeground) { [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]]; return; }
+        NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+        if (!self.foregroundResumeDeadline) self.foregroundResumeDeadline = now + LCTapSyncForegroundReadyTimeout;
+        NSString *problem = nil;
+        NSArray *geometry = self.hostIsAnimatingRotation ? nil : [self currentGeometryWithProblem:&problem];
+        if (!geometry) {
+            self.foregroundResumeLayout = nil;
+        } else if (![self.foregroundResumeLayout isEqual:geometry] || now < self.foregroundResumeLayoutSince) {
+            self.foregroundResumeLayout = geometry;
+            self.foregroundResumeLayoutSince = now;
+        } else if (now - self.foregroundResumeLayoutSince >= 0.2) {
+            // A fresh session prepares followers before the source and cancels
+            // any remaining old contacts. Only subsequent new input is captured.
+            [self startPreservingCount:YES];
+            return;
+        }
+        if (now >= self.foregroundResumeDeadline) {
+            [self stopWithStatus:@"lc.tapSync.alignWindows" containers:problem ? @[problem] : @[]];
+        } else [self scheduleForegroundResume];
+    });
 }
 - (void)setCollectsPerformanceData:(BOOL)collectsPerformanceData {
     if (_collectsPerformanceData == collectsPerformanceData) return;
@@ -858,7 +994,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     NSMutableDictionary *snapshot = [@{@"packets": @(self.measuredPackets), @"coalesced": @(self.measuredCoalescedMoves),
         @"queuePeak": @(self.measuredQueuePeak), @"pending": @(self.session.pendingCount), @"inFlight": @(self.inFlightSequence != 0),
         @"responseSamples": @(count), @"mode": @(self.mode), @"active": @(self.active), @"targets": @(self.targetContainers.count),
-        @"epoch": @(self.performanceGeneration)} mutableCopy];
+        @"epoch": @(self.performanceGeneration), @"statusKey": self.statusKey} mutableCopy];
     if (count) { snapshot[@"responseP50Ms"] = @(p50); snapshot[@"responseP95Ms"] = @(p95); }
     return snapshot.copy;
 }
