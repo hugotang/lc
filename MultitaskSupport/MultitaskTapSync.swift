@@ -195,8 +195,6 @@ private struct MultitaskTapSyncPanel: View {
                         .disabled(!manager.coordinator.resumeOnSource)
                     Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
                         get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
-                    Toggle("lc.tapSync.autoResumeOnForeground".loc, isOn: Binding(
-                        get: { manager.coordinator.autoResumeOnForeground }, set: { manager.coordinator.autoResumeOnForeground = $0 }))
                 } header: {
                     Text("lc.tapSync.automaticResume".loc)
                 } footer: {

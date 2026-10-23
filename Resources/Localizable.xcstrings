@@ -33684,29 +33684,6 @@
         }
       }
     },
-    "lc.tapSync.autoResumeOnForeground" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resume When Returning to Foreground"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "回到前台时自动继续"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "回到前景時自動繼續"
-          }
-        }
-      }
-    },
     "lc.tapSync.automaticResume" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33736,19 +33713,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Sync the First Returning Gesture includes it after followers are ready. Rotation resumes after all fingers lift and the windows settle. Foreground resumes only a group running before backgrounding, after fresh window checks; old input is discarded. All options are remembered. Manual Pause, keyboard, dialogs, timeout and disconnection still need Resume. Relaunch stays paused."
+            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Sync the First Returning Gesture includes it after followers are ready. Rotation resumes after all fingers lift and the windows settle. These three options are remembered. After leaving the app or opening system panels, align the screens and tap Resume Sync. Manual Pause, keyboard, dialogs, timeout and disconnection also need Resume. Relaunch stays paused."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后继续。默认第一次手势只在来源生效，所有手指放开后继续。「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势。旋转后等所有手指离开、窗口稳定再继续。回到前台只恢复切到后台前正在同步的组，重新检查所有窗口并丢弃旧输入。所有选项都会记住。手动暂停、键盘、对话框、超时或断开连接仍需手动继续；重新打开 App 保持暂停。"
+            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后继续。默认第一次手势只在来源生效，所有手指放开后继续。「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势。旋转后等所有手指离开、窗口稳定再继续。这三个选项都会记住。离开 App 或打开系统面板后，请对齐画面并点按「继续同步」。手动暂停、键盘、对话框、超时或断开连接也需手动继续；重新打开 App 保持暂停。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後繼續。預設第一個手勢只在來源生效，所有手指放開後繼續。「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢。旋轉後等所有手指離開、視窗穩定再繼續。回到前景只恢復切到背景前正在同步的群組，重新檢查所有視窗並丟棄舊輸入。所有選項都會記住。手動暫停、鍵盤、對話框、逾時或中斷連線仍需手動繼續；重新開啟 App 保持暫停。"
+            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後繼續。預設第一個手勢只在來源生效，所有手指放開後繼續。「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢。旋轉後等所有手指離開、視窗穩定再繼續。這三個選項都會記住。離開 App 或開啟系統面板後，請對齊畫面並點按「繼續同步」。手動暫停、鍵盤、對話框、逾時或中斷連線也需手動繼續；重新開啟 App 保持暫停。"
           }
         }
       }
@@ -33759,19 +33736,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused when LiveContainer left the foreground."
+            "value" : "Paused when LiveContainer left the foreground. Align the screens, then tap Resume Sync."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 离开前台，已暂停同步。"
+            "value" : "LiveContainer 离开前台，已暂停同步。请对齐画面，再点按「继续同步」。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 離開前景，已暫停同步。"
+            "value" : "LiveContainer 離開前景，已暫停同步。請對齊畫面，再點按「繼續同步」。"
           }
         }
       }
@@ -35405,29 +35382,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "整組已暫停。觸碰來源後自動恢復，並同步這個手勢。"
-          }
-        }
-      }
-    },
-    "lc.tapSync.waitingForForeground" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paused: waiting to return to the foreground and check all windows."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已暂停：等待回到前台并检查所有窗口。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已暫停：等待回到前景並檢查所有視窗。"
           }
         }
       }

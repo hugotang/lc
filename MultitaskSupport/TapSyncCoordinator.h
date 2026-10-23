@@ -16,7 +16,6 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) BOOL resumeOnSource;
 @property(nonatomic) BOOL syncReturnGesture;
 @property(nonatomic) BOOL autoResumeAfterRotation;
-@property(nonatomic) BOOL autoResumeOnForeground;
 @property(nonatomic, readonly, getter=isActive) BOOL active;
 @property(nonatomic, readonly, getter=isStarting) BOOL starting;
 @property(nonatomic, readonly, getter=isRecovering) BOOL recovering;
