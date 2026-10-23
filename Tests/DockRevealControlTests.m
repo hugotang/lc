@@ -43,6 +43,7 @@
 @property(nonatomic) LCDockRevealControl *control;
 @property(nonatomic) NSUInteger reveals;
 @property(nonatomic) NSSet<UIGestureRecognizer *> *originalGestures;
+@property(nonatomic) UIEvent *testEvent;
 @end
 
 @implementation DockRevealControlTests
@@ -57,6 +58,7 @@
     [self.window addSubview:self.guest];
     self.control = [LCDockRevealControl new];
     self.reveals = 0;
+    self.testEvent = [UIEvent new];
 }
 - (void)tearDown {
     [self.control hide];
@@ -65,6 +67,7 @@
     self.control = nil;
     self.guest = nil;
     self.window = nil;
+    self.testEvent = nil;
     [super tearDown];
 }
 - (CGRect)frameForRight:(BOOL)right {
@@ -233,12 +236,12 @@
     hide.testState = UIGestureRecognizerStatePossible;
     LCDockTestTouch *touch = [LCDockTestTouch new];
     touch.testLocation = CGPointMake(40, 100);
-    [hide touchesBegan:[NSSet setWithObject:touch] withEvent:nil];
+    [hide touchesBegan:[NSSet setWithObject:touch] withEvent:self.testEvent];
     return touch;
 }
 - (void)moveHide:(LCDockTestHideGesture *)hide touch:(LCDockTestTouch *)touch by:(CGPoint)translation {
     touch.testLocation = CGPointMake(40 + translation.x, 100 + translation.y);
-    [hide touchesMoved:[NSSet setWithObject:touch] withEvent:nil];
+    [hide touchesMoved:[NSSet setWithObject:touch] withEvent:self.testEvent];
     [hide handleHideGesture:hide];
 }
 - (void)testShortOutwardSwipeHidesBeforeLiftDespiteInitialJitterOnEitherSide {
@@ -283,7 +286,7 @@
     LCDockTestTouch *touch = [self beginHide:hide];
     [self moveHide:hide touch:touch by:CGPointMake(16, 16)];
     XCTAssertEqual(hide.state, UIGestureRecognizerStatePossible);
-    [hide touchesEnded:[NSSet setWithObject:touch] withEvent:nil];
+    [hide touchesEnded:[NSSet setWithObject:touch] withEvent:self.testEvent];
     [hide handleHideGesture:hide];
     XCTAssertEqual(hidden, 0u);
     [hide detach];
@@ -295,24 +298,24 @@
     for (NSNumber *distance in @[@0, @5, @15]) {
         LCDockTestTouch *touch = [self beginHide:hide];
         [self moveHide:hide touch:touch by:CGPointMake(distance.doubleValue, 0)];
-        [hide touchesEnded:[NSSet setWithObject:touch] withEvent:nil];
+        [hide touchesEnded:[NSSet setWithObject:touch] withEvent:self.testEvent];
         [hide handleHideGesture:hide];
         XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
         XCTAssertEqual(hidden, 0u);
     }
     LCDockTestTouch *touch = [self beginHide:hide];
     [self moveHide:hide touch:touch by:CGPointMake(10, 0)];
-    [hide touchesCancelled:[NSSet setWithObject:touch] withEvent:nil];
+    [hide touchesCancelled:[NSSet setWithObject:touch] withEvent:self.testEvent];
     [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
     XCTAssertEqual(hidden, 0u);
     touch = [self beginHide:hide];
-    [hide touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:nil];
+    [hide touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:self.testEvent];
     [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
     XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
     XCTAssertEqual(hidden, 0u);
     [hide reset];
     hide.testState = UIGestureRecognizerStatePossible;
-    [hide touchesBegan:[NSSet setWithObjects:touch, [LCDockTestTouch new], nil] withEvent:nil];
+    [hide touchesBegan:[NSSet setWithObjects:touch, [LCDockTestTouch new], nil] withEvent:self.testEvent];
     XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
     [hide detach];
 }
