@@ -18,6 +18,7 @@
 
 @interface LCTapSyncCoordinator (RecoveryTests)
 - (NSArray *)currentGeometry;
+- (NSArray *)currentGeometryWithProblem:(NSString * __autoreleasing *)problem;
 - (BOOL)hostIsAnimatingRotation;
 - (void)hostWillResignActive:(NSNotification *)notification;
 @end
@@ -121,6 +122,7 @@
 @implementation TapSyncCoordinatorTests
 - (void)setUp {
     [super setUp];
+    self.continueAfterFailure = NO;
     [NSUserDefaults.lcSharedDefaults removePersistentDomainForName:@"com.livecontainer.tests.sync-recovery"];
     self.sync = [LCTestSyncCoordinator new];
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
@@ -160,7 +162,20 @@
     // real scene settle before start records its strict geometry snapshot.
     [self letRecoveryCheckFinish];
     [self.window layoutIfNeeded];
+    // The minimal host can run in an iPad compatibility-sized scene. Fit all
+    // four accounts to its actual bounds instead of assuming a 1024-point width.
+    CGFloat width = floor((self.host.bounds.size.width - 50) / 4);
+    CGFloat height = MIN(2 * width, self.host.bounds.size.height - 40);
+    index = 0;
+    for (LCTestSyncWindow *window in self.host.tapSyncWindows) {
+        window.view.frame = CGRectMake(10 + (width + 10) * index++, 20, width, height);
+        window.appSceneVC.view.frame = window.view.bounds;
+    }
     [self.sync selectSource:@"A" targets:@[@"B", @"C", @"D"]];
+    NSString *problem;
+    XCTAssertNotNil([self.sync currentGeometryWithProblem:&problem], @"host=%@, window=%@, scene=%@, problem=%@",
+                    NSStringFromCGRect(self.host.bounds), NSStringFromCGRect(self.window.bounds),
+                    self.window.windowScene, problem);
     XCTAssertTrue(self.sync.canStart);
 }
 - (void)tearDown {
@@ -191,7 +206,8 @@
     [self.sync start];
     XCTAssertTrue(self.sync.active);
     NSString *oldSession = self.peers[0].session;
-    NSDictionary *tap = LCTapSyncEncode((LCTapSyncSample){0.5, 0.5, 200, 400, NSProcessInfo.processInfo.systemUptime, 0.05, 1, 1});
+    CGSize size = self.host.tapSyncWindows[0].appSceneVC.view.bounds.size;
+    NSDictionary *tap = LCTapSyncEncode((LCTapSyncSample){0.5, 0.5, size.width, size.height, NSProcessInfo.processInfo.systemUptime, 0.05, 1, 1});
     self.peers[0].didReceiveTap(tap, oldSession, 1);
     XCTAssertEqual(self.sync.forwardedTapCount, 1u);
     [self.peers[1] inputTouching:YES began:YES];
