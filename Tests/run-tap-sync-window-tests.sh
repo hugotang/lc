@@ -13,9 +13,9 @@ app="$test_root/TapSyncTests.app"
 bundle="$app/PlugIns/TapSyncWindowTests.xctest"
 mkdir -p "$bundle"
 
-python3 - "$app" "$bundle" <<'PY'
+python3 - "$app" "$bundle" "$test_libraries" <<'PY'
 import pathlib, plistlib, sys
-app, bundle = map(pathlib.Path, sys.argv[1:])
+app, bundle, libraries = map(pathlib.Path, sys.argv[1:])
 plistlib.dump({
     'CFBundleIdentifier': 'com.livecontainer.tests.tap-sync-window',
     'CFBundleExecutable': 'TapSyncTests', 'CFBundleName': 'TapSyncTests',
@@ -31,7 +31,13 @@ plistlib.dump({
 }, (bundle / 'Info.plist').open('wb'))
 config = {'TapSyncWindowTests': {
     'TestHostPath': str(app), 'TestBundlePath': str(bundle),
-    'IsAppHostedTestBundle': True, 'TestingEnvironmentVariables': {},
+    'TestHostBundleIdentifier': 'com.livecontainer.tests.tap-sync-window',
+    'TestBundleDestinationRelativePath': 'PlugIns/TapSyncWindowTests.xctest',
+    'ProductModuleName': 'TapSyncWindowTests', 'IsAppHostedTestBundle': True,
+    'TestingEnvironmentVariables': {
+        'DYLD_INSERT_LIBRARIES': str(libraries / 'libXCTestBundleInject.dylib'),
+        'XCInjectBundleInto': '__TESTHOST__/TapSyncTests',
+    },
 }, '__xctestrun_metadata__': {'FormatVersion': 1}}
 plistlib.dump(config, (app.parent / 'TapSyncWindowTests.xctestrun').open('wb'))
 PY
