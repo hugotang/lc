@@ -59,15 +59,6 @@ jobs:
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/PerformanceRecording.m Tests/PerformanceRecordingTests.m -o "$RUNNER_TEMP/performance-recording-tests"
           "$RUNNER_TEMP/performance-recording-tests" "$RUNNER_TEMP/performance-recording.csv"
           python3 Tests/PerformanceCSVTests.py "$RUNNER_TEMP/performance-recording.csv"
-      - name: Test input sync window coverage on iPad simulator
-        run: bash Tests/run-tap-sync-window-tests.sh
-      - name: Upload input sync window test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: input-sync-window-tests
-          path: ${{ runner.temp }}/tap-sync-window-tests
-          if-no-files-found: ignore
       - name: Test app language selection
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"
@@ -156,13 +147,31 @@ jobs:
           path: ${{ env.scheme }}+SideStore.ipa
           if-no-files-found: error
 
+  test_input_windows:
+    name: Test input sync on iPad simulator
+    runs-on: macos-latest
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - uses: actions/checkout@v6
+      - name: Test input sync window coverage
+        run: bash Tests/run-tap-sync-window-tests.sh
+      - name: Upload input sync window test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: input-sync-window-tests
+          path: ${{ runner.temp }}/tap-sync-window-tests
+          if-no-files-found: ignore
+
   release__nightly:
     name: Nightly Release
     permissions:
       contents: write
     if: github.event_name == 'workflow_dispatch' && inputs.release__nightly
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, test_input_windows]
     concurrency:
       group: release__nightly
       cancel-in-progress: true

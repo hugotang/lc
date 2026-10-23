@@ -38,7 +38,7 @@
 - (LCTestScene *)scene {
     UISceneSession *session = UIApplication.sharedApplication.openSessions.anyObject;
     XCTAssertNotNil(session);
-    UISceneConnectionOptions *options = [UIApplication.sharedApplication.delegate valueForKey:@"connectionOptions"];
+    UISceneConnectionOptions *options = [(NSObject *)UIApplication.sharedApplication.delegate valueForKey:@"connectionOptions"];
     XCTAssertNotNil(options);
     LCTestScene *scene = [[LCTestScene alloc] initWithSession:session connectionOptions:options];
     scene.testActivation = UISceneActivationStateForegroundActive;
