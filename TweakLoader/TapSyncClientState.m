@@ -30,6 +30,10 @@
     return wasActive != active;
 }
 - (BOOL)hasPhysicalTouches { return self.physicalTouches.allObjects.count > 0; }
+- (BOOL)hasPhysicalTouchesOtherThan:(NSHashTable *)touches {
+    for (id touch in self.physicalTouches) if (![touches containsObject:touch]) return YES;
+    return NO;
+}
 - (void)clearPhysicalTouches { [self.physicalTouches removeAllObjects]; }
 - (dispatch_block_t)actionForCurrentSession:(dispatch_block_t)action {
     if (!self.session) return nil;

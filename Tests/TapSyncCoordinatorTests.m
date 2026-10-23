@@ -34,16 +34,23 @@
 
 @interface LCTestSyncPeer : NSObject
 @property(nonatomic) BOOL ready, canReplay, touching, suspended, resumeOnSource, holdSuspension;
+@property(nonatomic) BOOL syncReturnGesture, holdPreparation;
+@property(nonatomic) BOOL holdSourceReply, holdReturnPayload;
 @property(nonatomic) uint64_t revision;
-@property(nonatomic) NSUInteger prepares, suspensions, stops, replays;
+@property(nonatomic) uint64_t returnRevision;
+@property(nonatomic) NSUInteger prepares, suspensions, stops, replays, sourceResumes, returnDiscards;
 @property(nonatomic, copy) NSString *session;
 @property(nonatomic, copy) void (^stateDidChange)(void);
 @property(nonatomic, copy) void (^didReceiveTap)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy) void (^didReceiveTouch)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy) void (^didReceiveTouchFrame)(NSDictionary *, NSString *, uint64_t);
+@property(nonatomic, copy) void (^didReceiveSourceReturn)(NSArray<NSDictionary *> *, NSString *);
 @property(nonatomic, copy) void (^didInterrupt)(NSString *, LCTapSyncResult);
-@property(nonatomic, copy) void (^didChangePhysicalInput)(NSString *, uint64_t, BOOL, BOOL, NSTimeInterval);
+@property(nonatomic, copy) void (^didChangePhysicalInput)(NSString *, uint64_t, BOOL, BOOL, NSTimeInterval, uint64_t);
 @property(nonatomic, copy) void (^pendingSuspension)(LCTapSyncResult, BOOL, uint64_t);
+@property(nonatomic, copy) void (^pendingPreparation)(LCTapSyncResult);
+@property(nonatomic, copy) void (^pendingSourceReply)(LCTapSyncResult);
+@property(nonatomic, copy) NSArray<NSDictionary *> *returnPackets;
 @end
 @implementation LCTestSyncPeer
 - (BOOL)isReady { return self.ready; }
@@ -52,15 +59,32 @@
     return self;
 }
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
+         syncReturnGesture:(BOOL)syncReturnGesture
                  reply:(void (^)(LCTapSyncResult))reply {
     self.prepares++;
     if (self.touching) { reply(LCTapSyncResultPhysicalTouch); return; }
     self.session = session;
     self.suspended = NO;
     self.resumeOnSource = resumeOnSource;
+    self.syncReturnGesture = syncReturnGesture;
     self.revision = 0;
-    reply(LCTapSyncResultAccepted);
+    if (self.holdPreparation) self.pendingPreparation = reply;
+    else reply(LCTapSyncResultAccepted);
 }
+- (void)resumeSourceSession:(NSString *)session previousSession:(NSString *)previous inputRevision:(uint64_t)revision
+                      reply:(void (^)(LCTapSyncResult))reply {
+    self.sourceResumes++;
+    if (![self.session isEqualToString:previous] || !self.suspended || !self.returnRevision || self.returnRevision != revision) {
+        reply(LCTapSyncResultInvalidGesture); return;
+    }
+    self.session = session;
+    self.revision = 0;
+    self.suspended = NO;
+    if (!self.holdReturnPayload) self.didReceiveSourceReturn(self.returnPackets ?: @[], session);
+    if (self.holdSourceReply) self.pendingSourceReply = reply;
+    else reply(LCTapSyncResultAccepted);
+}
+- (void)discardSourceReturn:(NSString *)session beforeTime:(NSTimeInterval)time { self.returnDiscards++; }
 - (void)suspendSession:(NSString *)session reply:(void (^)(LCTapSyncResult, BOOL, uint64_t))reply {
     self.suspensions++;
     self.suspended = YES;
@@ -79,8 +103,9 @@
 }
 - (void)inputTouching:(BOOL)touching began:(BOOL)began {
     self.touching = touching;
+    if (began && self.syncReturnGesture) self.returnRevision = self.revision + 1;
     if (self.didChangePhysicalInput) self.didChangePhysicalInput(self.session, ++self.revision, touching, began,
-                                                               NSProcessInfo.processInfo.systemUptime);
+                                                               NSProcessInfo.processInfo.systemUptime, self.returnRevision);
 }
 @end
 
@@ -259,8 +284,8 @@
     [self.peers[1] inputTouching:YES began:YES];
     [self.sync pause];
     self.peers[3].pendingSuspension(LCTapSyncResultAccepted, NO, 0);
-    self.peers[0].didChangePhysicalInput(session, 1, YES, YES, NSProcessInfo.processInfo.systemUptime);
-    self.peers[0].didChangePhysicalInput(session, 2, NO, NO, NSProcessInfo.processInfo.systemUptime);
+    self.peers[0].didChangePhysicalInput(session, 1, YES, YES, NSProcessInfo.processInfo.systemUptime, 0);
+    self.peers[0].didChangePhysicalInput(session, 2, NO, NO, NSProcessInfo.processInfo.systemUptime, 0);
     [self letRecoveryCheckFinish];
     XCTAssertFalse(self.sync.active);
     XCTAssertFalse(self.sync.recovering);
@@ -336,19 +361,144 @@
 - (void)testOptionsPersistWithoutRestoringActiveRecovery {
     XCTAssertFalse(self.sync.resumeOnSource);
     XCTAssertFalse(self.sync.autoResumeAfterRotation);
+    XCTAssertFalse(self.sync.syncReturnGesture);
     self.sync.resumeOnSource = YES;
     self.sync.autoResumeAfterRotation = YES;
+    self.sync.syncReturnGesture = YES;
     [self.sync start];
     [self.peers[1] inputTouching:YES began:YES];
     XCTAssertTrue(self.sync.recovering);
     LCTapSyncCoordinator *restored = [LCTapSyncCoordinator new];
     XCTAssertTrue(restored.resumeOnSource);
     XCTAssertTrue(restored.autoResumeAfterRotation);
+    XCTAssertTrue(restored.syncReturnGesture);
     XCTAssertFalse(restored.active || restored.starting || restored.recovering);
     XCTAssertEqualObjects(restored.sourceContainer, @"A");
     XCTAssertEqualObjects(restored.targetContainers, (@[@"B", @"C", @"D"]));
     self.sync.resumeOnSource = NO;
     XCTAssertFalse(self.sync.recovering);
     XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.paused");
+}
+- (void)testReturnGestureOptionResumesBeforeSourceFingerLifts {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    [self.peers[1] inputTouching:YES began:YES];
+    [self.peers[1] inputTouching:NO began:NO];
+    [self.peers[0] inputTouching:YES began:YES];
+    XCTAssertTrue(self.sync.active);
+    XCTAssertTrue(self.peers[0].touching);
+    XCTAssertEqual(self.peers[0].sourceResumes, 1u);
+    XCTAssertEqual(self.peers[0].prepares, 1u);
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+    for (NSUInteger i = 1; i < 4; i++) XCTAssertEqual(self.peers[i].prepares, 2u);
+}
+- (void)testFirstReturnWaitsForOtherFollowerAndCancellationReply {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    [self.sync start];
+    self.peers[3].holdSuspension = YES;
+    [self.peers[1] inputTouching:YES began:YES];
+    [self.peers[2] inputTouching:YES began:YES];
+    [self.peers[0] inputTouching:YES began:YES];
+    [self.peers[1] inputTouching:NO began:NO];
+    self.peers[3].pendingSuspension(LCTapSyncResultAccepted, NO, 0);
+    XCTAssertFalse(self.sync.active);
+    [self.peers[2] inputTouching:NO began:NO];
+    XCTAssertTrue(self.sync.active);
+    XCTAssertTrue(self.peers[0].touching);
+}
+- (void)testManualPauseWhileFollowersPrepareDropsFirstReturn {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    [self.sync start];
+    [self.peers[1] inputTouching:YES began:YES];
+    [self.peers[1] inputTouching:NO began:NO];
+    self.peers[3].holdPreparation = YES;
+    [self.peers[0] inputTouching:YES began:YES];
+    XCTAssertTrue(self.sync.starting);
+    [self.sync pause];
+    self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+    XCTAssertFalse(self.sync.active || self.sync.recovering || self.sync.starting);
+    XCTAssertNil(self.peers[0].session);
+    XCTAssertEqual(self.peers[0].sourceResumes, 0u);
+}
+- (void)testReturningTapCanFinishDuringFollowerPreparation {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    [self.sync start];
+    [self.peers[1] inputTouching:YES began:YES];
+    [self.peers[1] inputTouching:NO began:NO];
+    self.peers[3].holdPreparation = YES;
+    [self.peers[0] inputTouching:YES began:YES];
+    XCTAssertTrue(self.sync.starting);
+    [self.peers[0] inputTouching:NO began:NO];
+    self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+    XCTAssertTrue(self.sync.active);
+    XCTAssertEqual(self.peers[0].sourceResumes, 1u);
+}
+- (void)testFirstReturnWaitsForPayloadAndSourceReplyInEitherOrder {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    for (NSNumber *payloadFirst in @[@YES, @NO]) {
+        [self.sync start];
+        XCTAssertTrue(self.sync.active);
+        [self.peers[1] inputTouching:YES began:YES];
+        [self.peers[1] inputTouching:NO began:NO];
+        CGSize size = self.host.tapSyncWindows[0].appSceneVC.view.bounds.size;
+        NSDictionary *tap = LCTapSyncEncode((LCTapSyncSample){0.5, 0.5, size.width, size.height,
+                                             NSProcessInfo.processInfo.systemUptime, 0.05, 1, 1});
+        self.peers[0].returnPackets = @[@{@"tap": tap}];
+        self.peers[0].holdReturnPayload = YES;
+        self.peers[0].holdSourceReply = YES;
+        [self.peers[0] inputTouching:YES began:YES];
+        XCTAssertTrue(self.sync.starting);
+        NSUInteger replays = self.peers[1].replays;
+        if (payloadFirst.boolValue) self.peers[0].didReceiveSourceReturn(self.peers[0].returnPackets, self.peers[0].session);
+        else self.peers[0].pendingSourceReply(LCTapSyncResultAccepted);
+        XCTAssertTrue(self.sync.starting);
+        XCTAssertFalse(self.sync.active);
+        XCTAssertEqual(self.peers[1].replays, replays);
+        if (payloadFirst.boolValue) self.peers[0].pendingSourceReply(LCTapSyncResultAccepted);
+        else self.peers[0].didReceiveSourceReturn(self.peers[0].returnPackets, self.peers[0].session);
+        XCTAssertTrue(self.sync.active);
+        XCTAssertEqual(self.peers[1].replays, replays + 1);
+        [self.sync pause];
+        self.peers[0].touching = NO;
+        self.peers[0].holdReturnPayload = NO;
+        self.peers[0].holdSourceReply = NO;
+        self.peers[0].pendingSourceReply = nil;
+    }
+}
+- (void)testFirstReturnCancellationAndNewFollowerInputDuringPreparation {
+    self.sync.resumeOnSource = YES;
+    self.sync.syncReturnGesture = YES;
+    for (NSNumber *newFollower in @[@YES, @NO]) {
+        [self.sync start];
+        [self.peers[1] inputTouching:YES began:YES];
+        [self.peers[1] inputTouching:NO began:NO];
+        NSString *oldSession = self.peers[0].session;
+        self.peers[3].holdPreparation = YES;
+        [self.peers[0] inputTouching:YES began:YES];
+        XCTAssertTrue(self.sync.starting);
+        // A delayed token-clearing notification from before this source begin
+        // must not cancel its newer return gesture.
+        self.peers[0].didChangePhysicalInput(oldSession, 0, NO, NO, NSProcessInfo.processInfo.systemUptime, 0);
+        XCTAssertTrue(self.sync.starting);
+        if (newFollower.boolValue) {
+            self.peers[3].didChangePhysicalInput(oldSession, 99, YES, YES, NSProcessInfo.processInfo.systemUptime + 0.01, 0);
+            XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.physicalTouch");
+        } else {
+            self.peers[0].didChangePhysicalInput(oldSession, 99, YES, NO, NSProcessInfo.processInfo.systemUptime, 0);
+            XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.gestureInterrupted");
+        }
+        self.peers[3].pendingPreparation(LCTapSyncResultAccepted);
+        XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+        XCTAssertNil(self.peers[0].session);
+        self.peers[0].touching = NO;
+        self.peers[3].holdPreparation = NO;
+        self.peers[3].pendingPreparation = nil;
+    }
 }
 @end

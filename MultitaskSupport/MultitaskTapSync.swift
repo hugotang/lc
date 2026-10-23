@@ -190,6 +190,9 @@ private struct MultitaskTapSyncPanel: View {
                 Section {
                     Toggle("lc.tapSync.resumeOnSource".loc, isOn: Binding(
                         get: { manager.coordinator.resumeOnSource }, set: { manager.coordinator.resumeOnSource = $0 }))
+                    Toggle("lc.tapSync.syncReturnGesture".loc, isOn: Binding(
+                        get: { manager.coordinator.syncReturnGesture }, set: { manager.coordinator.syncReturnGesture = $0 }))
+                        .disabled(!manager.coordinator.resumeOnSource)
                     Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
                         get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
                 } header: {

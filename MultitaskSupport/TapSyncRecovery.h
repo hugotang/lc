@@ -13,6 +13,8 @@ typedef NS_ENUM(NSInteger, LCTapSyncRecoveryReason) {
 @property(nonatomic, readonly) LCTapSyncRecoveryReason reason;
 @property(nonatomic, readonly, getter=isValid) BOOL valid;
 @property(nonatomic, readonly) BOOL canResume;
+@property(nonatomic, readonly) BOOL canResumeWithSourceGesture;
+@property(nonatomic, readonly) BOOL sourceHasReturned;
 @property(nonatomic, copy, readonly) NSArray<NSString *> *pendingContainers;
 - (instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets reason:(LCTapSyncRecoveryReason)reason afterTime:(NSTimeInterval)time;
 // Revisions make an older suspension reply unable to overwrite newer touch events.
@@ -21,6 +23,7 @@ typedef NS_ENUM(NSInteger, LCTapSyncRecoveryReason) {
 - (void)waitForSourceReturnAfter:(NSTimeInterval)time;
 // Require an unchanged, valid layout for 200 ms after the input barrier is ready.
 - (BOOL)layoutIsStable:(nullable NSArray *)layout atTime:(NSTimeInterval)time;
+- (BOOL)layoutIsStable:(nullable NSArray *)layout atTime:(NSTimeInterval)time allowSourceGesture:(BOOL)allowSourceGesture;
 - (void)invalidate;
 @end
 

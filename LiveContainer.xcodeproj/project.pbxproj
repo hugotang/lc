@@ -222,6 +222,8 @@
 				TapSyncClient.m,
 				TapSyncClientState.h,
 				TapSyncClientState.m,
+				TapSyncReturnGesture.h,
+				TapSyncReturnGesture.m,
 				TapSyncWindow.h,
 				TapSyncWindow.m,
 				TweakLoader.m,

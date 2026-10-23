@@ -80,6 +80,11 @@ static void testPhysicalContactIdentityAndRelease(void) {
     assert(![state observePhysicalTouch:first active:YES]); // No repeated begin for a held contact.
     assert([state observePhysicalTouch:second active:YES]);
     assert(state.hasPhysicalTouches);
+    NSHashTable *returnTouches = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality];
+    [returnTouches addObject:first];
+    assert([state hasPhysicalTouchesOtherThan:returnTouches]);
+    [returnTouches addObject:second];
+    assert(![state hasPhysicalTouchesOtherThan:returnTouches]);
     assert(![state observePhysicalTouch:synthetic active:NO]);
     assert([state observePhysicalTouch:first active:NO]);
     assert(state.hasPhysicalTouches); // Releasing an equal-valued finger leaves the other down.
@@ -90,6 +95,7 @@ static void testPhysicalContactIdentityAndRelease(void) {
     assert([state observePhysicalTouch:second active:NO]);
     assert(![state observePhysicalTouch:second active:NO]);
     assert(!state.hasPhysicalTouches);
+    assert(![state hasPhysicalTouchesOtherThan:returnTouches]);
     __weak NSObject *released;
     @autoreleasepool {
         NSObject *temporary = [NSObject new];

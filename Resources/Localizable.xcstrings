@@ -33713,19 +33713,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Returning to Source: operating any follower pauses the whole group. Touch the source again, then lift all fingers; that first gesture stays local and subsequent gestures sync after the windows settle. Rotation: cancel the current input and resume when all fingers are up and the windows settle. Both options are remembered. Manual Pause, keyboard, dialogs and background interruptions still need Resume."
+            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Turn on Sync the First Returning Gesture to include it after followers are ready; input waits if another follower is still being touched. Rotation resumes after all fingers lift and the windows settle. All options are remembered. Manual Pause, keyboard, dialogs and background interruptions still need Resume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到来源：操作任何跟随窗口时暂停整组。再次触碰来源并抬起所有手指；第一次手势只在来源生效，窗口稳定后同步后续手势。旋转：取消当前输入，所有手指离开且窗口稳定后继续。两个选项都会记住。手动暂停、键盘、对话框或切到后台造成的中断仍需手动继续。"
+            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后自动继续。默认第一次手势只在来源生效，所有手指放开后继续。打开「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势；其他跟随窗口仍被触碰时会等待。旋转后等所有手指离开、窗口稳定再继续。所有选项都会记住。手动暂停、键盘、对话框或切到后台造成的中断仍需手动继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回到來源：操作任何跟隨視窗時暫停整組。再次觸碰來源並抬起所有手指；第一次手勢只在來源生效，視窗穩定後同步後續手勢。旋轉：取消目前輸入，所有手指離開且視窗穩定後恢復。兩個選項都會記住。手動暫停、鍵盤、對話框或切到背景造成的中斷仍需手動繼續。"
+            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後自動恢復。預設第一個手勢只在來源生效，所有手指放開後恢復。開啟「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢；其他跟隨視窗仍被觸碰時會等待。旋轉後等所有手指離開、視窗穩定再恢復。所有選項都會記住。手動暫停、鍵盤、對話框或切到背景造成的中斷仍需手動繼續。"
           }
         }
       }
@@ -35087,6 +35087,29 @@
         }
       }
     },
+    "lc.tapSync.syncReturnGesture" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync the First Returning Gesture"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回来源的第一次手势"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回來源的第一個手勢"
+          }
+        }
+      }
+    },
     "lc.tapSync.tapsOnlyHelp" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35313,6 +35336,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設為同步來源"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForFirstReturn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source to resume and sync that gesture."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源后自动继续，并同步这次手势。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源後自動恢復，並同步這個手勢。"
           }
         }
       }

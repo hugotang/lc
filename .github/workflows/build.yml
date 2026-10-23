@@ -50,6 +50,8 @@ jobs:
           "$RUNNER_TEMP/tap-sync-session-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncClientState.m Tests/TapSyncClientStateTests.m -o "$RUNNER_TEMP/tap-sync-client-state-tests"
           "$RUNNER_TEMP/tap-sync-client-state-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncReturnGesture.m Tests/TapSyncReturnGestureTests.m -o "$RUNNER_TEMP/tap-sync-return-gesture-tests"
+          "$RUNNER_TEMP/tap-sync-return-gesture-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
           "$RUNNER_TEMP/tap-sync-selection-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncRecovery.m Tests/TapSyncRecoveryTests.m -o "$RUNNER_TEMP/tap-sync-recovery-tests"

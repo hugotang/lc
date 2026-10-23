@@ -180,6 +180,32 @@ static void testStableGeometryAndCancellation(void) {
     [state waitForSourceReturnAfter:nextInputTime()];
     assert(![state layoutIsStable:landscape atTime:5]);
 }
+static void testReturnGestureCanResumeWhileOnlySourceIsHeld(void) {
+    LCTapSyncRecovery *state = recovery(LCTapSyncRecoveryFollowerInput);
+    acknowledgeAll(state);
+    assert([state recordInputForContainer:@"B" revision:1 touching:YES began:YES atTime:10]);
+    assert([state recordInputForContainer:@"A" revision:1 touching:YES began:YES atTime:20]);
+    assert(state.sourceHasReturned && !state.canResumeWithSourceGesture);
+    assert([state recordInputForContainer:@"B" revision:2 touching:NO began:NO atTime:21]);
+    assert(!state.canResume && state.canResumeWithSourceGesture);
+    NSArray *layout = @[@1, @200, @400];
+    assert(![state layoutIsStable:layout atTime:21 allowSourceGesture:YES]);
+    assert([state layoutIsStable:layout atTime:21.25 allowSourceGesture:YES]);
+    assert(![state layoutIsStable:layout atTime:21.3]);
+    assert([state recordInputForContainer:@"C" revision:1 touching:YES began:YES atTime:30]);
+    assert(!state.sourceHasReturned && !state.canResumeWithSourceGesture);
+    assert([state recordInputForContainer:@"A" revision:2 touching:NO began:NO atTime:31]);
+    assert([state recordInputForContainer:@"C" revision:2 touching:NO began:NO atTime:32]);
+    assert(!state.canResumeWithSourceGesture);
+    assert([state recordInputForContainer:@"A" revision:3 touching:YES began:YES atTime:25]);
+    assert([state recordInputForContainer:@"A" revision:4 touching:NO began:NO atTime:33]);
+    // An older return cannot undo the follower operation at time 30.
+    assert(!state.canResumeWithSourceGesture);
+    assert([state recordInputForContainer:@"A" revision:5 touching:YES began:YES atTime:40]);
+    assert(state.canResumeWithSourceGesture);
+    [state invalidate];
+    assert(!state.canResumeWithSourceGesture);
+}
 
 int main(void) {
     @autoreleasepool {
@@ -190,6 +216,7 @@ int main(void) {
         testRotationAndFollowerOverride();
         testReturnOrderingAcrossAccounts();
         testStableGeometryAndCancellation();
+        testReturnGestureCanResumeWhileOnlySourceIsHeld();
         puts("Tap sync automatic recovery tests passed");
     }
     return 0;

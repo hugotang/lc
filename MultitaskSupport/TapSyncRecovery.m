@@ -34,6 +34,11 @@
     return self.valid && self.pending.count == 0 && self.touching.count == 0 &&
         (self.reason == LCTapSyncRecoveryRotation || self.sourceReturnedAt > self.lastFollowerBeganAt);
 }
+- (BOOL)sourceHasReturned { return self.valid && self.sourceReturnedAt > self.lastFollowerBeganAt; }
+- (BOOL)canResumeWithSourceGesture {
+    return self.valid && self.pending.count == 0 && self.sourceHasReturned &&
+        (self.touching.count == 0 || (self.touching.count == 1 && [self.touching containsObject:self.source]));
+}
 - (BOOL)recordInputForContainer:(NSString *)container revision:(uint64_t)revision touching:(BOOL)touching began:(BOOL)began atTime:(NSTimeInterval)time {
     if (!self.valid || ![self.participants containsObject:container] || !isfinite(time) || time < 0 || (began && !touching)) return NO;
     NSNumber *previous = self.inputRevisions[container];
@@ -71,7 +76,11 @@
     self.layout = nil;
 }
 - (BOOL)layoutIsStable:(NSArray *)layout atTime:(NSTimeInterval)time {
-    if (!self.canResume || layout.count == 0 || !isfinite(time) || time < 0) { self.layout = nil; return NO; }
+    return [self layoutIsStable:layout atTime:time allowSourceGesture:NO];
+}
+- (BOOL)layoutIsStable:(NSArray *)layout atTime:(NSTimeInterval)time allowSourceGesture:(BOOL)allowSourceGesture {
+    if (!(allowSourceGesture ? self.canResumeWithSourceGesture : self.canResume) ||
+        layout.count == 0 || !isfinite(time) || time < 0) { self.layout = nil; return NO; }
     if (![self.layout isEqual:layout] || time < self.layoutSince) {
         self.layout = layout.copy;
         self.layoutSince = time;
