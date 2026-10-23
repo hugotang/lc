@@ -69,6 +69,43 @@ static void testDelayedInterruptions(void) {
     assert(interruptions == 1);
 }
 
+static void testPhysicalContactIdentityAndRelease(void) {
+    LCTapSyncClientState *state = [LCTapSyncClientState new];
+    EqualTouch *first = [EqualTouch new], *second = [EqualTouch new], *synthetic = [EqualTouch new];
+    [state rememberSyntheticTouch:synthetic];
+    assert(!state.hasPhysicalTouches);
+    assert(![state observePhysicalTouch:synthetic active:YES]);
+    assert(!state.hasPhysicalTouches);
+    assert([state observePhysicalTouch:first active:YES]);
+    assert(![state observePhysicalTouch:first active:YES]); // No repeated begin for a held contact.
+    assert([state observePhysicalTouch:second active:YES]);
+    assert(state.hasPhysicalTouches);
+    assert(![state observePhysicalTouch:synthetic active:NO]);
+    assert([state observePhysicalTouch:first active:NO]);
+    assert(state.hasPhysicalTouches); // Releasing an equal-valued finger leaves the other down.
+    state.session = @"old";
+    state.session = nil;
+    state.session = @"new";
+    assert(state.hasPhysicalTouches); // A fresh preparation must still reject real held fingers.
+    assert([state observePhysicalTouch:second active:NO]);
+    assert(![state observePhysicalTouch:second active:NO]);
+    assert(!state.hasPhysicalTouches);
+    __weak NSObject *released;
+    @autoreleasepool {
+        NSObject *temporary = [NSObject new];
+        released = temporary;
+        assert([state observePhysicalTouch:temporary active:YES]);
+        assert(state.hasPhysicalTouches);
+    }
+    assert(released == nil && !state.hasPhysicalTouches);
+    assert([state observePhysicalTouch:first active:YES]);
+    [state clearPhysicalTouches];
+    assert(!state.hasPhysicalTouches); // Background cleanup does not retain a phantom down.
+    assert([state ownsTouch:synthetic]);
+    assert([state observePhysicalTouch:first active:YES]);
+    assert([state observePhysicalTouch:first active:NO]);
+}
+
 static void testBoundedConnectionRecovery(void) {
     LCTapSyncClientState *state = [LCTapSyncClientState new];
     for (unsigned cycle = 0; cycle < 2; cycle++) {
@@ -88,6 +125,7 @@ int main(void) {
     @autoreleasepool {
         testTouchOwnershipSurvivesRestart();
         testDelayedInterruptions();
+        testPhysicalContactIdentityAndRelease();
         testBoundedConnectionRecovery();
         puts("Tap sync client state tests passed");
     }

@@ -1,11 +1,13 @@
 #import "TapSyncCoordinator.h"
 #import "TapSyncSession.h"
 #import "TapSyncSelection.h"
+#import "TapSyncRecovery.h"
 #import "PerformanceMetrics.h"
 #import "AppSceneViewController.h"
 #import "DecoratedAppSceneViewController.h"
 #import "VirtualWindowsHostView.h"
 #import "../LiveContainer/utils.h"
+#include <math.h>
 
 NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 
@@ -14,6 +16,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 @property(nonatomic) LCTapSyncSelectionStore *selectionStore;
 @property(nonatomic) LCTapSyncSession *session;
 @property(nonatomic) LCTapSyncPreparation *preparation;
+@property(nonatomic) LCTapSyncRecovery *recovery;
+@property(nonatomic) LCTapSyncSession *recoverySession;
+@property(nonatomic) NSMutableDictionary<NSString *, NSNumber *> *inputRevisions;
+@property(nonatomic) NSMutableSet<NSString *> *touchingContainers;
+@property(nonatomic) BOOL recoveryCheckScheduled;
+@property(nonatomic) BOOL recoveryAllowsGeometryChange;
+@property(nonatomic) NSTimeInterval recoveryReadyDeadline;
 @property(nonatomic) NSDictionary<NSString *, NSString *> *interruptionStatusKeys;
 @property(nonatomic) NSArray *geometry;
 @property(nonatomic) uint64_t inFlightSequence;
@@ -24,6 +33,14 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 @property(nonatomic) NSMutableOrderedSet<NSString *> *awaitingReplies;
 @property(nonatomic) LCPerformanceResponseHistory responseHistory;
 @property(nonatomic) NSUInteger measuredPackets, measuredCoalescedMoves, measuredQueuePeak, performanceGeneration;
+- (void)physicalInputForContainer:(NSString *)container session:(NSString *)identifier revision:(uint64_t)revision touching:(BOOL)touching began:(BOOL)began timestamp:(NSTimeInterval)timestamp;
+- (void)beginRecovery:(LCTapSyncRecoveryReason)reason containers:(NSArray<NSString *> *)containers;
+- (void)cancelRecoveryStoppingGuests:(BOOL)stop;
+- (void)scheduleRecoveryCheck;
+- (BOOL)shouldRecoverForRotation;
+- (BOOL)hostRotatedSinceGeometry:(NSArray *)geometry;
+- (BOOL)hostIsAnimatingRotation;
+- (void)startPreservingCount:(BOOL)preserveCount;
 @end
 
 @implementation LCTapSyncCoordinator
@@ -37,6 +54,8 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if ((self = [super init])) {
         _scenes = [NSMapTable strongToWeakObjectsMapTable];
         _interruptedContainers = @[];
+        _inputRevisions = [NSMutableDictionary dictionary];
+        _touchingContainers = [NSMutableSet set];
         _selectionStore = [[LCTapSyncSelectionStore alloc] initWithDefaults:NSUserDefaults.lcSharedDefaults];
         LCTapSyncSelection *selection = [_selectionStore loadSelection];
         _sourceContainer = selection.source;
@@ -89,9 +108,20 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     };
     scene.tapSyncPeer.didInterrupt = ^(NSString *session, LCTapSyncResult reason) {
         LCTapSyncCoordinator *coordinator = weakSelf;
-        if ([coordinator.session.identifier isEqualToString:session] && [coordinator isParticipant:weakScene.dataUUID]) {
+        if ([coordinator.recoverySession.identifier isEqualToString:session] && [coordinator isParticipant:weakScene.dataUUID]) {
+            if (reason == LCTapSyncResultGeometryChanged && (coordinator.recoveryAllowsGeometryChange ||
+                (coordinator.autoResumeAfterRotation && [coordinator hostRotatedSinceGeometry:coordinator.geometry]))) {
+                coordinator.recoveryAllowsGeometryChange = YES;
+                [coordinator scheduleRecoveryCheck];
+                return;
+            }
+            [coordinator stopWithResult:reason containers:@[weakScene.dataUUID]];
+        } else if ([coordinator.session.identifier isEqualToString:session] && [coordinator isParticipant:weakScene.dataUUID]) {
             [coordinator stopWithResult:reason containers:@[weakScene.dataUUID]];
         }
+    };
+    scene.tapSyncPeer.didChangePhysicalInput = ^(NSString *session, uint64_t revision, BOOL touching, BOOL began, NSTimeInterval timestamp) {
+        [weakSelf physicalInputForContainer:weakScene.dataUUID session:session revision:revision touching:touching began:began timestamp:timestamp];
     };
     [self changed];
 }
@@ -103,7 +133,23 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self changed];
 }
 - (BOOL)isParticipant:(NSString *)container {
-    return self.session && ([self.session.source isEqualToString:container] || [self.session.targets containsObject:container]);
+    LCTapSyncSession *session = self.session ?: self.recoverySession;
+    return session && ([session.source isEqualToString:container] || [session.targets containsObject:container]);
+}
+- (BOOL)isRecovering { return self.recovery != nil; }
+- (BOOL)resumeOnSource { return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncResumeOnSource"]; }
+- (void)setResumeOnSource:(BOOL)value {
+    if (value == self.resumeOnSource) return;
+    [self pause];
+    [NSUserDefaults.lcSharedDefaults setBool:value forKey:@"LCTapSyncResumeOnSource"];
+    [self changed];
+}
+- (BOOL)autoResumeAfterRotation { return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncAutoResumeAfterRotation"]; }
+- (void)setAutoResumeAfterRotation:(BOOL)value {
+    if (value == self.autoResumeAfterRotation) return;
+    [self pause];
+    [NSUserDefaults.lcSharedDefaults setBool:value forKey:@"LCTapSyncAutoResumeAfterRotation"];
+    [self changed];
 }
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
 - (BOOL)canReplayForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.canReplay; }
@@ -249,7 +295,8 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 }
 - (BOOL)canStart { return !self.active && !self.starting && [self currentGeometry] != nil; }
 - (BOOL)hasInterruption {
-    return !self.active && !self.starting && ![@[@"lc.tapSync.paused", @"lc.tapSync.chooseWindows", @"lc.tapSync.restoredPaused", @"lc.tapSync.reconnectedPaused"] containsObject:self.statusKey];
+    return !self.active && !self.starting && !self.recovering &&
+        ![@[@"lc.tapSync.paused", @"lc.tapSync.chooseWindows", @"lc.tapSync.restoredPaused", @"lc.tapSync.reconnectedPaused"] containsObject:self.statusKey];
 }
 - (NSString *)statusKeyForContainer:(NSString *)container { return self.interruptionStatusKeys[container] ?: self.statusKey; }
 - (void)prepareContainer:(NSString *)container session:(LCTapSyncSession *)session source:(BOOL)source
@@ -257,7 +304,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (self.session != session) return;
     AppSceneViewController *scene = [self.scenes objectForKey:container];
     if (!scene.tapSyncPeer) { reply(LCTapSyncResultUnavailable); return; }
-    [scene.tapSyncPeer prepareSession:session.identifier source:source mode:session.mode reply:^(LCTapSyncResult result) {
+    [scene.tapSyncPeer prepareSession:session.identifier source:source mode:session.mode resumeOnSource:self.resumeOnSource reply:^(LCTapSyncResult result) {
         if (self.session != session) return;
         if (attempt < 3 && (result == LCTapSyncResultSceneInactive || result == LCTapSyncResultWindowNotReady)) {
             [self validateWindows];
@@ -278,8 +325,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         reply(result);
     }];
 }
-- (void)start {
+- (void)start { [self startPreservingCount:NO]; }
+- (void)startPreservingCount:(BOOL)preserveCount {
     if (self.active || self.starting) return;
+    [self cancelRecoveryStoppingGuests:YES];
     if (self.sourceContainer && self.targetContainers.count) {
         NSMutableArray *disconnected = [NSMutableArray array];
         for (NSString *container in [@[self.sourceContainer] arrayByAddingObjectsFromArray:self.targetContainers]) {
@@ -299,6 +348,8 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     self.geometry = geometry;
     self.inFlightSequence = 0;
     self.deliverySequence = 0;
+    [self.inputRevisions removeAllObjects];
+    [self.touchingContainers removeAllObjects];
     _interruptedContainers = @[];
     self.interruptionStatusKeys = @{};
     NSMutableDictionary *numbers = [NSMutableDictionary dictionary];
@@ -306,7 +357,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     for (LCWorkspaceWindow *window in self.availableWindows) numbers[window.dataUUID] = @(++number);
     self.participantNumbers = numbers.copy;
     self.preparation = [[LCTapSyncPreparation alloc] initWithContainers:session.targets];
-    _forwardedTapCount = 0;
+    if (!preserveCount) _forwardedTapCount = 0;
     _starting = YES;
     _statusKey = @"lc.tapSync.starting";
     [self changed];
@@ -412,6 +463,10 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     for (NSString *container in session.targets) {
         void (^receiveReply)(LCTapSyncResult) = ^(LCTapSyncResult reply) {
             if (self.session != session || self.inFlightSequence != sequence) return;
+            if (reply == LCTapSyncResultSuspended && self.resumeOnSource) {
+                [self beginRecovery:LCTapSyncRecoveryFollowerInput containers:@[container]];
+                return;
+            }
             if (reply != LCTapSyncResultAccepted) { [self stopWithResult:reply containers:@[container]]; return; }
             [self.awaitingReplies removeObject:container];
             if (--remaining != 0) return;
@@ -452,11 +507,16 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
         case LCTapSyncResultKeyboardVisible: status = @"lc.tapSync.keyboardVisible"; break;
         case LCTapSyncResultPhysicalTouch: status = @"lc.tapSync.physicalTouch"; break;
         case LCTapSyncResultPreparationTimedOut: status = @"lc.tapSync.preparationTimedOut"; break;
+        case LCTapSyncResultSuspended: status = @"lc.tapSync.waitingForSource"; break;
         default: break;
     }
     return status;
 }
 - (void)stopWithResult:(LCTapSyncResult)result containers:(NSArray<NSString *> *)containers {
+    if (result == LCTapSyncResultGeometryChanged && [self shouldRecoverForRotation]) {
+        [self beginRecovery:LCTapSyncRecoveryRotation containers:containers];
+        return;
+    }
     [self stopWithStatus:[self statusKeyForResult:result] containers:containers];
 }
 - (void)stopWithPreparationFailures:(NSDictionary<NSString *, NSNumber *> *)failures {
@@ -476,6 +536,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self stopWithStatus:status containers:containers reasons:@{}];
 }
 - (void)stopWithStatus:(NSString *)status containers:(NSArray<NSString *> *)containers reasons:(NSDictionary<NSString *, NSString *> *)reasons {
+    [self cancelRecoveryStoppingGuests:YES];
     _interruptedContainers = containers.copy ?: @[];
     self.interruptionStatusKeys = reasons.copy;
     LCTapSyncSession *session = self.session;
@@ -487,6 +548,8 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (self.replyTimer) dispatch_source_cancel(self.replyTimer);
     self.replyTimer = nil;
     self.awaitingReplies = nil;
+    [self.inputRevisions removeAllObjects];
+    [self.touchingContainers removeAllObjects];
     _active = NO;
     _starting = NO;
     _statusKey = status;
@@ -500,10 +563,136 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 }
 - (void)pause { [self stopWithStatus:@"lc.tapSync.paused" containers:@[]]; }
 - (void)pauseForWindowChange {
-    if (self.session) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[]];
+    if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[]];
 }
 - (void)pauseForChangeToContainer:(NSString *)container {
-    if (self.session) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[container]];
+    if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[container]];
+}
+- (BOOL)shouldRecoverForRotation {
+    return self.active && self.session && self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry];
+}
+- (BOOL)hostIsAnimatingRotation {
+    id<UIViewControllerTransitionCoordinator> transition = self.host.window.rootViewController.transitionCoordinator;
+    if (!transition) return NO;
+    CGAffineTransform transform = transition.targetTransform;
+    return fabs(atan2(transform.b, transform.a)) > 0.01;
+}
+- (BOOL)hostRotatedSinceGeometry:(NSArray *)geometry {
+    // UIKit can update bounds/insets before interfaceOrientation. The public
+    // transition transform identifies that rotation without treating resizing,
+    // Stage Manager or orientation-locked device movement as a rotation.
+    return geometry.count >= 3 && self.host.window && UIApplication.sharedApplication.applicationState == UIApplicationStateActive &&
+        self.host.window.windowScene.activationState == UISceneActivationStateForegroundActive &&
+        self.host.window.windowScene.interfaceOrientation != UIInterfaceOrientationUnknown &&
+        ([geometry[2] integerValue] != self.host.window.windowScene.interfaceOrientation || self.hostIsAnimatingRotation);
+}
+- (void)physicalInputForContainer:(NSString *)container session:(NSString *)identifier revision:(uint64_t)revision
+                        touching:(BOOL)touching began:(BOOL)began timestamp:(NSTimeInterval)timestamp {
+    if (!isfinite(timestamp) || timestamp < 0 || (began && !touching)) return;
+    if ([self.recoverySession.identifier isEqualToString:identifier]) {
+        BOOL followerReturn = began && touching && self.resumeOnSource && [self.recoverySession.targets containsObject:container] &&
+            self.recovery.reason == LCTapSyncRecoveryRotation;
+        if ([self.recovery recordInputForContainer:container revision:revision touching:touching began:began atTime:timestamp]) {
+            if (touching && !self.resumeOnSource && [self.recoverySession.targets containsObject:container]) {
+                [self stopWithResult:LCTapSyncResultPhysicalTouch containers:@[container]];
+                return;
+            }
+            if (followerReturn) {
+                [self.recovery waitForSourceReturnAfter:timestamp];
+                _statusKey = @"lc.tapSync.waitingForSource";
+                _interruptedContainers = @[container];
+                [self changed];
+            }
+            [self scheduleRecoveryCheck];
+        }
+        return;
+    }
+    if (![self.session.identifier isEqualToString:identifier] || ![self isParticipant:container]) return;
+    NSNumber *previous = self.inputRevisions[container];
+    if (previous && revision <= previous.unsignedLongLongValue) return;
+    self.inputRevisions[container] = @(revision);
+    if (touching) [self.touchingContainers addObject:container]; else [self.touchingContainers removeObject:container];
+    if (self.resumeOnSource && touching && [self.session.targets containsObject:container]) {
+        if (self.active) [self beginRecovery:LCTapSyncRecoveryFollowerInput containers:@[container]];
+        else if (self.starting) [self stopWithResult:LCTapSyncResultPhysicalTouch containers:@[container]];
+    }
+}
+- (void)beginRecovery:(LCTapSyncRecoveryReason)reason containers:(NSArray<NSString *> *)containers {
+    LCTapSyncSession *session = self.session;
+    if (!session || !self.active) return;
+    LCTapSyncRecovery *recovery = [[LCTapSyncRecovery alloc] initWithSource:session.source targets:session.targets reason:reason
+                                                                afterTime:NSProcessInfo.processInfo.systemUptime];
+    for (NSString *container in self.inputRevisions) {
+        [recovery recordInputForContainer:container revision:self.inputRevisions[container].unsignedLongLongValue
+                                touching:[self.touchingContainers containsObject:container] began:NO atTime:0];
+    }
+    self.recovery = recovery;
+    self.recoverySession = session;
+    self.recoveryAllowsGeometryChange = reason == LCTapSyncRecoveryRotation;
+    self.recoveryReadyDeadline = 0;
+    self.session = nil;
+    self.preparation = nil;
+    [session invalidate];
+    self.inFlightSequence = 0;
+    if (self.replyTimer) dispatch_source_cancel(self.replyTimer);
+    self.replyTimer = nil;
+    self.awaitingReplies = nil;
+    _active = NO;
+    _starting = NO;
+    _interruptedContainers = containers.copy;
+    self.interruptionStatusKeys = @{};
+    _statusKey = reason == LCTapSyncRecoveryRotation ? @"lc.tapSync.waitingForRotation" : @"lc.tapSync.waitingForSource";
+    [self resetPerformanceData];
+    [self changed];
+    for (NSString *container in [@[session.source] arrayByAddingObjectsFromArray:session.targets]) {
+        [[self.scenes objectForKey:container].tapSyncPeer suspendSession:session.identifier reply:^(LCTapSyncResult result, BOOL touching, uint64_t revision) {
+            if (self.recovery != recovery) return;
+            if (result != LCTapSyncResultAccepted) { [self stopWithResult:result containers:@[container]]; return; }
+            if ([recovery acknowledgeContainer:container revision:revision touching:touching]) [self scheduleRecoveryCheck];
+        }];
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        if (self.recovery == recovery && recovery.pendingContainers.count) {
+            [self stopWithResult:LCTapSyncResultPreparationTimedOut containers:recovery.pendingContainers];
+        }
+    });
+}
+- (void)cancelRecoveryStoppingGuests:(BOOL)stop {
+    LCTapSyncSession *session = self.recoverySession;
+    [self.recovery invalidate];
+    self.recovery = nil;
+    self.recoverySession = nil;
+    self.recoveryCheckScheduled = NO;
+    self.recoveryAllowsGeometryChange = NO;
+    self.recoveryReadyDeadline = 0;
+    if (stop && session) {
+        for (NSString *container in [@[session.source] arrayByAddingObjectsFromArray:session.targets]) {
+            [[self.scenes objectForKey:container].tapSyncPeer stopSession:session.identifier];
+        }
+    }
+}
+- (void)scheduleRecoveryCheck {
+    LCTapSyncRecovery *recovery = self.recovery;
+    if (!recovery.canResume) { self.recoveryReadyDeadline = 0; return; }
+    if (self.recoveryCheckScheduled) return;
+    if (!self.recoveryReadyDeadline) self.recoveryReadyDeadline = NSProcessInfo.processInfo.systemUptime + 3;
+    self.recoveryCheckScheduled = YES;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        if (self.recovery != recovery) return;
+        self.recoveryCheckScheduled = NO;
+        if (!recovery.canResume) { self.recoveryReadyDeadline = 0; return; }
+        NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+        NSArray *geometry = self.hostIsAnimatingRotation ? nil : self.currentGeometry;
+        if (geometry && !self.recoveryAllowsGeometryChange && ![geometry isEqual:self.geometry]) {
+            if (self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry]) self.recoveryAllowsGeometryChange = YES;
+            else { [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[]]; return; }
+        }
+        if ([recovery layoutIsStable:geometry atTime:now]) {
+            [self startPreservingCount:YES];
+        } else if (now >= self.recoveryReadyDeadline) {
+            [self stopWithStatus:@"lc.tapSync.alignWindows" containers:@[]];
+        } else [self scheduleRecoveryCheck];
+    });
 }
 - (void)validateWindows {
     if (self.session) {
@@ -517,8 +706,15 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
                     if (![current[i] isEqual:self.geometry[i]]) [affected addObject:current[i][0]];
                 }
             }
-            [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:affected];
+            if ([self shouldRecoverForRotation]) [self beginRecovery:LCTapSyncRecoveryRotation containers:affected];
+            else [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:affected];
         }
+    }
+    if (self.recovering) {
+        if (!self.recoveryAllowsGeometryChange && self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry]) {
+            self.recoveryAllowsGeometryChange = YES;
+        }
+        [self scheduleRecoveryCheck];
     }
     NSMutableArray *presentation = [NSMutableArray array];
     for (DecoratedAppSceneViewController *window in self.host.tapSyncWindows) {
@@ -531,7 +727,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     }
 }
 - (void)hostWillResignActive:(NSNotification *)note {
-    if (self.session) [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]];
+    if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.backgroundPaused" containers:@[]];
 }
 - (void)hostDidBecomeActive:(NSNotification *)note {
     [self validateWindows];

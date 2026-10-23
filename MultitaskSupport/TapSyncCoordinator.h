@@ -13,8 +13,11 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, copy, readonly, nullable) NSString *sourceContainer;
 @property(nonatomic, copy, readonly) NSArray<NSString *> *targetContainers;
 @property(nonatomic) LCTapSyncMode mode;
+@property(nonatomic) BOOL resumeOnSource;
+@property(nonatomic) BOOL autoResumeAfterRotation;
 @property(nonatomic, readonly, getter=isActive) BOOL active;
 @property(nonatomic, readonly, getter=isStarting) BOOL starting;
+@property(nonatomic, readonly, getter=isRecovering) BOOL recovering;
 @property(nonatomic, readonly) NSUInteger forwardedTapCount;
 @property(nonatomic, copy, readonly) NSString *statusKey;
 @property(nonatomic, copy, readonly) NSArray<NSString *> *interruptedContainers;

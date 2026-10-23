@@ -75,7 +75,7 @@ import Combine
         guard panelController == nil else { return }
         let host = MultitaskDockManager.shared.windowHostingView
         coordinator.host = host
-        if coordinator.isActive || coordinator.isStarting { coordinator.pause() }
+        if coordinator.isActive || coordinator.isStarting || coordinator.isRecovering { coordinator.pause() }
         guard let window = host.window ?? (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first,
               var presenter = window.rootViewController else { return }
         while let next = presenter.presentedViewController, !next.isBeingDismissed { presenter = next }
@@ -108,7 +108,7 @@ struct MultitaskTapSyncActions: View {
         Button { manager.presentPanel() } label: {
             Label("lc.tapSync.title".loc, systemImage: "hand.tap")
         }
-        if manager.coordinator.isActive || manager.coordinator.isStarting {
+        if manager.coordinator.isActive || manager.coordinator.isStarting || manager.coordinator.isRecovering {
             Button { manager.coordinator.pause() } label: {
                 Label("lc.tapSync.pause".loc, systemImage: "pause.circle")
             }
@@ -187,6 +187,16 @@ private struct MultitaskTapSyncPanel: View {
                          ? "lc.tapSync.alignWindows".loc : "lc.tapSync.description".loc)
                 }
                 MultitaskTapSyncModeSection(mode: Binding(get: { manager.coordinator.mode }, set: { manager.coordinator.mode = $0 }))
+                Section {
+                    Toggle("lc.tapSync.resumeOnSource".loc, isOn: Binding(
+                        get: { manager.coordinator.resumeOnSource }, set: { manager.coordinator.resumeOnSource = $0 }))
+                    Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
+                        get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
+                } header: {
+                    Text("lc.tapSync.automaticResume".loc)
+                } footer: {
+                    Text("lc.tapSync.automaticResumeHelp".loc)
+                }
                 Section {
                     if manager.windows.isEmpty {
                         Text("lc.tapSync.noWindows".loc).foregroundStyle(.secondary)

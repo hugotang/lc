@@ -52,6 +52,8 @@ jobs:
           "$RUNNER_TEMP/tap-sync-client-state-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
           "$RUNNER_TEMP/tap-sync-selection-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncRecovery.m Tests/TapSyncRecoveryTests.m -o "$RUNNER_TEMP/tap-sync-recovery-tests"
+          "$RUNNER_TEMP/tap-sync-recovery-tests"
       - name: Test performance metrics
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"

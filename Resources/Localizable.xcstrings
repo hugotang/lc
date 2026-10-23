@@ -33661,6 +33661,75 @@
         }
       }
     },
+    "lc.tapSync.autoResumeAfterRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume After Screen Rotation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕旋转后自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "螢幕旋轉後自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic Resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResumeHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Returning to Source: operating any follower pauses the whole group. Touch the source again, then lift all fingers; that first gesture stays local and subsequent gestures sync after the windows settle. Rotation: cancel the current input and resume when all fingers are up and the windows settle. Both options are remembered. Manual Pause, keyboard, dialogs and background interruptions still need Resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源：操作任何跟随窗口时暂停整组。再次触碰来源并抬起所有手指；第一次手势只在来源生效，窗口稳定后同步后续手势。旋转：取消当前输入，所有手指离开且窗口稳定后继续。两个选项都会记住。手动暂停、键盘、对话框或切到后台造成的中断仍需手动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源：操作任何跟隨視窗時暫停整組。再次觸碰來源並抬起所有手指；第一次手勢只在來源生效，視窗穩定後同步後續手勢。旋轉：取消目前輸入，所有手指離開且視窗穩定後恢復。兩個選項都會記住。手動暫停、鍵盤、對話框或切到背景造成的中斷仍需手動繼續。"
+          }
+        }
+      }
+    },
     "lc.tapSync.backgroundPaused" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34650,6 +34719,29 @@
         }
       }
     },
+    "lc.tapSync.resumeOnSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume When Returning to Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源时自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源時自動恢復"
+          }
+        }
+      }
+    },
     "lc.tapSync.saveGroup" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35221,6 +35313,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設為同步來源"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused for rotation. Lift all fingers; sync resumes when the windows settle."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转期间整组已暂停。请抬起所有手指，窗口稳定后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋轉期間整組已暫停。請抬起所有手指，視窗穩定後自動恢復。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source, then lift all fingers to resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源并抬起所有手指后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源並抬起所有手指後自動恢復。"
           }
         }
       }

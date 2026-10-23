@@ -48,7 +48,13 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     -Wno-unused-parameter -bundle -F "$test_frameworks" -L "$test_libraries" \
     -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
     -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
-    "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" -o "$bundle/TapSyncWindowTests"
+    -I "$repo_root/LiveContainer" \
+    "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" \
+    "$repo_root/MultitaskSupport/TapSyncCoordinator.m" "$repo_root/MultitaskSupport/TapSyncRecovery.m" \
+    "$repo_root/MultitaskSupport/TapSyncSession.m" "$repo_root/MultitaskSupport/TapSyncSelection.m" \
+    "$repo_root/MultitaskSupport/WindowWorkspace.m" "$repo_root/Tests/TapSyncCoordinatorTests.m" \
+    "$repo_root/TweakLoader/TapSyncClientState.m" "$repo_root/Tests/TapSyncClientTests.m" \
+    -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"
 xcodebuild test-without-building -xctestrun "$test_root/TapSyncWindowTests.xctestrun" \

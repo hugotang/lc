@@ -295,6 +295,8 @@
 				TapSyncPeer.m,
 				TapSyncSession.h,
 				TapSyncSession.m,
+				TapSyncRecovery.h,
+				TapSyncRecovery.m,
 				TapSyncSelection.h,
 				TapSyncSelection.m,
 				UIKitHooks.m,
