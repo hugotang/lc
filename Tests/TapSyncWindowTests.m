@@ -52,6 +52,11 @@
     window.rootViewController.view.frame = window.bounds;
     window.rootViewController.view.backgroundColor = UIColor.clearColor;
     window.hidden = NO;
+    // Synthetic scenes are not connected by UIApplication. Mount content explicitly
+    // instead of waiting for UIKit's scene presentation/appearance transaction.
+    [window addSubview:window.rootViewController.view];
+    XCTAssertEqual(window.rootViewController.view.window, window);
+    XCTAssertNotNil([window hitTest:CGPointMake(100, 100) withEvent:nil]);
     window.testKey = level == UIWindowLevelNormal;
     return window;
 }
