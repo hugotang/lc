@@ -274,11 +274,6 @@ struct LCContainerView : View {
         }
         do {
             let fm = FileManager.default
-            if LCResourceCompactor.isCompactingContainer(at: container.containerURL) {
-                errorInfo = "lc.resourceCompaction.busy".loc
-                errorShow = true
-                return
-            }
             try fm.removeItem(at: container.containerURL)
         } catch {
             errorInfo = error.localizedDescription
@@ -325,13 +320,8 @@ struct LCContainerView : View {
         }
         do {
             let fm = FileManager.default
-            if LCResourceCompactor.isCompactingContainer(at: container.containerURL) {
-                errorInfo = "lc.resourceCompaction.busy".loc
-                errorShow = true
-                return
-            }
             for file in try fm.contentsOfDirectory(at: container.containerURL, includingPropertiesForKeys: nil) {
-                if file.lastPathComponent == "LCContainerInfo.plist" || file.lastPathComponent == LCResourceCompactor.leaseFileName {
+                if file.lastPathComponent == "LCContainerInfo.plist" {
                     continue
                 }
                 try fm.removeItem(at: file)

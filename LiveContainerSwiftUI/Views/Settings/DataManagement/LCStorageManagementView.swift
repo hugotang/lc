@@ -11,22 +11,12 @@ struct LCStorageManagementView: View {
             LCStorageSummarySection(
                 breakdown: model.breakdown,
                 isCalculating: model.isCalculating,
-                errorInfo: model.errorInfo,
-                availableBytes: model.availableBytes
+                errorInfo: model.errorInfo
             )
             LCInstalledAppsSection(breakdown: model.breakdown)
         }
         .navigationTitle("lc.settings.storageManagement".loc)
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await refresh() }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { Task { await refresh() } } label: {
-                    Label("lc.storage.refresh".loc, systemImage: "arrow.clockwise")
-                }
-                .disabled(model.isCalculating)
-            }
-        }
         .task {
             if !refreshed {
                 await refresh()

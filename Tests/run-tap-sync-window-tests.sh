@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+# A small UIKit test host avoids building the private-API app for the simulator.
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+test_root="$RUNNER_TEMP/tap-sync-window-tests"
+mkdir -p "$test_root"
+sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+test_frameworks="$(xcode-select -p)/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks"
+test_libraries="$(xcode-select -p)/Platforms/iPhoneSimulator.platform/Developer/usr/lib"
+simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if "iPad" in d["name"]]; print(devices[0]["udid"])')"
+app="$test_root/TapSyncTests.app"
+bundle="$app/PlugIns/TapSyncWindowTests.xctest"
+mkdir -p "$bundle"
+
+python3 - "$app" "$bundle" <<'PY'
+import pathlib, plistlib, sys
+app, bundle = map(pathlib.Path, sys.argv[1:])
+plistlib.dump({
+    'CFBundleIdentifier': 'com.livecontainer.tests.tap-sync-window',
+    'CFBundleExecutable': 'TapSyncTests', 'CFBundleName': 'TapSyncTests',
+    'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1', 'CFBundleShortVersionString': '1.0',
+    'LSRequiresIPhoneOS': True, 'MinimumOSVersion': '16.0', 'UIDeviceFamily': [1, 2],
+    'UIApplicationSceneManifest': {'UIApplicationSupportsMultipleScenes': True,
+        'UISceneConfigurations': {'UIWindowSceneSessionRoleApplication': [{'UISceneConfigurationName': 'Tests'}]}},
+}, (app / 'Info.plist').open('wb'))
+plistlib.dump({
+    'CFBundleIdentifier': 'com.livecontainer.tests.tap-sync-window.bundle',
+    'CFBundleExecutable': 'TapSyncWindowTests', 'CFBundleName': 'TapSyncWindowTests',
+    'CFBundlePackageType': 'BNDL', 'CFBundleVersion': '1', 'CFBundleShortVersionString': '1.0',
+}, (bundle / 'Info.plist').open('wb'))
+config = {'TapSyncWindowTests': {
+    'TestHostPath': str(app), 'TestBundlePath': str(bundle),
+    'IsAppHostedTestBundle': True, 'TestingEnvironmentVariables': {},
+}, '__xctestrun_metadata__': {'FormatVersion': 1}}
+plistlib.dump(config, (app.parent / 'TapSyncWindowTests.xctestrun').open('wb'))
+PY
+
+xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-arc -Wall -Wextra -Werror \
+    -Wno-unused-parameter -framework UIKit -framework Foundation \
+    "$repo_root/Tests/TapSyncWindowTestHost.m" -o "$app/TapSyncTests"
+xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-arc -Wall -Wextra -Werror \
+    -Wno-unused-parameter -bundle -F "$test_frameworks" -L "$test_libraries" \
+    -framework UIKit -framework Foundation -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
+    -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
+    "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" -o "$bundle/TapSyncWindowTests"
+codesign --force --sign - "$bundle"
+codesign --force --sign - "$app"
+xcodebuild test-without-building -xctestrun "$test_root/TapSyncWindowTests.xctestrun" \
+    -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
+    -resultBundlePath "$test_root/results.xcresult"

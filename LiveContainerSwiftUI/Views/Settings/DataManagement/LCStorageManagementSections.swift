@@ -89,10 +89,9 @@ struct LCStorageSummarySection: View {
     let breakdown: LCStorageBreakdown?
     let isCalculating: Bool
     let errorInfo: String?
-    let availableBytes: Int64?
 
     var body: some View {
-        Section {
+        Section("lc.storage.totalStorage".loc) {
             VStack(alignment: .leading, spacing: 12) {
                 if isCalculating {
                     HStack {
@@ -107,13 +106,6 @@ struct LCStorageSummarySection: View {
                     Text(formatStorageSize(breakdown.totalSize))
                         .font(.title2)
                         .fontWeight(.semibold)
-                }
-                if let availableBytes {
-                    HStack {
-                        Text("lc.resourceCompaction.availableNow".loc)
-                        Spacer()
-                        Text(formatStorageSize(availableBytes)).foregroundStyle(.secondary)
-                    }
                 }
 
                 if let errorInfo {
@@ -141,10 +133,6 @@ struct LCStorageSummarySection: View {
                 }
             }
             .padding(.vertical, 2)
-        } header: {
-            Text("lc.storage.summedFileSizes".loc)
-        } footer: {
-            Text("lc.storage.cloneSizeNote".loc)
         }
     }
 
@@ -369,14 +357,10 @@ private struct LCAppStorageDetailView: View {
             }
 
             if !appItem.containerDetails.isEmpty {
-                Section {
+                Section("lc.storage.containers".loc) {
                     ForEach(appItem.containerDetails, id: \.id) { container in
                         appContainerRow(container)
                     }
-                } header: {
-                    Text("lc.storage.containers".loc)
-                } footer: {
-                    Text("lc.storage.cloneSizeNote".loc)
                 }
             }
         }

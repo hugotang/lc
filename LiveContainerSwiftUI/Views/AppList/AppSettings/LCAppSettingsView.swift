@@ -141,18 +141,6 @@ struct LCAppSettingsView: View {
             } header: {
                 Text("lc.common.container".loc)
             }
-
-            if appInfo.bundleIdentifier() == LCResourceCompactor.supportedBundleIdentifier {
-                Section {
-                    NavigationLink {
-                        LCResourceCompactionView(app: model)
-                    } label: {
-                        Label("lc.resourceCompaction.title".loc, systemImage: "externaldrive.badge.checkmark")
-                    }
-                } footer: {
-                    Text("lc.resourceCompaction.summary".loc)
-                }
-            }
             
             
             Section {
@@ -621,11 +609,6 @@ struct LCAppSettingsView: View {
 
     func moveToAppGroup() async {
         for container in appInfo.containers {
-            if LCResourceCompactor.isCompactingContainer(at: container.containerURL) {
-                errorInfo = "lc.resourceCompaction.busy".loc
-                errorShow = true
-                return
-            }
             if let runningLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {
                 errorInfo = "lc.appSettings.appOpenInOtherLc %@ %@".localizeWithFormat(runningLC, runningLC)
                 errorShow = true
@@ -692,11 +675,6 @@ struct LCAppSettingsView: View {
     
     func movePrivateDoc() async {
         for container in appInfo.containers {
-            if LCResourceCompactor.isCompactingContainer(at: container.containerURL) {
-                errorInfo = "lc.resourceCompaction.busy".loc
-                errorShow = true
-                return
-            }
             if let runningLC = LCSharedUtils.getContainerUsingLCScheme(withFolderName: container.folderName) {                
                 errorInfo = "lc.appSettings.appOpenInOtherLc %@ %@".localizeWithFormat(runningLC, runningLC)
                 errorShow = true

@@ -50,6 +50,8 @@ jobs:
           "$RUNNER_TEMP/tap-sync-session-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncClientState.m Tests/TapSyncClientStateTests.m -o "$RUNNER_TEMP/tap-sync-client-state-tests"
           "$RUNNER_TEMP/tap-sync-client-state-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
+          "$RUNNER_TEMP/tap-sync-selection-tests"
       - name: Test performance metrics
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
@@ -57,14 +59,19 @@ jobs:
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/PerformanceRecording.m Tests/PerformanceRecordingTests.m -o "$RUNNER_TEMP/performance-recording-tests"
           "$RUNNER_TEMP/performance-recording-tests" "$RUNNER_TEMP/performance-recording.csv"
           python3 Tests/PerformanceCSVTests.py "$RUNNER_TEMP/performance-recording.csv"
+      - name: Test input sync window coverage on iPad simulator
+        run: bash Tests/run-tap-sync-window-tests.sh
+      - name: Upload input sync window test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: input-sync-window-tests
+          path: ${{ runner.temp }}/tap-sync-window-tests
+          if-no-files-found: ignore
       - name: Test app language selection
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainer/LCAppLanguage.m Tests/AppLanguageTests.m -o "$RUNNER_TEMP/app-language-tests"
           "$RUNNER_TEMP/app-language-tests"
-      - name: Test resource compaction
-        run: |
-          clang -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations -framework Foundation LiveContainer/LCResourceCompactor.m Tests/ResourceCompactionTests.m -o "$RUNNER_TEMP/resource-compaction-tests"
-          "$RUNNER_TEMP/resource-compaction-tests"
       - name: Test keyboard geometry
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowKeyboardGeometryTests.c -lm -o "$RUNNER_TEMP/window-keyboard-tests"

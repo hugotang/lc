@@ -6,6 +6,7 @@
 #import "../MultitaskSupport/TapSyncProtocol.h"
 #import "../MultitaskSupport/ProcessMetrics.h"
 #import "TapSyncClientState.h"
+#import "TapSyncWindow.h"
 
 // These setters are used only inside the selected guest process. No system-wide HID injection is used.
 typedef struct __IOHIDEvent *LCTapHIDEventRef;
@@ -78,33 +79,7 @@ static BOOL LCTapReplayAvailable(void) {
 }
 
 static UIWindow *LCTapSyncGuestWindowWithResult(LCTapSyncResult *result) {
-    if (result) *result = LCTapSyncResultSceneInactive;
-    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
-        if (result) *result = LCTapSyncResultWindowNotReady;
-        for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-            if (!window.hidden && window.alpha > 0 && window.userInteractionEnabled &&
-                window.windowLevel > UIWindowLevelNormal && window.rootViewController &&
-                CGRectIntersectsRect(window.frame, ((UIWindowScene *)scene).coordinateSpace.bounds)) {
-                if (result) *result = LCTapSyncResultWindowCovered;
-                return nil;
-            }
-            if (!window.hidden && window.alpha > 0 && window.userInteractionEnabled &&
-                window.windowLevel == UIWindowLevelNormal && window.rootViewController) {
-                [windows addObject:window];
-            }
-        }
-    }
-    UIWindow *keyWindow = nil;
-    for (UIWindow *window in windows) {
-        if (!window.isKeyWindow) continue;
-        if (keyWindow) return nil;
-        keyWindow = window;
-    }
-    UIWindow *window = keyWindow ?: (windows.count == 1 ? windows.firstObject : nil);
-    if (window && result) *result = LCTapSyncResultAccepted;
-    return window;
+    return LCTapSyncFindGuestWindow(UIApplication.sharedApplication.connectedScenes, result);
 }
 static UIWindow *LCTapSyncGuestWindow(void) { return LCTapSyncGuestWindowWithResult(NULL); }
 

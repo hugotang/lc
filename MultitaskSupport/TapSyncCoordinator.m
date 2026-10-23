@@ -1,5 +1,6 @@
 #import "TapSyncCoordinator.h"
 #import "TapSyncSession.h"
+#import "TapSyncSelection.h"
 #import "PerformanceMetrics.h"
 #import "AppSceneViewController.h"
 #import "DecoratedAppSceneViewController.h"
@@ -10,6 +11,7 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 
 @interface LCTapSyncCoordinator ()
 @property(nonatomic) NSMapTable<NSString *, AppSceneViewController *> *scenes;
+@property(nonatomic) LCTapSyncSelectionStore *selectionStore;
 @property(nonatomic) LCTapSyncSession *session;
 @property(nonatomic) LCTapSyncPreparation *preparation;
 @property(nonatomic) NSDictionary<NSString *, NSString *> *interruptionStatusKeys;
@@ -34,11 +36,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 - (instancetype)init {
     if ((self = [super init])) {
         _scenes = [NSMapTable strongToWeakObjectsMapTable];
-        _targetContainers = @[];
         _interruptedContainers = @[];
-        NSInteger mode = [NSUserDefaults.lcSharedDefaults integerForKey:@"LCTapSyncMode"];
-        _mode = mode == LCTapSyncModeSingleFinger || mode == LCTapSyncModeTwoFingers ? mode : LCTapSyncModeTapsOnly;
-        _statusKey = @"lc.tapSync.chooseWindows";
+        _selectionStore = [[LCTapSyncSelectionStore alloc] initWithDefaults:NSUserDefaults.lcSharedDefaults];
+        LCTapSyncSelection *selection = [_selectionStore loadSelection];
+        _sourceContainer = selection.source;
+        _targetContainers = selection.targets;
+        _mode = selection.mode;
+        _statusKey = _sourceContainer && _targetContainers.count ? @"lc.tapSync.restoredPaused" : @"lc.tapSync.chooseWindows";
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostWillResignActive:)
                                                    name:UIApplicationWillResignActiveNotification object:nil];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostDidBecomeActive:)
@@ -129,12 +133,16 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     if (!next) return;
     NSMutableOrderedSet *targets = [NSMutableOrderedSet orderedSet];
     if ((previous && [previous.bundleName isEqualToString:next.bundleName]) || [self.targetContainers containsObject:container]) {
-        NSMutableSet *eligible = [NSMutableSet set];
-        for (LCWorkspaceWindow *window in windows) {
-            if (![window.dataUUID isEqualToString:container] && [window.bundleName isEqualToString:next.bundleName]) [eligible addObject:window.dataUUID];
+        NSMutableDictionary<NSString *, LCWorkspaceWindow *> *visible = [NSMutableDictionary dictionary];
+        for (LCWorkspaceWindow *window in windows) visible[window.dataUUID] = window;
+        for (NSString *target in self.targetContainers) {
+            if ([target isEqualToString:container]) continue;
+            LCWorkspaceWindow *window = visible[target];
+            // Temporarily closed accounts stay selected until explicitly removed.
+            if (!window || [window.bundleName isEqualToString:next.bundleName]) [targets addObject:target];
         }
-        for (NSString *target in self.targetContainers) if ([eligible containsObject:target]) [targets addObject:target];
         if (previous && [self canReplayForContainer:previous.dataUUID]) [targets addObject:previous.dataUUID];
+        else if (!previous && self.sourceContainer) [targets addObject:self.sourceContainer];
     }
     [self selectSource:container targets:targets.array];
 }
@@ -167,13 +175,13 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
 }
 - (void)selectSource:(NSString *)source targets:(NSArray<NSString *> *)targets {
     [self pause];
-    _sourceContainer = source.copy;
-    NSMutableOrderedSet *unique = [NSMutableOrderedSet orderedSetWithArray:targets];
-    if (source) [unique removeObject:source];
-    _targetContainers = unique.array;
+    LCTapSyncSelection *selection = [[LCTapSyncSelection alloc] initWithSource:source targets:targets mode:self.mode];
+    _sourceContainer = selection.source;
+    _targetContainers = selection.targets;
+    [self.selectionStore saveSelection:selection];
     [self resetPerformanceData];
     _forwardedTapCount = 0;
-    _statusKey = source && unique.count ? @"lc.tapSync.paused" : @"lc.tapSync.chooseWindows";
+    _statusKey = self.sourceContainer && self.targetContainers.count ? @"lc.tapSync.paused" : @"lc.tapSync.chooseWindows";
     [self changed];
 }
 - (void)setMode:(LCTapSyncMode)mode {
@@ -184,23 +192,19 @@ NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";
     [self resetPerformanceData];
     _forwardedTapCount = 0;
     _statusKey = self.sourceContainer && self.targetContainers.count ? @"lc.tapSync.paused" : @"lc.tapSync.chooseWindows";
-    [NSUserDefaults.lcSharedDefaults setInteger:mode forKey:@"LCTapSyncMode"];
+    [self.selectionStore saveSelection:[[LCTapSyncSelection alloc] initWithSource:self.sourceContainer targets:self.targetContainers mode:mode]];
     [self changed];
 }
 - (NSDictionary *)selectionPropertyList {
-    if (!self.sourceContainer || self.targetContainers.count == 0) return @{};
-    NSMutableDictionary *selection = [@{@"source": self.sourceContainer, @"targets": self.targetContainers} mutableCopy];
-    if (self.mode == LCTapSyncModeSingleFinger) selection[@"mode"] = @"singleFinger";
-    if (self.mode == LCTapSyncModeTwoFingers) selection[@"mode"] = @"twoFingers";
-    return selection.copy;
+    return [[LCTapSyncSelection alloc] initWithSource:self.sourceContainer targets:self.targetContainers mode:self.mode].groupPropertyList;
 }
 - (void)restoreSelection:(NSDictionary *)selection {
-    NSString *source = [selection[@"source"] isKindOfClass:NSString.class] ? selection[@"source"] : nil;
-    NSArray *targets = [selection[@"targets"] isKindOfClass:NSArray.class] ? selection[@"targets"] : @[];
-    self.mode = [selection[@"mode"] isEqual:@"twoFingers"] ? LCTapSyncModeTwoFingers :
-        [selection[@"mode"] isEqual:@"singleFinger"] ? LCTapSyncModeSingleFinger : LCTapSyncModeTapsOnly;
-    [self selectSource:source targets:targets];
-    if (source && targets.count) {
+    LCTapSyncSelection *restored = [[LCTapSyncSelection alloc] initWithGroupPropertyList:selection];
+    // An explicit workspace restore replaces the last choice, always paused.
+    [self pause];
+    _mode = restored.mode;
+    [self selectSource:restored.source targets:restored.targets];
+    if (self.sourceContainer && self.targetContainers.count) {
         _statusKey = @"lc.tapSync.restoredPaused";
         [self changed];
     }
