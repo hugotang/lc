@@ -41,7 +41,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/Tests/TapSyncWindowTestHost.m" -o "$app/TapSyncTests"
 xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-arc -Wall -Wextra -Werror \
     -Wno-unused-parameter -bundle -F "$test_frameworks" -L "$test_libraries" \
-    -framework UIKit -framework Foundation -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
+    -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
     -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
     "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
