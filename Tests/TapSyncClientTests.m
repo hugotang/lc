@@ -2,6 +2,7 @@
 // Compile the production guest in the test bundle without activating its launch
 // constructor (the test defaults provider reports that this is not LiveProcess).
 #import "../TweakLoader/TapSyncClient.m"
+#import "TapSyncTestWindow.h"
 
 @interface LCTestInputHost : NSObject
 @property(nonatomic) NSMutableArray<NSDictionary *> *input;
@@ -96,16 +97,8 @@
 @implementation TapSyncClientTests
 - (void)setUp {
     [super setUp];
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if ([scene isKindOfClass:UIWindowScene.class] && scene.activationState == UISceneActivationStateForegroundActive) {
-            self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-            break;
-        }
-    }
+    self.window = LCTapSyncTestHostWindow();
     XCTAssertNotNil(self.window);
-    self.window.frame = CGRectMake(0, 0, 1024, 768);
-    self.window.rootViewController = [UIViewController new];
-    [self.window makeKeyAndVisible];
     XCTAssertEqual(LCTapSyncGuestWindow(), self.window);
     self.host = [LCTestInputHost new];
     self.connection = [LCTestInputConnection new];
@@ -123,9 +116,6 @@
     self.client = nil;
     self.connection = nil;
     self.host = nil;
-    self.window.hidden = YES;
-    self.window.windowScene = nil;
-    self.window.rootViewController = nil;
     self.window = nil;
     [super tearDown];
 }

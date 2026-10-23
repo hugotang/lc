@@ -58,6 +58,9 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"
+# Finish SpringBoard's cold boot before XCTest starts timing UI expectations.
+xcrun simctl boot "$simulator_id"
+xcrun simctl bootstatus "$simulator_id" -b
 xcodebuild test-without-building -xctestrun "$test_root/TapSyncWindowTests.xctestrun" \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
     -resultBundlePath "$test_root/results.xcresult"

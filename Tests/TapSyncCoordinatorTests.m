@@ -3,6 +3,7 @@
 #import "../MultitaskSupport/TapSyncSession.h"
 #import "../MultitaskSupport/TapSyncRecovery.h"
 #import "../LiveContainer/utils.h"
+#import "TapSyncTestWindow.h"
 
 // Supply an isolated defaults suite when compiling the production coordinator in
 // the small UIKit test host. No guest containers or application preferences exist here.
@@ -162,16 +163,8 @@
     self.continueAfterFailure = NO;
     [NSUserDefaults.lcSharedDefaults removePersistentDomainForName:@"com.livecontainer.tests.sync-recovery"];
     self.sync = [LCTestSyncCoordinator new];
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if ([scene isKindOfClass:UIWindowScene.class] && scene.activationState == UISceneActivationStateForegroundActive) {
-            self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-            break;
-        }
-    }
+    self.window = LCTapSyncTestHostWindow();
     XCTAssertNotNil(self.window);
-    self.window.frame = self.window.windowScene.coordinateSpace.bounds;
-    self.window.rootViewController = [UIViewController new];
-    [self.window makeKeyAndVisible];
     self.host = [[LCTestSyncHost alloc] initWithFrame:self.window.bounds];
     self.host.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.window.rootViewController.view addSubview:self.host];
@@ -217,9 +210,7 @@
 }
 - (void)tearDown {
     [self.sync pause];
-    self.window.hidden = YES;
-    self.window.windowScene = nil;
-    self.window.rootViewController = nil;
+    [self.host removeFromSuperview];
     self.host = nil;
     self.window = nil;
     self.peers = nil;

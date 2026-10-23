@@ -1,5 +1,6 @@
 #import <XCTest/XCTest.h>
 #import "../TweakLoader/TapSyncWindow.h"
+#import "TapSyncTestWindow.h"
 
 // Stub only the scene enumeration used by window selection. Constructing another UIKit
 // scene with the host's session reattaches its windows and invalidates geometry tests.
@@ -44,6 +45,7 @@
 @implementation TapSyncWindowTests
 - (void)setUp {
     [super setUp];
+    self.continueAfterFailure = NO;
     self.createdWindows = [NSMutableArray array];
 }
 - (void)tearDown {
@@ -52,6 +54,7 @@
         window.windowScene = nil;
         window.rootViewController = nil;
     }
+    [LCTapSyncTestHostWindow() makeKeyWindow];
     self.createdWindows = nil;
     [super tearDown];
 }
@@ -199,11 +202,9 @@
     XCTAssertNil(LCTapSyncFindGuestWindow((id)[NSSet setWithObject:scene], &result));
 }
 - (void)testRealPresentedAlerts {
-    UIWindowScene *scene = [self connectedScene];
-    UIWindow *guest = [[UIWindow alloc] initWithWindowScene:scene];
-    [self.createdWindows addObject:guest];
-    guest.rootViewController = [UIViewController new];
-    [guest makeKeyAndVisible];
+    UIWindow *guest = LCTapSyncTestHostWindow();
+    XCTAssertNotNil(guest);
+    [guest makeKeyWindow];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest]));
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Test" message:@"Dialog" preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
@@ -215,6 +216,5 @@
     [guest.rootViewController dismissViewControllerAnimated:NO completion:^{ [dismissed fulfill]; }];
     [self waitForExpectations:@[dismissed] timeout:5];
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest]));
-    guest.hidden = YES;
 }
 @end
