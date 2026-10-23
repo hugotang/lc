@@ -10,6 +10,64 @@
 @property(nonatomic) BOOL revealIssued;
 @end
 
+@interface LCDockHideGesture ()
+@property(nonatomic) CGFloat ignoredTopHeight;
+@property(nonatomic) BOOL right;
+@property(nonatomic) BOOL hideIssued;
+@property(nonatomic, copy) void (^hideDock)(void);
+@end
+
+@implementation LCDockHideGesture
+- (instancetype)init {
+    self = [super initWithTarget:nil action:nil];
+    if (self) {
+        [self addTarget:self action:@selector(handleHidePan:)];
+        self.delegate = self;
+        self.maximumNumberOfTouches = 1;
+        self.cancelsTouchesInView = YES;
+        self.delaysTouchesBegan = NO;
+        self.delaysTouchesEnded = NO;
+    }
+    return self;
+}
+- (void)attachToView:(UIView *)view ignoredTopHeight:(CGFloat)ignoredTopHeight
+              right:(BOOL)right hide:(void (^)(void))hide {
+    if (!self.hideDock || self.view != view) self.hideIssued = NO;
+    if (self.view != view) [view addGestureRecognizer:self];
+    self.ignoredTopHeight = ignoredTopHeight;
+    self.right = right;
+    self.hideDock = hide;
+}
+- (void)detach {
+    self.hideDock = nil;
+    [self.view removeGestureRecognizer:self];
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    return self.hideDock && !self.hideIssued && [touch locationInView:self.view].y >= self.ignoredTopHeight;
+}
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    if (!self.hideDock || self.hideIssued || !self.view || self.view.hidden || self.view.alpha < 0.01) return NO;
+    CGPoint translation = [(UIPanGestureRecognizer *)gestureRecognizer translationInView:self.view];
+    CGFloat outward = self.right ? translation.x : -translation.x;
+    // Fail early for vertical account scrolling or movement toward the other edge.
+    return outward > 0 && outward > fabs(translation.y) * 1.5;
+}
+- (void)handleHidePan:(UIPanGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateEnded || !self.hideDock || self.hideIssued) return;
+    CGPoint translation = [gesture translationInView:self.view];
+    CGFloat outward = self.right ? translation.x : -translation.x;
+    // Require a deliberate swipe; a tap or small outward drift leaves Dock open.
+    if (outward >= 30 && outward > fabs(translation.y) * 1.5) {
+        self.hideIssued = YES;
+        self.hideDock();
+    }
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    return YES;
+}
+@end
+
 @implementation LCDockRevealControl
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];

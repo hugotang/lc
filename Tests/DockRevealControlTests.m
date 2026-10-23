@@ -6,6 +6,17 @@
 - (void)handleRevealPan:(UIPanGestureRecognizer *)gesture;
 @end
 
+@interface LCDockHideGesture (Testing)
+- (void)handleHidePan:(UIPanGestureRecognizer *)gesture;
+@end
+
+@interface LCDockTestTouch : UITouch
+@property(nonatomic) CGPoint testLocation;
+@end
+@implementation LCDockTestTouch
+- (CGPoint)locationInView:(UIView *)view { return self.testLocation; }
+@end
+
 @interface LCDockTestPan : UIPanGestureRecognizer
 @property(nonatomic) CGPoint testTranslation;
 @property(nonatomic) UIGestureRecognizerState testState;
@@ -176,5 +187,68 @@
     XCTAssertTrue([other.gestureRecognizers containsObject:unrelated]);
     [self.control hide];
     XCTAssertEqualObjects([NSSet setWithArray:other.gestureRecognizers], otherOriginalGestures);
+}
+- (void)testOutwardHideGestureKeepsHandleMovementAndVerticalAccountScrolling {
+    UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(0, 100, 80, 400)];
+    [self.window addSubview:dock];
+    LCDockHideGesture *hide = [LCDockHideGesture new];
+    [hide attachToView:dock ignoredTopHeight:50 right:YES hide:^{}];
+    LCDockTestTouch *touch = [LCDockTestTouch new];
+    for (NSNumber *y in @[@0, @6, @25, @49]) {
+        touch.testLocation = CGPointMake(40, y.doubleValue);
+        XCTAssertFalse([hide gestureRecognizer:hide shouldReceiveTouch:touch]);
+    }
+    touch.testLocation = CGPointMake(40, 100);
+    XCTAssertTrue([hide gestureRecognizer:hide shouldReceiveTouch:touch]);
+    LCDockTestPan *pan = [LCDockTestPan new];
+    for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(5, 40)],
+                            [NSValue valueWithCGPoint:CGPointMake(-40, 5)],
+                            [NSValue valueWithCGPoint:CGPointMake(30, 30)]]) {
+        pan.testTranslation = value.CGPointValue;
+        XCTAssertFalse([hide gestureRecognizerShouldBegin:pan]);
+    }
+    pan.testTranslation = CGPointMake(40, 5);
+    XCTAssertTrue([hide gestureRecognizerShouldBegin:pan]);
+    UIPanGestureRecognizer *scroll = [UIPanGestureRecognizer new];
+    XCTAssertTrue([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:scroll]);
+    XCTAssertEqual(hide.maximumNumberOfTouches, 1u);
+    XCTAssertTrue(hide.cancelsTouchesInView);
+    [hide detach];
+    XCTAssertFalse([hide gestureRecognizerShouldBegin:pan]);
+    XCTAssertNil(hide.view);
+    [dock removeFromSuperview];
+}
+- (void)testOutwardSwipeHidesOnReleaseOnEitherSideWithoutSmallOrCancelledDrags {
+    UIView *dock = [[UIView alloc] initWithFrame:CGRectMake(0, 100, 80, 400)];
+    [self.window addSubview:dock];
+    LCDockHideGesture *hide = [LCDockHideGesture new];
+    __block NSUInteger hidden = 0;
+    LCDockTestPan *pan = [LCDockTestPan new];
+    for (NSNumber *right in @[@NO, @YES]) {
+        [hide attachToView:dock ignoredTopHeight:50 right:right.boolValue hide:^{ hidden += 1; }];
+        CGFloat outward = right.boolValue ? 1 : -1;
+        NSUInteger before = hidden;
+        pan.testState = UIGestureRecognizerStateEnded;
+        for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-40 * outward, 0)],
+                                [NSValue valueWithCGPoint:CGPointMake(15 * outward, 0)],
+                                [NSValue valueWithCGPoint:CGPointMake(40 * outward, 40)]]) {
+            pan.testTranslation = value.CGPointValue;
+            [hide handleHidePan:pan];
+        }
+        pan.testTranslation = CGPointMake(40 * outward, 5);
+        pan.testState = UIGestureRecognizerStateChanged;
+        [hide handleHidePan:pan];
+        pan.testState = UIGestureRecognizerStateCancelled;
+        [hide handleHidePan:pan];
+        XCTAssertEqual(hidden, before);
+        pan.testState = UIGestureRecognizerStateEnded;
+        [hide handleHidePan:pan];
+        XCTAssertEqual(hidden, before + 1);
+        [hide handleHidePan:pan];
+        XCTAssertEqual(hidden, before + 1);
+        [hide detach];
+    }
+    XCTAssertEqual(hidden, 2u);
+    [dock removeFromSuperview];
 }
 @end

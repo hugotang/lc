@@ -38132,19 +38132,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drag this handle to move the Dock. Use the Dock menu to hide it."
+            "value" : "Drag this handle to move the Dock. Swipe outward below the handle or use the Dock menu to hide it."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖动此把手移动 Dock。要隐藏 Dock，请使用 Dock 菜单。"
+            "value" : "拖动此把手移动 Dock。在把手下方向外滑动或使用 Dock 菜单可隐藏。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖動此把手移動 Dock。要隱藏 Dock，請使用 Dock 選單。"
+            "value" : "拖動此把手移動 Dock。在把手下方向外滑動或使用 Dock 選單可隱藏。"
           }
         }
       }
@@ -38270,19 +38270,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Hide it from the Dock menu, then tap the edge tab or swipe inward from its edge to show it again. Hide Collapsed Dock hides the arrow; its touch area stays active. Reset Dock Positions also reveals a hidden Dock. Account buttons scroll when space is limited."
+            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Swipe outward below the handle or use the Dock menu to hide it. Tap the edge tab or swipe inward from its edge to show it again. Hide Collapsed Dock hides the arrow; its touch area stays active. Reset Dock Positions also reveals a hidden Dock. Account buttons scroll when space is limited."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在 Dock 菜单中隐藏，再点按边缘标签或从该侧边缘向内滑动显示。「隐藏折叠 Dock」会隐藏箭头，原位置仍可点按；「重设 Dock 位置」也会恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
+            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在把手下方向外滑动或使用 Dock 菜单隐藏，再点按边缘标签或从该侧边缘向内滑动显示。「隐藏折叠 Dock」会隐藏箭头，原位置仍可点按；「重设 Dock 位置」也会恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在 Dock 選單中隱藏，再點按邊緣標籤或從該側邊緣向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭，原位置仍可點按；「重設 Dock 位置」也會恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
+            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在把手下方向外滑動或使用 Dock 選單隱藏，再點按邊緣標籤或從該側邊緣向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭，原位置仍可點按；「重設 Dock 位置」也會恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
           }
         }
       }

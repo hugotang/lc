@@ -155,6 +155,7 @@ class AppInfoProvider {
     private let accountRegistry = LCDockAccountRegistry(defaults: LCUtils.appGroupUserDefault)
     private var subscriptions = Set<AnyCancellable>()
     private let revealControl = LCDockRevealControl(frame: .zero)
+    private let hideGesture = LCDockHideGesture()
     private var dragStartFrame: CGRect?
     private var dragStartBounds = CGRect.zero
     private var dragCancelled = false
@@ -293,6 +294,12 @@ class AppInfoProvider {
         let newFrame = placement.frame(size: CGSize(width: layout.width, height: layout.height),
                                        bounds: window.bounds, insets: placementInsets, hidden: isDockHidden)
         hostingController.view.isUserInteractionEnabled = isVisible && !isDockHidden
+        if isVisible && !isDockHidden && !isEditingGrid {
+            hideGesture.attach(to: hostingController.view, ignoredTopHeight: LCDockLayout.padding + LCDockLayout.handleHeight,
+                               right: placement.right) { [weak self] in self?.hideDockToSide() }
+        } else {
+            hideGesture.detach()
+        }
         applyNewFrame(newFrame, for: hostingController, animated: animated)
         if isVisible && isDockHidden {
             revealControl.accessibilityLabel = "lc.multitask.showDock".loc
@@ -485,6 +492,7 @@ class AppInfoProvider {
             self.windowHostingView.finishGridEditing()
             self.cancelDockDrag()
             self.revealControl.hide()
+            self.hideGesture.detach()
             self.isDockHidden = false
             hostingController.view.isUserInteractionEnabled = false
             UIView.animate(
