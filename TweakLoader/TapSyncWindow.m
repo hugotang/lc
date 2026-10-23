@@ -1,5 +1,26 @@
 #import "TapSyncWindow.h"
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
+#include <string.h>
+
+static BOOL LCTapSyncIsWindowInfrastructureGesture(UIGestureRecognizer *gesture, UIWindow *window) {
+    if ([NSStringFromClass(gesture.class) hasPrefix:@"_"] &&
+        [[NSBundle bundleForClass:gesture.class] isEqual:[NSBundle bundleForClass:UIWindow.class]]) return YES;
+    // UIKit also installs a public UITapGestureRecognizer to dismiss the keyboard.
+    // Identify its single target/action, so app taps of the same class still block.
+    Ivar targetsIvar = class_getInstanceVariable(UIGestureRecognizer.class, "_targets");
+    if (!targetsIvar || ivar_getTypeEncoding(targetsIvar)[0] != '@') return NO;
+    id targets = object_getIvar(gesture, targetsIvar);
+    if (![targets isKindOfClass:NSArray.class] || [targets count] != 1) return NO;
+    id targetAction = [targets firstObject];
+    Ivar targetIvar = class_getInstanceVariable([targetAction class], "_target");
+    Ivar actionIvar = class_getInstanceVariable([targetAction class], "_action");
+    if (!targetIvar || !actionIvar || ivar_getTypeEncoding(targetIvar)[0] != '@' ||
+        strcmp(ivar_getTypeEncoding(actionIvar), @encode(SEL)) != 0 || object_getIvar(targetAction, targetIvar) != window) return NO;
+    SEL action = NULL;
+    memcpy(&action, (const char *)(__bridge const void *)targetAction + ivar_getOffset(actionIvar), sizeof(action));
+    return action == NSSelectorFromString(@"_keyboardDismissalGestureRecognized:");
+}
 
 static BOOL LCTapSyncViewIsVisible(UIView *view) {
     return !view.hidden && view.alpha > 0.01 && !CGRectIsEmpty(view.bounds);
@@ -17,10 +38,8 @@ static BOOL LCTapSyncViewHasContentOrInput(UIView *view) {
     for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
         if (!gesture.enabled) continue;
         // UIKit installs focus, pointer and passthrough recognizers on even an empty window.
-        // Those private window recognizers are infrastructure, not app overlay content.
-        // Public recognizers and app-defined subclasses still count, including on UIWindow.
-        if ([view isKindOfClass:UIWindow.class] && [NSStringFromClass(gesture.class) hasPrefix:@"_"] &&
-            [[NSBundle bundleForClass:gesture.class] isEqual:[NSBundle bundleForClass:UIWindow.class]]) continue;
+        // Those recognizers are infrastructure, not app overlay content.
+        if ([view isKindOfClass:UIWindow.class] && LCTapSyncIsWindowInfrastructureGesture(gesture, (UIWindow *)view)) continue;
         return YES;
     }
     // Transparent structural views are not content. Custom drawing/touch receivers are.

@@ -33,6 +33,11 @@
 }
 @end
 
+@interface _LCTestAppGestureRecognizer : UITapGestureRecognizer
+@end
+@implementation _LCTestAppGestureRecognizer
+@end
+
 @interface TapSyncWindowTests : XCTestCase
 @property(nonatomic) NSMutableArray<UIWindow *> *createdWindows;
 @end
@@ -132,6 +137,11 @@
     [overlay addGestureRecognizer:windowTap];
     XCTAssertTrue(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
     windowTap.enabled = NO;
+    XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
+    _LCTestAppGestureRecognizer *customTap = [[_LCTestAppGestureRecognizer alloc] initWithTarget:nil action:nil];
+    [overlay addGestureRecognizer:customTap];
+    XCTAssertTrue(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
+    customTap.enabled = NO;
     XCTAssertFalse(LCTapSyncWindowIsCovered(guest, @[guest, overlay]));
 }
 - (void)testVisibilityAndGuestRelativeCoordinates {
