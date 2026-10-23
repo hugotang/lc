@@ -17,6 +17,7 @@
 @end
 
 @interface LCTapSyncCoordinator (RecoveryTests)
+- (NSArray *)currentGeometry;
 - (BOOL)hostIsAnimatingRotation;
 - (void)hostWillResignActive:(NSNotification *)notification;
 @end
@@ -129,10 +130,11 @@
         }
     }
     XCTAssertNotNil(self.window);
-    self.window.frame = CGRectMake(0, 0, 1024, 768);
+    self.window.frame = self.window.windowScene.coordinateSpace.bounds;
     self.window.rootViewController = [UIViewController new];
     [self.window makeKeyAndVisible];
     self.host = [[LCTestSyncHost alloc] initWithFrame:self.window.bounds];
+    self.host.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.window.rootViewController.view addSubview:self.host];
     NSMutableArray *windows = [NSMutableArray array], *peers = [NSMutableArray array];
     NSUInteger index = 0;
@@ -154,6 +156,10 @@
     self.peers = peers.copy;
     self.host.tapSyncWindows = windows.copy;
     self.sync.host = (id)self.host;
+    // UIKit completes appearance and safe-area layout asynchronously. Let the
+    // real scene settle before start records its strict geometry snapshot.
+    [self letRecoveryCheckFinish];
+    [self.window layoutIfNeeded];
     [self.sync selectSource:@"A" targets:@[@"B", @"C", @"D"]];
     XCTAssertTrue(self.sync.canStart);
 }
@@ -170,7 +176,10 @@
 }
 - (void)waitUntil:(BOOL (^)(void))condition {
     NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) { return condition(); }];
-    [self waitForExpectations:@[[[XCTNSPredicateExpectation alloc] initWithPredicate:predicate object:nil]] timeout:2];
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[[[XCTNSPredicateExpectation alloc] initWithPredicate:predicate object:nil]] timeout:2];
+    XCTAssertEqual(result, XCTWaiterResultCompleted, @"status=%@, recovering=%d, ready=%d, geometry=%@, initial=%@",
+                   self.sync.statusKey, self.sync.recovering, [[self.sync valueForKey:@"recovery"] canResume],
+                   self.sync.currentGeometry, [self.sync valueForKey:@"geometry"]);
 }
 - (void)letRecoveryCheckFinish {
     XCTestExpectation *delay = [self expectationWithDescription:@"pending recovery check"];
