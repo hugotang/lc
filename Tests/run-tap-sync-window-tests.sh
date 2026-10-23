@@ -32,7 +32,6 @@ plistlib.dump({
 config = {'TapSyncWindowTests': {
     'TestHostPath': str(app), 'TestBundlePath': str(bundle),
     'TestHostBundleIdentifier': 'com.livecontainer.tests.tap-sync-window',
-    'TestBundleDestinationRelativePath': 'PlugIns/TapSyncWindowTests.xctest',
     'ProductModuleName': 'TapSyncWindowTests', 'IsAppHostedTestBundle': True,
     'TestingEnvironmentVariables': {
         'DYLD_INSERT_LIBRARIES': str(libraries / 'libXCTestBundleInject.dylib'),
