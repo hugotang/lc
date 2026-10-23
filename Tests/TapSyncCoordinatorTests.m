@@ -21,21 +21,31 @@
 - (NSArray *)currentGeometry;
 - (NSArray *)currentGeometryWithProblem:(NSString * __autoreleasing *)problem;
 - (BOOL)hostIsAnimatingRotation;
+- (BOOL)hostIsForegroundActive;
+- (BOOL)hostIsBackgrounded;
 - (BOOL)hostHasLostForeground;
 - (void)hostWillResignActive:(NSNotification *)notification;
 - (void)hostDidEnterBackground:(NSNotification *)notification;
+- (void)hostWillEnterForeground:(NSNotification *)notification;
 - (void)hostDidBecomeActive:(NSNotification *)notification;
 - (void)hostSceneWillDeactivate:(NSNotification *)notification;
+- (void)hostSceneDidEnterBackground:(NSNotification *)notification;
+- (void)hostSceneWillEnterForeground:(NSNotification *)notification;
+- (void)hostSceneDidActivate:(NSNotification *)notification;
 @end
 
-// Test only the UIKit rotation-transition signal; geometry validation, temporary
-// suspension, preparation and all recovery callbacks run through the real coordinator.
+// Control only rotation/activation signals. Geometry validation, suspension,
+// preparation and all recovery callbacks run through the production coordinator.
 @interface LCTestSyncCoordinator : LCTapSyncCoordinator
 @property(nonatomic) BOOL animatingRotation;
 @property(nonatomic) BOOL reportsHostInactive;
+@property(nonatomic) BOOL reportsActivationPending;
+@property(nonatomic) BOOL reportsBackgroundSnapshot;
 @end
 @implementation LCTestSyncCoordinator
 - (BOOL)hostIsAnimatingRotation { return self.animatingRotation || [super hostIsAnimatingRotation]; }
+- (BOOL)hostIsForegroundActive { return !self.reportsActivationPending && [super hostIsForegroundActive]; }
+- (BOOL)hostIsBackgrounded { return self.reportsBackgroundSnapshot || [super hostIsBackgrounded]; }
 - (BOOL)hostHasLostForeground { return self.reportsHostInactive || [super hostHasLostForeground]; }
 @end
 
@@ -645,6 +655,127 @@
     [self.sync hostSceneWillDeactivate:[NSNotification notificationWithName:UISceneWillDeactivateNotification object:[NSObject new]]];
     XCTAssertTrue(self.sync.active);
 }
+- (void)testHomeReturnCanUseApplicationOrSceneForegroundEvidenceWithoutBackgroundNote {
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    UIWindowScene *scene = self.window.windowScene;
+    for (NSString *name in @[UIApplicationWillEnterForegroundNotification, UISceneWillEnterForegroundNotification]) {
+        for (NSNumber *enabled in @[@NO, @YES]) {
+            self.sync.autoResumeOnForeground = enabled.boolValue;
+            [self.sync start];
+            NSString *previous = self.peers[0].session;
+            [center postNotificationName:UISceneWillDeactivateNotification object:scene];
+            XCTAssertFalse(self.sync.active);
+            // Deliberately omit both did-enter-background notifications. Either
+            // will-enter-foreground signal is sufficient evidence of a return.
+            [center postNotificationName:name object:[name isEqualToString:UISceneWillEnterForegroundNotification] ? scene : UIApplication.sharedApplication];
+            if (enabled.boolValue) {
+                [self waitUntil:^BOOL { return self.sync.active; }];
+                XCTAssertNotEqualObjects(self.peers[0].session, previous);
+            } else {
+                [self.sync hostSceneDidActivate:[NSNotification notificationWithName:UISceneDidActivateNotification object:scene]];
+                [self letRecoveryCheckFinish];
+                XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+                XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.backgroundPaused");
+            }
+            [self.sync pause];
+        }
+    }
+}
+- (void)testHomeReturnKeepsHostSceneIdentityWhileItsViewIsDetached {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    UIWindowScene *scene = self.window.windowScene;
+    [self.host removeFromSuperview];
+    XCTAssertNil(self.host.window);
+    [self.sync hostSceneWillDeactivate:[NSNotification notificationWithName:UISceneWillDeactivateNotification object:scene]];
+    [self.sync hostSceneDidEnterBackground:[NSNotification notificationWithName:UISceneDidEnterBackgroundNotification object:scene]];
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertFalse(self.sync.active);
+    for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
+    [self.sync hostSceneWillEnterForeground:[NSNotification notificationWithName:UISceneWillEnterForegroundNotification object:scene]];
+    [self.sync hostSceneDidActivate:[NSNotification notificationWithName:UISceneDidActivateNotification object:scene]];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    XCTAssertTrue(self.sync.recovering);
+    // No further activation notification or source touch follows reattachment.
+    [self.window.rootViewController.view addSubview:self.host];
+    [self.window layoutIfNeeded];
+    [self.sync validateWindows];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
+- (void)testForegroundActivationCanPrecedeTheActiveSceneSnapshot {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    self.sync.reportsActivationPending = YES;
+    [self.sync hostWillResignActive:nil];
+    [self.sync hostDidEnterBackground:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    XCTAssertTrue(self.sync.recovering);
+    for (LCTestSyncPeer *peer in self.peers) XCTAssertEqual(peer.prepares, 1u);
+    // The public snapshot catches up without another notification.
+    self.sync.reportsActivationPending = NO;
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
+- (void)testForegroundActivationBeforeReturnEvidenceWaitsForLifecycleNotifications {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    [self.sync hostWillResignActive:nil];
+    [self.sync hostDidBecomeActive:nil];
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertFalse(self.sync.active);
+    [NSNotificationCenter.defaultCenter postNotificationName:UISceneWillEnterForegroundNotification object:self.window.windowScene];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
+- (void)testHostSceneReturnCanWaitThroughBackgroundSnapshotWithoutAnotherActivation {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    [self.sync hostDidEnterBackground:nil];
+    self.sync.reportsActivationPending = YES;
+    self.sync.reportsBackgroundSnapshot = YES;
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse([[self.sync valueForKey:@"foregroundResumeCheckScheduled"] boolValue]);
+    XCTAssertTrue(self.sync.recovering); // Another scene cannot poll this background host.
+    [self.sync hostSceneWillEnterForeground:[NSNotification notificationWithName:UISceneWillEnterForegroundNotification object:self.window.windowScene]];
+    [self.sync hostSceneDidActivate:[NSNotification notificationWithName:UISceneDidActivateNotification object:self.window.windowScene]];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertTrue([[self.sync valueForKey:@"foregroundResumeCheckScheduled"] boolValue]);
+    self.sync.reportsBackgroundSnapshot = NO;
+    self.sync.reportsActivationPending = NO;
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
+- (void)testAnotherScenesLifecycleCannotQualifyOrCancelTheHostsReturn {
+    self.sync.autoResumeOnForeground = YES;
+    [self.sync start];
+    [self.sync hostWillResignActive:nil];
+    NSObject *otherScene = [NSObject new];
+    [self.sync hostSceneDidEnterBackground:[NSNotification notificationWithName:UISceneDidEnterBackgroundNotification object:otherScene]];
+    [self.sync hostSceneWillEnterForeground:[NSNotification notificationWithName:UISceneWillEnterForegroundNotification object:otherScene]];
+    [self.sync hostSceneDidActivate:[NSNotification notificationWithName:UISceneDidActivateNotification object:otherScene]];
+    [self.sync hostDidBecomeActive:nil];
+    [self letRecoveryCheckFinish];
+    XCTAssertFalse(self.sync.active || self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.backgroundPaused");
+    [self.sync start];
+    NSString *previous = self.peers[0].session;
+    [self.sync hostDidEnterBackground:nil];
+    [self.sync hostDidBecomeActive:nil];
+    [self.sync hostSceneWillDeactivate:[NSNotification notificationWithName:UISceneWillDeactivateNotification object:otherScene]];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+}
 - (void)testForegroundManualPauseGroupAndPreferenceChangesCancelIntent {
     self.sync.autoResumeOnForeground = YES;
     for (NSNumber *change in @[@0, @1, @2, @3]) {
@@ -656,6 +787,7 @@
             case 2: self.sync.autoResumeOnForeground = NO; break;
             case 3: self.sync.mode = LCTapSyncModeSingleFinger; break;
         }
+        [self.sync hostSceneWillEnterForeground:[NSNotification notificationWithName:UISceneWillEnterForegroundNotification object:self.window.windowScene]];
         [self.sync hostDidBecomeActive:nil];
         [self letRecoveryCheckFinish];
         XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
@@ -718,7 +850,7 @@
         self.peers[3].preparationResult = LCTapSyncResultAccepted;
     }
 }
-- (void)testForegroundDisconnectAndRepeatedDepartureCannotRestartCancelledIntent {
+- (void)testForegroundDisconnectCancelsButAppSwitcherBounceKeepsRunningIntent {
     self.sync.autoResumeOnForeground = YES;
     [self.sync start];
     [self.sync hostDidEnterBackground:nil];
@@ -731,14 +863,24 @@
     self.peers[3].ready = YES;
     self.peers[3].stateDidChange();
     [self.sync start];
+    NSString *previous = self.peers[0].session;
     [self.sync hostDidEnterBackground:nil];
     [self.sync hostDidBecomeActive:nil];
     [self.sync hostWillResignActive:nil];
     [self letRecoveryCheckFinish];
+    XCTAssertTrue(self.sync.recovering);
+    XCTAssertFalse(self.sync.active || self.sync.starting);
+    for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
+    [self.sync hostDidBecomeActive:nil];
+    [self waitUntil:^BOOL { return self.sync.active; }];
+    XCTAssertNotEqualObjects(self.peers[0].session, previous);
+    // Once a fresh session is active, a new temporary prompt without any
+    // background transition still cancels its automatic-resume eligibility.
+    [self.sync hostWillResignActive:nil];
     [self.sync hostDidBecomeActive:nil];
     [self letRecoveryCheckFinish];
-    // The latest interruption never entered the background, so it cancels intent.
     XCTAssertFalse(self.sync.active || self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.backgroundPaused");
 }
 - (void)testGuestInactivityBeforeHostLifecycleNotificationPreservesOnlyRunningIntent {
     self.sync.autoResumeOnForeground = YES;
