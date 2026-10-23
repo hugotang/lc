@@ -43,7 +43,7 @@
     [self addGestureRecognizer:pan];
 }
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
-              dimmed:(BOOL)dimmed reveal:(void (^)(void))reveal {
+          hideArrow:(BOOL)hideArrow reveal:(void (^)(void))reveal {
     if (self.superview != window) {
         [self removeEdgePan];
         [window addSubview:self];
@@ -55,8 +55,9 @@
     self.hidden = NO;
     self.alpha = 1;
     self.userInteractionEnabled = YES;
-    // Dim only the artwork. The native 44pt control must remain hit-testable.
-    self.tab.alpha = dimmed ? 0.25 : 0.8;
+    // Hide only the artwork. The native 44pt control must remain hit-testable.
+    self.tab.hidden = hideArrow;
+    self.tab.alpha = 0.8;
     self.arrow.image = [UIImage systemImageNamed:right ? @"chevron.left" : @"chevron.right"
                              withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13
                                                                                                   weight:UIImageSymbolWeightBold]];

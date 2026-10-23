@@ -50,9 +50,9 @@
     return CGRectMake(right ? CGRectGetMaxX(self.window.bounds) - insets.right - 44 : insets.left,
                       CGRectGetMidY(self.window.bounds) - 22, 44, 44);
 }
-- (void)showRight:(BOOL)right dimmed:(BOOL)dimmed {
+- (void)showRight:(BOOL)right hideArrow:(BOOL)hideArrow {
     __weak typeof(self) weakSelf = self;
-    [self.control showInWindow:self.window frame:[self frameForRight:right] right:right dimmed:dimmed reveal:^{
+    [self.control showInWindow:self.window frame:[self frameForRight:right] right:right hideArrow:hideArrow reveal:^{
         weakSelf.reveals += 1;
     }];
     [self.control layoutIfNeeded];
@@ -70,13 +70,13 @@
     pan.testState = state;
     [self.control handleRevealPan:pan];
 }
-- (void)testDimmedTabRetainsEntireNativeTouchTargetOnBothEdges {
+- (void)testHiddenArrowRetainsEntireNativeTouchTargetOnBothEdges {
     for (NSNumber *right in @[@NO, @YES]) {
-        [self showRight:right.boolValue dimmed:YES];
+        [self showRight:right.boolValue hideArrow:YES];
         XCTAssertTrue(CGRectContainsRect(self.window.bounds, self.control.frame));
         XCTAssertEqualWithAccuracy(self.control.alpha, 1, 0.001);
         UIView *artwork = self.control.subviews.firstObject;
-        XCTAssertTrue(artwork.alpha >= 0.25 && artwork.alpha < 1);
+        XCTAssertTrue(artwork.hidden);
         XCTAssertTrue(CGRectContainsRect(self.control.bounds, artwork.frame));
         XCTAssertEqualWithAccuracy(artwork.frame.size.width, 16, 0.001);
         XCTAssertEqualWithAccuracy(artwork.frame.size.height, 44, 0.001);
@@ -94,7 +94,8 @@
     XCTAssertEqual(self.reveals, 2u);
 }
 - (void)testRevealStaysAboveGuestAndDoesNotCoverTheRestOfTheWindow {
-    [self showRight:YES dimmed:NO];
+    [self showRight:YES hideArrow:NO];
+    XCTAssertFalse(self.control.subviews.firstObject.hidden);
     XCTAssertEqual([self.window hitTest:CGPointMake(CGRectGetMidX(self.control.frame), CGRectGetMidY(self.control.frame))
                             withEvent:nil], self.control);
     XCTAssertEqual([self.window hitTest:CGPointMake(CGRectGetMidX(self.window.bounds), CGRectGetMidY(self.window.bounds))
@@ -102,25 +103,25 @@
     // A scene/window can be raised while the Dock is hidden. Refresh reclaims
     // only the small control; it does not install a covering UIWindow.
     [self.window bringSubviewToFront:self.guest];
-    [self showRight:YES dimmed:NO];
+    [self showRight:YES hideArrow:NO];
     XCTAssertEqual([self.window hitTest:CGPointMake(CGRectGetMidX(self.control.frame), CGRectGetMidY(self.control.frame))
                             withEvent:nil], self.control);
     XCTAssertEqual(self.control.window, self.window);
 }
 - (void)testTapAndVoiceOverRevealOnceThenRearmAfterHide {
-    [self showRight:YES dimmed:NO];
+    [self showRight:YES hideArrow:NO];
     [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
     XCTAssertTrue([self.control accessibilityActivate]);
     XCTAssertEqual(self.reveals, 1u);
     [self.control hide];
     XCTAssertFalse([self.control accessibilityActivate]);
-    [self showRight:NO dimmed:NO];
+    [self showRight:NO hideArrow:NO];
     XCTAssertTrue([self.control accessibilityActivate]);
     XCTAssertEqual(self.reveals, 2u);
 }
 - (void)testInwardDragsRevealFromEitherSideAndIgnoreOutwardOrVerticalDrags {
     for (NSNumber *right in @[@NO, @YES]) {
-        [self showRight:right.boolValue dimmed:NO];
+        [self showRight:right.boolValue hideArrow:NO];
         CGFloat inward = right.boolValue ? -1 : 1;
         NSUInteger before = self.reveals;
         [self sendPan:CGPointMake(-40 * inward, 0) state:UIGestureRecognizerStateChanged];
@@ -134,7 +135,7 @@
     }
 }
 - (void)testGuestGestureCanRecognizeAlongsideEdgeAndTabDrags {
-    [self showRight:YES dimmed:NO];
+    [self showRight:YES hideArrow:NO];
     UIPanGestureRecognizer *guestPan = [UIPanGestureRecognizer new];
     [self.guest addGestureRecognizer:guestPan];
     NSArray *edges = [self addedWindowGestures];
@@ -153,8 +154,8 @@
 - (void)testSideChangesAndRepeatedHidingKeepOnlyOneOwnedEdgeRecognizer {
     for (NSUInteger index = 0; index < 12; ++index) {
         BOOL right = index % 2;
-        [self showRight:right dimmed:index % 3 == 0];
-        [self showRight:right dimmed:NO];
+        [self showRight:right hideArrow:index % 3 == 0];
+        [self showRight:right hideArrow:NO];
         NSArray *edges = [self addedWindowGestures];
         XCTAssertEqual(edges.count, 1u);
         XCTAssertEqual(((UIScreenEdgePanGestureRecognizer *)edges.firstObject).edges, right ? UIRectEdgeRight : UIRectEdgeLeft);
@@ -164,11 +165,11 @@
     }
 }
 - (void)testMovingControlToAnotherHostRemovesTheOldEdgeRecognizer {
-    [self showRight:YES dimmed:NO];
+    [self showRight:YES hideArrow:NO];
     UIWindow *other = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
     UIGestureRecognizer *unrelated = [UITapGestureRecognizer new];
     [other addGestureRecognizer:unrelated];
-    [self.control showInWindow:other frame:CGRectMake(0, 400, 44, 44) right:NO dimmed:NO reveal:^{}];
+    [self.control showInWindow:other frame:CGRectMake(0, 400, 44, 44) right:NO hideArrow:NO reveal:^{}];
     XCTAssertEqual([self addedWindowGestures].count, 0u);
     XCTAssertEqual(self.control.superview, other);
     XCTAssertTrue([other.gestureRecognizers containsObject:unrelated]);

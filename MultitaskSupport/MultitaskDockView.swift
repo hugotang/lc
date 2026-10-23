@@ -297,7 +297,7 @@ class AppInfoProvider {
         if isVisible && isDockHidden {
             revealControl.accessibilityLabel = "lc.multitask.showDock".loc
             revealControl.show(in: window, frame: placement.revealFrame(bounds: window.bounds, insets: placementInsets),
-                               right: placement.right, dimmed: LCUtils.appGroupUserDefault.bool(forKey: "LCHideCollapsedDock")) { [weak self] in
+                               right: placement.right, hideArrow: LCUtils.appGroupUserDefault.bool(forKey: "LCHideCollapsedDock")) { [weak self] in
                 self?.showDockFromHidden()
             }
         } else {
