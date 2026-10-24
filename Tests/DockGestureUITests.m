@@ -57,6 +57,13 @@
     XCUICoordinate *end = [start coordinateWithOffset:CGVectorMake(dx, dy)];
     [start pressForDuration:0.05 thenDragToCoordinate:end withVelocity:60 thenHoldForDuration:hold];
 }
+- (void)dragNearTabRight:(BOOL)right inwardOffset:(CGFloat)inwardOffset verticalOffset:(CGFloat)verticalOffset
+                distance:(CGFloat)distance dy:(CGFloat)dy velocity:(CGFloat)velocity {
+    XCUICoordinate *start = [[self.app.buttons[@"LCDockRevealControl"] coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)]
+        coordinateWithOffset:CGVectorMake(right ? -inwardOffset : inwardOffset, verticalOffset)];
+    XCUICoordinate *end = [start coordinateWithOffset:CGVectorMake(right ? -distance : distance, dy)];
+    [start pressForDuration:0.01 thenDragToCoordinate:end withVelocity:velocity thenHoldForDuration:0];
+}
 - (void)testShortAccountSwipesHideOnBothEdgesAndWidthsBeforeLift {
     for (NSNumber *right in @[@NO, @YES]) {
         for (NSNumber *narrow in @[@NO, @YES]) {
@@ -179,5 +186,54 @@
     [self waitForStatus:@"hidden"];
     [self dragElement:self.app.buttons[@"LCDockRevealControl"] dx:-10 dy:1 hold:0];
     [self waitForStatus:@"hidden"];
+}
+- (void)testShortNearArrowSwipesRevealOnFirstAttempt {
+    for (NSNumber *right in @[@NO, @YES]) {
+        for (NSNumber *hiddenArrow in @[@NO, @YES]) {
+            [self launchRight:right.boolValue narrow:YES hiddenArrow:hiddenArrow.boolValue restored:YES];
+            // Cover the original center, a finger landing above/below the
+            // invisible arrow, and a start a few points inside its old frame.
+            for (NSValue *offset in @[[NSValue valueWithCGPoint:CGPointZero],
+                                      [NSValue valueWithCGPoint:CGPointMake(0, -40)],
+                                      [NSValue valueWithCGPoint:CGPointMake(0, 40)],
+                                      [NSValue valueWithCGPoint:CGPointMake(28, 0)]]) {
+                [self hideDock];
+                CGPoint point = offset.CGPointValue;
+                [self dragNearTabRight:right.boolValue inwardOffset:point.x verticalOffset:point.y
+                             distance:22 dy:8 velocity:200];
+                [self waitForStatus:@"visible"];
+            }
+            XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"4");
+            XCTAssertEqualObjects(self.app.staticTexts[@"GuestTaps"].label, @"0");
+            XCTAssertEqualObjects(self.app.staticTexts[@"GuestDrags"].label, @"0");
+            [self.app terminate];
+        }
+    }
+}
+- (void)testRepeatedQuickDiagonalTabSwipesDoNotNeedALongPull {
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self launchRight:right.boolValue narrow:NO hiddenArrow:YES restored:YES];
+        [self hideDock];
+        [self.app.buttons[@"RestoreWorkspace"] tap];
+        for (NSUInteger index = 0; index < 5; ++index) {
+            [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:0
+                         distance:24 dy:(index % 2 ? -14 : 14) velocity:(index % 2 ? 500 : 100)];
+            [self waitForStatus:@"visible"];
+            XCTAssertEqual(self.app.staticTexts[@"DockReveals"].label.integerValue, index + 1);
+            [self hideDock];
+        }
+        [self.app terminate];
+    }
+}
+- (void)testOppositeEdgeRetainsTheOriginalInwardReveal {
+    for (NSNumber *dockRight in @[@NO, @YES]) {
+        [self launchRight:dockRight.boolValue narrow:NO hiddenArrow:YES restored:YES];
+        [self hideDock];
+        BOOL startRight = !dockRight.boolValue;
+        [self dragFromEdgeRight:startRight inset:22 fraction:0.25 dx:(startRight ? -50 : 50) dy:8];
+        [self waitForStatus:@"visible"];
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"1");
+        [self.app terminate];
+    }
 }
 @end

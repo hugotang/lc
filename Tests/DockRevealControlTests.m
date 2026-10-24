@@ -4,7 +4,16 @@
 #import "TapSyncTestWindow.h"
 
 @interface LCDockRevealControl (Testing)
-- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture;
+- (void)handleRevealGesture:(UIGestureRecognizer *)gesture;
+@end
+
+// Test the production touch-state policy with deterministic contacts. Actual
+// UIKit hit testing, cancellation and gesture arbitration use the UI suite.
+@interface LCDockRevealGesture : UIGestureRecognizer
+@property(nonatomic) BOOL right;
+@property(nonatomic) BOOL windowRoute;
+@property(nonatomic) BOOL revealEligible;
+@property(nonatomic) CGPoint displacement;
 @end
 
 @interface LCDockHideGesture (Testing)
@@ -20,13 +29,12 @@
 - (UIView *)view { return self.testView; }
 @end
 
-@interface LCDockTestPan : UIPanGestureRecognizer
-@property(nonatomic) CGPoint testTranslation;
+@interface LCDockTestRevealGesture : LCDockRevealGesture
 @property(nonatomic) UIGestureRecognizerState testState;
 @end
-@implementation LCDockTestPan
-- (CGPoint)translationInView:(UIView *)view { return self.testTranslation; }
+@implementation LCDockTestRevealGesture
 - (UIGestureRecognizerState)state { return self.testState; }
+- (void)setState:(UIGestureRecognizerState)state { self.testState = state; }
 @end
 
 // Record the intent transitions without asking UIKit to deliver fabricated
@@ -92,15 +100,19 @@
     return added;
 }
 - (void)sendPan:(CGPoint)translation state:(UIGestureRecognizerState)state {
-    LCDockTestPan *pan = [LCDockTestPan new];
-    pan.testTranslation = translation;
-    pan.testState = state;
-    [self.control handleRevealPan:pan];
+    LCDockTestRevealGesture *gesture = [LCDockTestRevealGesture new];
+    gesture.right = [[self.control valueForKey:@"right"] boolValue];
+    gesture.revealEligible = YES;
+    gesture.displacement = translation;
+    gesture.testState = state;
+    [self.control handleRevealGesture:gesture];
 }
 - (void)testHiddenArrowRetainsEntireNativeTouchTargetOnBothEdges {
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:YES];
         XCTAssertTrue(CGRectContainsRect(self.window.bounds, self.control.frame));
+        XCTAssertEqualWithAccuracy(self.control.frame.size.width, 64, 0.001);
+        XCTAssertEqualWithAccuracy(self.control.frame.size.height, 132, 0.001);
         XCTAssertEqualWithAccuracy(self.control.alpha, 1, 0.001);
         UIView *artwork = self.control.subviews.firstObject;
         XCTAssertTrue(artwork.hidden);
@@ -168,15 +180,14 @@
     NSArray *edges = [self addedWindowGestures];
     XCTAssertEqual(edges.count, 1u);
     UIGestureRecognizer *edge = edges.firstObject;
-    XCTAssertTrue([edge isKindOfClass:UIPanGestureRecognizer.class]);
+    XCTAssertTrue([edge isKindOfClass:LCDockRevealGesture.class]);
     XCTAssertFalse([edge isKindOfClass:UIScreenEdgePanGestureRecognizer.class]);
     XCTAssertFalse(edge.cancelsTouchesInView);
     XCTAssertTrue([edge.delegate gestureRecognizer:edge shouldRecognizeSimultaneouslyWithGestureRecognizer:guestPan]);
     UIGestureRecognizer *tabPan = self.control.gestureRecognizers.firstObject;
     XCTAssertTrue([tabPan.delegate gestureRecognizer:tabPan shouldRecognizeSimultaneouslyWithGestureRecognizer:guestPan]);
     XCTAssertTrue(tabPan.cancelsTouchesInView);
-    XCTAssertEqual(((UIPanGestureRecognizer *)tabPan).maximumNumberOfTouches, 1u);
-    XCTAssertEqual(((UIPanGestureRecognizer *)edge).maximumNumberOfTouches, 1u);
+    XCTAssertTrue([tabPan isKindOfClass:LCDockRevealGesture.class]);
     [self sendPan:CGPointMake(-40, 0) state:UIGestureRecognizerStateChanged];
     XCTAssertEqual(self.reveals, 1u);
     XCTAssertTrue([self.guest.gestureRecognizers containsObject:guestPan]);
@@ -199,17 +210,19 @@
         XCTAssertNil(self.control.superview);
     }
 }
-- (void)testWindowPanAcceptsOnlyTheCurrent44PointEdgeBandAtTouchDown {
+- (void)testWindowGestureAcceptsBoth44PointEdgeBandsAtTouchDown {
     LCDockTestTouch *touch = [LCDockTestTouch new];
     touch.testView = self.guest;
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:YES];
         UIGestureRecognizer *edge = [self addedWindowGestures].firstObject;
-        for (NSNumber *distance in @[@2, @22, @44, @45, @100]) {
-            touch.testLocation = CGPointMake(right.boolValue ? CGRectGetMaxX(self.window.bounds) - distance.doubleValue :
-                                                                CGRectGetMinX(self.window.bounds) + distance.doubleValue,
-                                           CGRectGetMidY(self.window.bounds) - 100);
-            XCTAssertEqual([self.control gestureRecognizer:edge shouldReceiveTouch:touch], distance.doubleValue <= 44);
+        for (NSNumber *startRight in @[@NO, @YES]) {
+            for (NSNumber *distance in @[@2, @22, @44, @45, @100]) {
+                touch.testLocation = CGPointMake(startRight.boolValue ? CGRectGetMaxX(self.window.bounds) - distance.doubleValue :
+                                                                        CGRectGetMinX(self.window.bounds) + distance.doubleValue,
+                                               CGRectGetMidY(self.window.bounds) - 100);
+                XCTAssertEqual([self.control gestureRecognizer:edge shouldReceiveTouch:touch], distance.doubleValue <= 44);
+            }
         }
         // Tab contacts belong to the local pan, and a touch beyond window
         // bounds must not be mistaken for a valid edge contact.
@@ -224,34 +237,150 @@
         XCTAssertFalse([self.control gestureRecognizer:edge shouldReceiveTouch:touch]);
     }
 }
-- (void)testRevealPanBeginsOnlyWithInwardHorizontalIntent {
-    LCDockTestPan *pan = [LCDockTestPan new];
+- (void)testRevealGestureDoesNotRejectInitialDiagonalJitterInTheBeginDelegate {
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:YES];
-        UIGestureRecognizer *installedEdge = [self addedWindowGestures].firstObject;
-        [installedEdge.view removeGestureRecognizer:installedEdge];
-        LCDockTestPan *edge = [LCDockTestPan new];
-        [self.window addGestureRecognizer:edge];
-        // UIKit resets setTranslation: on a recognizer with no delivered
-        // contact. Inject the test pan so this policy test controls its input;
-        // the UI suite separately delivers actual edge contacts.
-        [self.control setValue:edge forKey:@"edgePan"];
-        CGFloat inward = right.boolValue ? -1 : 1;
-        for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-15 * inward, 0)],
-                                [NSValue valueWithCGPoint:CGPointMake(4 * inward, 15)],
-                                [NSValue valueWithCGPoint:CGPointMake(10 * inward, 10)]]) {
-            edge.testTranslation = value.CGPointValue;
-            XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
-        }
-        edge.testTranslation = CGPointMake(15 * inward, 4);
+        UIGestureRecognizer *edge = [self addedWindowGestures].firstObject;
         XCTAssertTrue([self.control gestureRecognizerShouldBegin:edge]);
-        // Local tab pans must receive their move callbacks even when UIKit
-        // reports no accumulated translation while deciding to begin.
-        pan.testTranslation = CGPointZero;
-        XCTAssertTrue([self.control gestureRecognizerShouldBegin:pan]);
+        XCTAssertTrue([self.control gestureRecognizerShouldBegin:self.control.gestureRecognizers.firstObject]);
+        [self.control accessibilityActivate];
+        XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
         [self.control hide];
         XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
     }
+}
+- (LCDockTestTouch *)beginReveal:(LCDockTestRevealGesture *)gesture at:(CGPoint)point {
+    [gesture reset];
+    gesture.testState = UIGestureRecognizerStatePossible;
+    LCDockTestTouch *touch = [LCDockTestTouch new];
+    touch.testLocation = point;
+    [gesture touchesBegan:[NSSet setWithObject:touch] withEvent:self.testEvent];
+    return touch;
+}
+- (void)moveReveal:(LCDockTestRevealGesture *)gesture touch:(LCDockTestTouch *)touch to:(CGPoint)point {
+    touch.testLocation = point;
+    [gesture touchesMoved:[NSSet setWithObject:touch] withEvent:self.testEvent];
+    [self.control handleRevealGesture:gesture];
+}
+- (void)testNearArrowTargetIncludesMissedLandingsWithoutMovingTheArtwork {
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        CGRect original = [self frameForRight:right.boolValue];
+        CGFloat sign = right.boolValue ? -1 : 1;
+        for (NSValue *offset in @[[NSValue valueWithCGPoint:CGPointMake(0, -40)],
+                                  [NSValue valueWithCGPoint:CGPointMake(0, 40)],
+                                  [NSValue valueWithCGPoint:CGPointMake(28, 0)]]) {
+            CGPoint point = CGPointMake(CGRectGetMidX(original) + offset.CGPointValue.x * sign,
+                                       CGRectGetMidY(original) + offset.CGPointValue.y);
+            XCTAssertEqual([self.window hitTest:point withEvent:nil], self.control);
+        }
+        CGPoint outside = CGPointMake(CGRectGetMidX(original), CGRectGetMidY(original) + 70);
+        XCTAssertEqual([self.window hitTest:outside withEvent:nil], self.guest);
+        UIView *artwork = self.control.subviews.firstObject;
+        CGRect inWindow = [self.control convertRect:artwork.frame toView:self.window];
+        XCTAssertEqualWithAccuracy(CGRectGetMidY(inWindow), CGRectGetMidY(original), 0.001);
+        XCTAssertEqualWithAccuracy(right.boolValue ? CGRectGetMaxX(inWindow) : CGRectGetMinX(inWindow),
+                                  right.boolValue ? CGRectGetMaxX(original) : CGRectGetMinX(original), 0.001);
+        [self.control hide];
+    }
+}
+- (void)testLocalRevealCountsFromTouchDownAndToleratesInitialJitter {
+    LCDockTestRevealGesture *gesture = [LCDockTestRevealGesture new];
+    [self.control addGestureRecognizer:gesture];
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        gesture.right = right.boolValue;
+        CGFloat inward = right.boolValue ? -1 : 1;
+        NSUInteger before = self.reveals;
+        LCDockTestTouch *touch = [self beginReveal:gesture at:CGPointMake(100, 100)];
+        [self moveReveal:gesture touch:touch to:CGPointMake(100 + 4 * inward, 112)];
+        XCTAssertEqual(gesture.state, UIGestureRecognizerStateBegan);
+        XCTAssertEqual(self.reveals, before);
+        [self moveReveal:gesture touch:touch to:CGPointMake(100 + 15 * inward, 108)];
+        XCTAssertEqual(self.reveals, before);
+        [self moveReveal:gesture touch:touch to:CGPointMake(100 + 16 * inward, 108)];
+        XCTAssertEqual(self.reveals, before + 1);
+        [self.control hide];
+    }
+    [self.control removeGestureRecognizer:gesture];
+}
+- (void)testNearArrowTargetClipsAtHostTopAndBottomAndUnchangedRefreshRetainsGestures {
+    for (NSNumber *right in @[@NO, @YES]) {
+        for (NSNumber *bottom in @[@NO, @YES]) {
+            CGRect frame = [self frameForRight:right.boolValue];
+            frame.origin.y = bottom.boolValue ? CGRectGetMaxY(self.window.bounds) - 52 : CGRectGetMinY(self.window.bounds) + 8;
+            [self.control showInWindow:self.window frame:frame right:right.boolValue hideArrow:YES reveal:^{}];
+            [self.control layoutIfNeeded];
+            XCTAssertTrue(CGRectContainsRect(self.window.bounds, self.control.frame));
+            CGRect artwork = [self.control convertRect:self.control.subviews.firstObject.frame toView:self.window];
+            XCTAssertEqualWithAccuracy(CGRectGetMidY(artwork), CGRectGetMidY(frame), 0.001);
+            UIGestureRecognizer *edge = [self addedWindowGestures].firstObject;
+            UIGestureRecognizer *local = self.control.gestureRecognizers.firstObject;
+            for (NSUInteger index = 0; index < 4; ++index)
+                [self.control showInWindow:self.window frame:frame right:right.boolValue hideArrow:index % 2 reveal:^{}];
+            XCTAssertEqual([self addedWindowGestures].firstObject, edge);
+            XCTAssertEqual(self.control.gestureRecognizers.firstObject, local);
+            XCTAssertTrue(local.enabled);
+            [self.control hide];
+            XCTAssertFalse(local.enabled);
+        }
+    }
+}
+- (void)testWindowRevealUsesTheStartingEdgeAndKeepsThirtyPointThreshold {
+    LCDockTestRevealGesture *gesture = [LCDockTestRevealGesture new];
+    gesture.windowRoute = YES;
+    [self.guest addGestureRecognizer:gesture];
+    for (NSNumber *dockRight in @[@NO, @YES]) {
+        for (NSNumber *startRight in @[@NO, @YES]) {
+            [self showRight:dockRight.boolValue hideArrow:YES];
+            CGFloat x = startRight.boolValue ? CGRectGetMaxX(self.window.bounds) - 22 : CGRectGetMinX(self.window.bounds) + 22;
+            CGFloat inward = startRight.boolValue ? -1 : 1;
+            NSUInteger before = self.reveals;
+            LCDockTestTouch *touch = [self beginReveal:gesture at:CGPointMake(x, 100)];
+            [self moveReveal:gesture touch:touch to:CGPointMake(x + 4 * inward, 115)];
+            XCTAssertEqual(gesture.state, UIGestureRecognizerStatePossible);
+            [self moveReveal:gesture touch:touch to:CGPointMake(x + 29 * inward, 108)];
+            XCTAssertEqual(self.reveals, before);
+            [self moveReveal:gesture touch:touch to:CGPointMake(x + 30 * inward, 108)];
+            XCTAssertEqual(self.reveals, before + 1);
+            [self.control hide];
+        }
+    }
+    [self.guest removeGestureRecognizer:gesture];
+}
+- (void)testRevealRejectsVerticalOutwardCancelledAndMultipleFingerGestures {
+    LCDockTestRevealGesture *gesture = [LCDockTestRevealGesture new];
+    [self.guest addGestureRecognizer:gesture];
+    for (NSNumber *windowRoute in @[@NO, @YES]) {
+        [self showRight:NO hideArrow:YES];
+        gesture.right = NO;
+        gesture.windowRoute = windowRoute.boolValue;
+        for (NSValue *move in @[[NSValue valueWithCGPoint:CGPointMake(4, 30)],
+                                [NSValue valueWithCGPoint:CGPointMake(-16, 0)]]) {
+            LCDockTestTouch *touch = [self beginReveal:gesture at:CGPointMake(22, 100)];
+            [self moveReveal:gesture touch:touch to:CGPointMake(22 + move.CGPointValue.x, 100 + move.CGPointValue.y)];
+            [self moveReveal:gesture touch:touch to:CGPointMake(70, 100)];
+            XCTAssertEqual(self.reveals, 0u);
+        }
+        LCDockTestTouch *touch = [self beginReveal:gesture at:CGPointMake(22, 100)];
+        [self moveReveal:gesture touch:touch to:CGPointMake(32, 102)];
+        [gesture touchesCancelled:[NSSet setWithObject:touch] withEvent:self.testEvent];
+        [self moveReveal:gesture touch:touch to:CGPointMake(70, 100)];
+        XCTAssertEqual(self.reveals, 0u);
+        touch = [self beginReveal:gesture at:CGPointMake(22, 100)];
+        [gesture touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:self.testEvent];
+        [self moveReveal:gesture touch:touch to:CGPointMake(70, 100)];
+        XCTAssertEqual(gesture.state, UIGestureRecognizerStateFailed);
+        XCTAssertEqual(self.reveals, 0u);
+        touch = [self beginReveal:gesture at:CGPointMake(22, 100)];
+        [self moveReveal:gesture touch:touch to:CGPointMake(32, 102)];
+        [gesture touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:self.testEvent];
+        [self moveReveal:gesture touch:touch to:CGPointMake(70, 100)];
+        XCTAssertEqual(gesture.state, UIGestureRecognizerStateCancelled);
+        XCTAssertEqual(self.reveals, 0u);
+        [self.control hide];
+    }
+    [self.guest removeGestureRecognizer:gesture];
 }
 - (void)testMovingControlToAnotherHostRemovesTheOldEdgeRecognizer {
     [self showRight:YES hideArrow:NO];

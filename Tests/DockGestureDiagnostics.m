@@ -6,7 +6,7 @@
 @end
 
 @interface LCDockRevealControl (DiagnosticCallbacks)
-- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture;
+- (void)handleRevealGesture:(UIGestureRecognizer *)gesture;
 @end
 
 @interface LCDockDiagnosticRevealControl ()
@@ -17,7 +17,9 @@
 - (NSString *)traceSummary { return self.trace ?: @"No reveal events"; }
 - (void)record:(NSString *)label gesture:(UIGestureRecognizer *)gesture {
     if (!self.trace) self.trace = [NSMutableString new];
-    CGPoint translation = [(UIPanGestureRecognizer *)gesture translationInView:self.window];
+    CGPoint translation = [gesture isKindOfClass:UIPanGestureRecognizer.class] ?
+        [(UIPanGestureRecognizer *)gesture translationInView:self.window] :
+        [[gesture valueForKey:@"displacement"] CGPointValue];
     [self.trace appendFormat:@"%@ view=%@ state=%ld translation=(%g,%g); ",
         label, NSStringFromClass(gesture.view.class), (long)gesture.state, translation.x, translation.y];
 }
@@ -32,9 +34,9 @@
     [self record:accepted ? @"begin YES" : @"begin NO" gesture:gesture];
     return accepted;
 }
-- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture {
-    [self record:@"pan" gesture:gesture];
-    [super handleRevealPan:gesture];
+- (void)handleRevealGesture:(UIGestureRecognizer *)gesture {
+    [self record:@"touch gesture" gesture:gesture];
+    [super handleRevealGesture:gesture];
 }
 @end
 

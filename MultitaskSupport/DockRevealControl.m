@@ -2,10 +2,23 @@
 #import <UIKit/UIGestureRecognizerSubclass.h>
 #include <math.h>
 
+// Track from touch-down rather than UIKit's pan-recognition point. A short
+// reveal must not lose its first few points to the native pan's movement slop.
+@interface LCDockRevealGesture : UIGestureRecognizer
+@property(nonatomic) BOOL right;
+@property(nonatomic) BOOL windowRoute;
+@property(nonatomic) BOOL revealEligible;
+@property(nonatomic) BOOL trackingTouch;
+@property(nonatomic) CGPoint startPoint;
+@property(nonatomic) CGPoint displacement;
+@end
+
 @interface LCDockRevealControl ()
 @property(nonatomic) UIView *tab;
 @property(nonatomic) UIImageView *arrow;
-@property(nonatomic) UIPanGestureRecognizer *edgePan;
+@property(nonatomic) LCDockRevealGesture *edgePan;
+@property(nonatomic) LCDockRevealGesture *tabPan;
+@property(nonatomic) CGRect revealFrame;
 @property(nonatomic, copy) void (^reveal)(void);
 @property(nonatomic) BOOL right;
 @property(nonatomic) BOOL revealIssued;
@@ -174,34 +187,46 @@
     self.arrow.tintColor = UIColor.whiteColor;
     [self.tab addSubview:self.arrow];
     [self addTarget:self action:@selector(revealDock) forControlEvents:UIControlEventTouchUpInside];
-    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRevealPan:)];
-    pan.delegate = self;
-    pan.maximumNumberOfTouches = 1;
+    self.tabPan = [[LCDockRevealGesture alloc] initWithTarget:self action:@selector(handleRevealGesture:)];
+    self.tabPan.delegate = self;
     // Once a tab drag begins, it must not also activate TouchUpInside if it
     // stops before the reveal distance. A stationary tap remains available.
-    pan.cancelsTouchesInView = YES;
-    [self addGestureRecognizer:pan];
+    self.tabPan.cancelsTouchesInView = YES;
+    [self addGestureRecognizer:self.tabPan];
 }
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
           hideArrow:(BOOL)hideArrow reveal:(void (^)(void))reveal {
-    if (self.superview != window) {
+    BOOL changingWindow = self.superview != window;
+    if (changingWindow) {
         [self removeEdgePan];
         [window addSubview:self];
     }
-    if (self.edgePan && (self.right != right || !CGRectEqualToRect(self.frame, frame))) {
+    // Make the local target a real host view, including its surrounding patch.
+    // A remote guest must not own contacts that narrowly miss the old 44pt tab.
+    CGRect target = CGRectMake(CGRectGetMinX(frame) - (right ? 20 : 0),
+                               CGRectGetMinY(frame) - 44, CGRectGetWidth(frame) + 20,
+                               CGRectGetHeight(frame) + 88);
+    target = CGRectIntersection(target, window.bounds);
+    if (changingWindow || self.right != right || !CGRectEqualToRect(self.frame, target) ||
+        !CGRectEqualToRect(self.revealFrame, frame)) {
         // A rotation or placement change invalidates an in-flight direction.
         // Repeated workspace refreshes with the same frame leave it tracking.
         self.edgePan.enabled = NO;
         self.edgePan.enabled = YES;
+        self.tabPan.enabled = NO;
+        self.tabPan.enabled = YES;
     }
-    self.frame = frame;
+    self.frame = target;
+    self.revealFrame = frame;
     self.right = right;
+    self.tabPan.right = right;
     self.reveal = reveal;
     if (self.hidden) self.revealIssued = NO;
     self.hidden = NO;
     self.alpha = 1;
     self.userInteractionEnabled = YES;
-    // Hide only the artwork. The native 44pt control must remain hit-testable.
+    self.tabPan.enabled = YES;
+    // Hide only the artwork. The native touch target stays active.
     self.tab.hidden = hideArrow;
     self.tab.alpha = 0.8;
     self.arrow.image = [UIImage systemImageNamed:right ? @"chevron.left" : @"chevron.right"
@@ -210,12 +235,11 @@
     [self setNeedsLayout];
     [window bringSubviewToFront:self];
     if (!self.edgePan) {
-        // UIScreenEdgePan only accepts UIKit's narrow physical-edge zone.
-        // A hidden arrow gives no way to aim there, and restored guest windows
-        // occupy the rest of the edge. Filter a normal host pan at touch-down
-        // so an inward swipe can start anywhere in our explicit 44pt band.
-        self.edgePan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRevealPan:)];
-        self.edgePan.maximumNumberOfTouches = 1;
+        // Keep the old ability to reveal from either edge. This route observes
+        // guest contacts; the larger local tab target owns near-arrow contacts
+        // directly, without depending on a remote scene delivering host moves.
+        self.edgePan = [[LCDockRevealGesture alloc] initWithTarget:self action:@selector(handleRevealGesture:)];
+        self.edgePan.windowRoute = YES;
         self.edgePan.delegate = self;
         self.edgePan.cancelsTouchesInView = NO;
         self.edgePan.delaysTouchesBegan = NO;
@@ -225,13 +249,15 @@
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
-    self.tab.frame = CGRectMake(self.right ? CGRectGetWidth(self.bounds) - 16 : 0,
-                               (CGRectGetHeight(self.bounds) - 44) / 2, 16, 44);
+    CGRect slot = CGRectOffset(self.revealFrame, -CGRectGetMinX(self.frame), -CGRectGetMinY(self.frame));
+    self.tab.frame = CGRectMake(self.right ? CGRectGetMaxX(slot) - 16 : CGRectGetMinX(slot),
+                               CGRectGetMidY(slot) - 22, 16, 44);
     self.arrow.frame = self.tab.bounds;
 }
 - (void)hide {
     self.hidden = YES;
     self.reveal = nil;
+    self.tabPan.enabled = NO;
     [self removeEdgePan];
     [self removeFromSuperview];
 }
@@ -249,12 +275,14 @@
     [self revealDock];
     return YES;
 }
-- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture {
+- (void)handleRevealGesture:(LCDockRevealGesture *)gesture {
     if (gesture.state != UIGestureRecognizerStateBegan && gesture.state != UIGestureRecognizerStateChanged &&
         gesture.state != UIGestureRecognizerStateEnded) return;
-    CGPoint translation = [gesture translationInView:self.window];
-    CGFloat inward = self.right ? -translation.x : translation.x;
-    if (inward >= 30 && inward > fabs(translation.y)) [self revealDock];
+    if (!gesture.revealEligible) return;
+    CGPoint translation = gesture.displacement;
+    CGFloat inward = gesture.right ? -translation.x : translation.x;
+    CGFloat distance = gesture.windowRoute ? 30 : 16;
+    if (inward >= distance && inward > fabs(translation.y)) [self revealDock];
 }
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
     if (self.hidden || !self.reveal || self.revealIssued || !self.window) return NO;
@@ -265,22 +293,79 @@
     CGRect bounds = self.window.bounds;
     CGPoint point = [touch locationInView:self.window];
     if (!CGRectContainsPoint(bounds, point)) return NO;
-    CGFloat distance = self.right ? CGRectGetMaxX(bounds) - point.x : point.x - CGRectGetMinX(bounds);
+    CGFloat distance = MIN(CGRectGetMaxX(bounds) - point.x, point.x - CGRectGetMinX(bounds));
     return distance <= 44;
 }
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-    if (self.hidden || !self.reveal || self.revealIssued || !self.window) return NO;
-    // The small tab owns its contact and already checks direction/distance in
-    // handleRevealPan:. Do not reject its pan during UIKit's initial slop.
-    // The window route alone must yield early to guest scrolling.
-    if (gestureRecognizer != self.edgePan) return YES;
-    CGPoint translation = [(UIPanGestureRecognizer *)gestureRecognizer translationInView:self.window];
-    CGFloat inward = self.right ? -translation.x : translation.x;
-    return inward > fabs(translation.y);
+    // Direction is resolved over successive real touch samples. Rejecting a
+    // native pan here after its initial slop permanently lost diagonal starts.
+    return !self.hidden && self.reveal && !self.revealIssued && self.window;
 }
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
     // An embedded game's recognizer must not prevent the host's reveal gesture.
     return YES;
+}
+@end
+
+@implementation LCDockRevealGesture
+- (void)reset {
+    [super reset];
+    self.trackingTouch = NO;
+    self.revealEligible = NO;
+    self.displacement = CGPointZero;
+}
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.state != UIGestureRecognizerStatePossible || self.trackingTouch || touches.count != 1) {
+        if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+        else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+            self.state = UIGestureRecognizerStateCancelled;
+        return;
+    }
+    self.trackingTouch = YES;
+    self.revealEligible = YES;
+    UIView *coordinateView = self.view.window ?: self.view;
+    self.startPoint = [touches.anyObject locationInView:coordinateView];
+    if (self.windowRoute) self.right = self.startPoint.x > CGRectGetMidX(coordinateView.bounds);
+}
+- (void)updateWithTouch:(UITouch *)touch {
+    if (!self.trackingTouch || (self.state != UIGestureRecognizerStatePossible &&
+        self.state != UIGestureRecognizerStateBegan && self.state != UIGestureRecognizerStateChanged)) return;
+    CGPoint point = [touch locationInView:self.view.window ?: self.view];
+    self.displacement = CGPointMake(point.x - self.startPoint.x, point.y - self.startPoint.y);
+    CGFloat inward = self.right ? -self.displacement.x : self.displacement.x;
+    CGFloat vertical = fabs(self.displacement.y);
+    // Tolerate initial finger jitter. A deliberate vertical/outward drag cannot
+    // later turn into a reveal; local drags still consume the control's tap.
+    if (inward <= -16 || (vertical >= 24 && vertical > fabs(self.displacement.x) * 1.25))
+        self.revealEligible = NO;
+    if (self.windowRoute && !self.revealEligible) {
+        self.state = self.state == UIGestureRecognizerStatePossible ? UIGestureRecognizerStateFailed : UIGestureRecognizerStateCancelled;
+    } else if (self.state == UIGestureRecognizerStatePossible) {
+        BOOL begins = self.windowRoute ? inward >= 6 && inward > vertical :
+            hypot(self.displacement.x, self.displacement.y) >= 6;
+        if (begins) self.state = UIGestureRecognizerStateBegan;
+    } else {
+        self.state = UIGestureRecognizerStateChanged;
+    }
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (touches.count == 1) [self updateWithTouch:touches.anyObject];
+    else if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+    else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+        self.state = UIGestureRecognizerStateCancelled;
+}
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (touches.count == 1) [self updateWithTouch:touches.anyObject];
+    if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+    else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+        self.state = UIGestureRecognizerStateEnded;
+    self.trackingTouch = NO;
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+    else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+        self.state = UIGestureRecognizerStateCancelled;
+    self.trackingTouch = NO;
 }
 @end

@@ -2,8 +2,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-// Kept inside the host window so revealing the Dock does not depend on an
-// offscreen SwiftUI view accepting input or the guest accepting an edge swipe.
+// The arrow retains its placement inside a larger local host touch target.
+// Near-arrow reveals do not depend on the guest delivering host edge moves.
 @interface LCDockRevealControl : UIControl <UIGestureRecognizerDelegate>
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
           hideArrow:(BOOL)hideArrow reveal:(void (^)(void))reveal
