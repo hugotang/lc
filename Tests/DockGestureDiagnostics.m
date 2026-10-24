@@ -31,6 +31,12 @@
     [self record:[NSString stringWithFormat:@"prevent %@=%d", NSStringFromClass(other.class), prevented] touch:nil];
     return prevented;
 }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)other {
+    BOOL simultaneous = [super gestureRecognizer:gesture shouldRecognizeSimultaneouslyWithGestureRecognizer:other];
+    [self record:[NSString stringWithFormat:@"simultaneous %@=%d", NSStringFromClass(other.class), simultaneous] touch:nil];
+    return simultaneous;
+}
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];
     [self record:@"down" touch:touches.anyObject];

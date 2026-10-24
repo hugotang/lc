@@ -128,10 +128,11 @@
 }
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
-    // ScrollView may begin its pan on a horizontal sample as well. Let it
-    // coexist; taps/long presses and Menu relationships must yield once this
-    // recognizer has claimed an outward drag, before they take over input.
-    return [otherGestureRecognizer isKindOfClass:UIPanGestureRecognizer.class];
+    // SwiftUI also routes control and menu input through non-pan recognizers,
+    // sometimes on touch-down. Keep observing alongside those routes. Claiming
+    // outward intent cancels the pressed view; a tap/long press still works
+    // while this recognizer remains possible or fails without hiding.
+    return YES;
 }
 @end
 
