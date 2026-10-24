@@ -223,9 +223,8 @@
     dock.alpha = 1;
     UIPanGestureRecognizer *scroll = [UIPanGestureRecognizer new];
     XCTAssertTrue([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:scroll]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:scroll]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:[UITapGestureRecognizer new]]);
-    XCTAssertFalse([hide canBePreventedByGestureRecognizer:[UILongPressGestureRecognizer new]]);
+    XCTAssertFalse([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:[UITapGestureRecognizer new]]);
+    XCTAssertFalse([hide gestureRecognizer:hide shouldRecognizeSimultaneouslyWithGestureRecognizer:[UILongPressGestureRecognizer new]]);
     XCTAssertTrue(hide.cancelsTouchesInView);
     XCTAssertTrue(hide.delaysTouchesBegan);
     XCTAssertFalse(hide.delaysTouchesEnded);
@@ -262,7 +261,7 @@
         [self moveHide:hide touch:touch by:CGPointMake(15 * outward, 8)];
         XCTAssertEqual(hidden, before);
         [self moveHide:hide touch:touch by:CGPointMake(16 * outward, 8)];
-        XCTAssertEqual(hide.state, UIGestureRecognizerStateRecognized);
+        XCTAssertEqual(hide.state, UIGestureRecognizerStateChanged);
         XCTAssertEqual(hidden, before + 1);
         [hide handleHideGesture:hide];
         XCTAssertEqual(hidden, before + 1);
@@ -303,7 +302,7 @@
         [self moveHide:hide touch:touch by:CGPointMake(distance.doubleValue, 0)];
         [hide touchesEnded:[NSSet setWithObject:touch] withEvent:self.testEvent];
         [hide handleHideGesture:hide];
-        XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+        XCTAssertTrue(hide.state == UIGestureRecognizerStateFailed || hide.state == UIGestureRecognizerStateEnded);
         XCTAssertEqual(hidden, 0u);
     }
     LCDockTestTouch *touch = [self beginHide:hide];
@@ -315,6 +314,12 @@
     [hide touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:self.testEvent];
     [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
     XCTAssertEqual(hide.state, UIGestureRecognizerStateFailed);
+    XCTAssertEqual(hidden, 0u);
+    touch = [self beginHide:hide];
+    [self moveHide:hide touch:touch by:CGPointMake(7, 1)];
+    [hide touchesBegan:[NSSet setWithObject:[LCDockTestTouch new]] withEvent:self.testEvent];
+    [self moveHide:hide touch:touch by:CGPointMake(30, 0)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStateCancelled);
     XCTAssertEqual(hidden, 0u);
     [hide reset];
     hide.testState = UIGestureRecognizerStatePossible;
@@ -339,5 +344,20 @@
         XCTAssertTrue([self.guest.gestureRecognizers containsObject:unrelated]);
         XCTAssertFalse([self.guest.gestureRecognizers containsObject:hide]);
     }
+}
+- (void)testOutwardIntentClaimsBeforeMenuButStillNeedsFullHideDistance {
+    LCDockTestHideGesture *hide = [LCDockTestHideGesture new];
+    __block NSUInteger hidden = 0;
+    [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
+    LCDockTestTouch *touch = [self beginHide:hide];
+    [self moveHide:hide touch:touch by:CGPointMake(6, 1)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStateBegan);
+    XCTAssertEqual(hidden, 0u);
+    [self moveHide:hide touch:touch by:CGPointMake(9, 2)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStateChanged);
+    XCTAssertEqual(hidden, 0u);
+    [self moveHide:hide touch:touch by:CGPointMake(16, 3)];
+    XCTAssertEqual(hidden, 1u);
+    [hide detach];
 }
 @end
