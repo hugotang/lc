@@ -81,10 +81,25 @@
         if (sender && self.connection == sender && self.ready && self.didInterrupt) self.didInterrupt(session, reason);
     });
 }
+- (void)physicalInputChanged:(BOOL)touching began:(BOOL)began session:(NSString *)session revision:(uint64_t)revision
+                    timestamp:(NSTimeInterval)timestamp returnRevision:(uint64_t)returnRevision {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didChangePhysicalInput) {
+            self.didChangePhysicalInput(session, revision, touching, began, timestamp, returnRevision);
+        }
+    });
+}
 - (void)submitTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence {
     NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (sender && self.connection == sender && self.ready && self.didReceiveTouchFrame) self.didReceiveTouchFrame(frame, session, sequence);
+    });
+}
+- (void)submitSourceReturn:(NSArray<NSDictionary *> *)packets session:(NSString *)session {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didReceiveSourceReturn) self.didReceiveSourceReturn(packets, session);
     });
 }
 - (void)sendWithReply:(void (^)(id<LCTapSyncGuestProtocol>, void (^)(LCTapSyncResult)))send
@@ -104,14 +119,42 @@
     }];
     send(proxy, finish);
 }
-- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode reply:(void (^)(LCTapSyncResult))reply {
+- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
+         syncReturnGesture:(BOOL)syncReturnGesture
+                 reply:(void (^)(LCTapSyncResult))reply {
     [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
-        [proxy prepareSession:session source:source mode:mode reply:finish];
+        [proxy prepareSession:session source:source mode:mode resumeOnSource:resumeOnSource syncReturnGesture:syncReturnGesture reply:finish];
     } reply:reply];
+}
+- (void)suspendSession:(NSString *)session reply:(void (^)(LCTapSyncResult, BOOL, uint64_t))reply {
+    if (!self.ready || !self.connection) { reply(LCTapSyncResultUnavailable, NO, 0); return; }
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(LCTapSyncResult, BOOL, uint64_t) = ^(LCTapSyncResult result, BOOL touching, uint64_t revision) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completed) return;
+            completed = YES;
+            reply(self.connection == connection ? result : LCTapSyncResultUnavailable, touching, revision);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) {
+        finish(LCTapSyncResultUnavailable, NO, 0);
+    }];
+    [proxy suspendSession:session reply:finish];
 }
 - (void)stopSession:(NSString *)session {
     id<LCTapSyncGuestProtocol> proxy = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {}];
     [proxy stopSession:session];
+}
+- (void)resumeSourceSession:(NSString *)session previousSession:(NSString *)previous inputRevision:(uint64_t)revision
+                      reply:(void (^)(LCTapSyncResult))reply {
+    [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
+        [proxy resumeSourceSession:session previousSession:previous inputRevision:revision reply:finish];
+    } reply:reply];
+}
+- (void)discardSourceReturn:(NSString *)session beforeTime:(NSTimeInterval)time {
+    id<LCTapSyncGuestProtocol> proxy = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {}];
+    [proxy discardSourceReturn:session beforeTime:time];
 }
 - (void)replayTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence
             reply:(void (^)(LCTapSyncResult))reply {
@@ -140,7 +183,9 @@
     self.didReceiveTap = nil;
     self.didReceiveTouch = nil;
     self.didReceiveTouchFrame = nil;
+    self.didReceiveSourceReturn = nil;
     self.didInterrupt = nil;
+    self.didChangePhysicalInput = nil;
 }
 - (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply {

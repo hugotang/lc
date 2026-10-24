@@ -13,11 +13,12 @@ def read_report(path):
     samples = defaultdict(list)
     for row in rows:
         assert None not in row and None not in row.values(), "ragged CSV row"
-        assert row["schema_version"] == "2"
+        assert row["schema_version"] == "3"
+        assert row["sync_status"] == ("lc.tapSync.active" if row["sync_active"] == "1" else "lc.tapSync.expiredInput")
         assert row["build"] == 'Release (測試,"quoted")\nline 2'
         assert row["ios_version"] == "27.0" and row["logical_cpus"] == "6"
         for key, value in row.items():
-            if key not in ("build", "ios_version", "record_type", "role") and value:
+            if key not in ("build", "ios_version", "record_type", "role", "sync_status") and value:
                 assert math.isfinite(float(value)), (key, value)
         samples[int(row["sample"])].append(row)
     for group in samples.values():

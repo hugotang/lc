@@ -50,7 +50,7 @@
 - (void)toggleSync {
     if (self.showsPerformance) { if (self.configure) self.configure(); return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
-    if (sync.active || sync.starting) [sync pause];
+    if (sync.active || sync.starting || sync.recovering) [sync pause];
     else [sync start];
 }
 - (void)openSettings {
@@ -66,9 +66,9 @@
     if (self.showsPerformance) { [self refreshPerformance]; [self refreshPlacementActions]; return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     BOOL compact = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncCompactControls"];
-    BOOL running = sync.active || sync.starting;
+    BOOL running = sync.active || sync.starting || sync.recovering;
     BOOL interrupted = sync.hasInterruption;
-    NSString *title = [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
+    NSString *title = sync.recovering ? @"lc.tapSync.paused".loc : [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
         (long)sync.targetContainers.count];
     UIButtonConfiguration *configuration = UIButtonConfiguration.tintedButtonConfiguration;
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
@@ -85,7 +85,7 @@
     }
     NSString *status = affected.count ? [NSString stringWithFormat:@"%@ · %@", [affected componentsJoinedByString:@", "], sync.statusKey.loc] : sync.statusKey.loc;
     // Compact controls must not hide a failed start behind a momentary icon change.
-    configuration.subtitle = !running && (!compact || interrupted) ? status : nil;
+    configuration.subtitle = sync.recovering || (!running && (!compact || interrupted)) ? status : nil;
     configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
     configuration.subtitleLineBreakMode = interrupted ? NSLineBreakByWordWrapping : NSLineBreakByTruncatingTail;
     configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {

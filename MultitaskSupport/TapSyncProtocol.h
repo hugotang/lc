@@ -5,7 +5,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-enum { LCTapSyncProtocolVersion = 3 };
+enum { LCTapSyncProtocolVersion = 5 };
 
 typedef NS_ENUM(NSInteger, LCTapSyncMode) {
     LCTapSyncModeTapsOnly = 0,
@@ -30,10 +30,17 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
     LCTapSyncResultKeyboardVisible,
     LCTapSyncResultPhysicalTouch,
     LCTapSyncResultPreparationTimedOut,
+    LCTapSyncResultSuspended,
 };
 
 @protocol LCTapSyncGuestProtocol
-- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode reply:(void (^)(LCTapSyncResult))reply;
+- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
+         syncReturnGesture:(BOOL)syncReturnGesture
+                 reply:(void (^)(LCTapSyncResult))reply;
+- (void)suspendSession:(NSString *)session reply:(void (^)(LCTapSyncResult, BOOL, uint64_t))reply;
+- (void)resumeSourceSession:(NSString *)session previousSession:(NSString *)previous inputRevision:(uint64_t)revision
+                      reply:(void (^)(LCTapSyncResult))reply;
+- (void)discardSourceReturn:(NSString *)session beforeTime:(NSTimeInterval)time;
 - (void)stopSession:(NSString *)session;
 - (void)replayTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence
             reply:(void (^)(LCTapSyncResult))reply;
@@ -49,7 +56,10 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
 - (void)submitTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)submitTouch:(NSDictionary *)touch session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)submitTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence;
+- (void)submitSourceReturn:(NSArray<NSDictionary *> *)packets session:(NSString *)session;
 - (void)interruptSession:(NSString *)session reason:(LCTapSyncResult)reason;
+- (void)physicalInputChanged:(BOOL)touching began:(BOOL)began session:(NSString *)session revision:(uint64_t)revision
+                    timestamp:(NSTimeInterval)timestamp returnRevision:(uint64_t)returnRevision;
 @end
 
 static inline NSXPCInterface *LCTapSyncHostInterface(void) {
@@ -60,6 +70,8 @@ static inline NSXPCInterface *LCTapSyncHostInterface(void) {
               forSelector:@selector(submitTouch:session:sequence:) argumentIndex:0 ofReply:NO];
     [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
               forSelector:@selector(submitTouchFrame:session:sequence:) argumentIndex:0 ofReply:NO];
+    [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
+              forSelector:@selector(submitSourceReturn:session:) argumentIndex:0 ofReply:NO];
     return interface;
 }
 

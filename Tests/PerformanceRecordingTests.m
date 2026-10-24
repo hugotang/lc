@@ -14,7 +14,7 @@ static NSDictionary *Raw(double time, double cpu, double memoryMiB) {
 static NSDictionary *Sync(NSUInteger epoch, NSUInteger mode, BOOL active) {
     return @{@"epoch": @(epoch), @"mode": @(mode), @"active": @(active), @"targets": @1,
         @"responseSamples": @0, @"packets": @0, @"coalesced": @0, @"queuePeak": @0, @"pending": @0, @"inFlight": @0,
-        @"source": @"PRIVATE-source-id"};
+        @"source": @"PRIVATE-source-id", @"statusKey": active ? @"lc.tapSync.active" : @"lc.tapSync.expiredInput"};
 }
 static void Record(LCPerformanceRecording *recording, NSDictionary *sync, double time, double hostCPU, double guestCPU) {
     NSMutableDictionary *samples = [@{@"host": Raw(time, hostCPU, 64)} mutableCopy];

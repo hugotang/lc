@@ -38,6 +38,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
           "$RUNNER_TEMP/window-grid-order-tests"
+      - name: Test dock layout and account identity
+        run: |
+          swiftc -warnings-as-errors MultitaskSupport/MultitaskDockLayout.swift Tests/MultitaskDockLayoutTests.swift -o "$RUNNER_TEMP/dock-layout-tests"
+          "$RUNNER_TEMP/dock-layout-tests"
       - name: Test input sync geometry and sessions
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TapSyncGeometryTests.c -lm -o "$RUNNER_TEMP/tap-sync-geometry-tests"
@@ -50,6 +54,12 @@ jobs:
           "$RUNNER_TEMP/tap-sync-session-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncClientState.m Tests/TapSyncClientStateTests.m -o "$RUNNER_TEMP/tap-sync-client-state-tests"
           "$RUNNER_TEMP/tap-sync-client-state-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncReturnGesture.m Tests/TapSyncReturnGestureTests.m -o "$RUNNER_TEMP/tap-sync-return-gesture-tests"
+          "$RUNNER_TEMP/tap-sync-return-gesture-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
+          "$RUNNER_TEMP/tap-sync-selection-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncRecovery.m Tests/TapSyncRecoveryTests.m -o "$RUNNER_TEMP/tap-sync-recovery-tests"
+          "$RUNNER_TEMP/tap-sync-recovery-tests"
       - name: Test performance metrics
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
@@ -145,13 +155,54 @@ jobs:
           path: ${{ env.scheme }}+SideStore.ipa
           if-no-files-found: error
 
+  test_input_windows:
+    name: Test input sync and window controls on iPad simulator
+    runs-on: macos-latest
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - uses: actions/checkout@v6
+      - name: Test input sync window coverage
+        run: bash Tests/run-tap-sync-window-tests.sh
+      - name: Upload input sync window test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: input-sync-window-tests
+          path: ${{ runner.temp }}/tap-sync-window-tests
+          if-no-files-found: ignore
+  test_dock_gestures:
+    name: Test Dock gestures with real SwiftUI simulator touches
+    runs-on: macos-latest
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - uses: actions/checkout@v6
+      - name: Test Dock gestures through SwiftUI touch delivery
+        run: bash Tests/run-dock-gesture-ui-tests.sh
+      - name: Export Dock gesture failure attachments
+        if: failure()
+        run: |
+          if [ -d "$RUNNER_TEMP/dock-gesture-ui-tests/results.xcresult" ]; then
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/dock-gesture-ui-tests/results.xcresult" --output-path "$RUNNER_TEMP/dock-gesture-ui-tests/attachments"
+          fi
+      - name: Upload Dock gesture UI test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dock-gesture-ui-tests
+          path: ${{ runner.temp }}/dock-gesture-ui-tests
+          if-no-files-found: ignore
+
   release__nightly:
     name: Nightly Release
     permissions:
       contents: write
     if: github.event_name == 'workflow_dispatch' && inputs.release__nightly
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, test_input_windows, test_dock_gestures]
     concurrency:
       group: release__nightly
       cancel-in-progress: true
