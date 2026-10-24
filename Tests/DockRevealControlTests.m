@@ -228,15 +228,22 @@
     LCDockTestPan *pan = [LCDockTestPan new];
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:YES];
-        UIPanGestureRecognizer *edge = (UIPanGestureRecognizer *)[self addedWindowGestures].firstObject;
+        UIGestureRecognizer *installedEdge = [self addedWindowGestures].firstObject;
+        [installedEdge.view removeGestureRecognizer:installedEdge];
+        LCDockTestPan *edge = [LCDockTestPan new];
+        [self.window addGestureRecognizer:edge];
+        // UIKit resets setTranslation: on a recognizer with no delivered
+        // contact. Inject the test pan so this policy test controls its input;
+        // the UI suite separately delivers actual edge contacts.
+        [self.control setValue:edge forKey:@"edgePan"];
         CGFloat inward = right.boolValue ? -1 : 1;
         for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-15 * inward, 0)],
                                 [NSValue valueWithCGPoint:CGPointMake(4 * inward, 15)],
                                 [NSValue valueWithCGPoint:CGPointMake(10 * inward, 10)]]) {
-            [edge setTranslation:value.CGPointValue inView:self.window];
+            edge.testTranslation = value.CGPointValue;
             XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
         }
-        [edge setTranslation:CGPointMake(15 * inward, 4) inView:self.window];
+        edge.testTranslation = CGPointMake(15 * inward, 4);
         XCTAssertTrue([self.control gestureRecognizerShouldBegin:edge]);
         // Local tab pans must receive their move callbacks even when UIKit
         // reports no accumulated translation while deciding to begin.
