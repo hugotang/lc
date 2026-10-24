@@ -16,7 +16,7 @@ import sys
 repo, root = map(Path, sys.argv[1:])
 project = root / 'DockGestures.xcodeproj'
 (root / 'DockGestures-Bridging-Header.h').write_text(
-    f'#import "{repo}/MultitaskSupport/DockRevealControl.h"\n')
+    f'#import "{repo}/Tests/DockGestureDiagnostics.h"\n')
 plistlib.dump({
     'CFBundleExecutable': '$(EXECUTABLE_NAME)',
     'CFBundleIdentifier': '$(PRODUCT_BUNDLE_IDENTIFIER)',
@@ -34,6 +34,7 @@ sources = [
     ('H1', 'Tests/DockGestureTestHost.swift', 'sourcecode.swift'),
     ('H2', 'MultitaskSupport/DockRevealControl.m', 'sourcecode.c.objc'),
     ('H3', 'MultitaskSupport/MultitaskDockLayout.swift', 'sourcecode.swift'),
+    ('H4', 'Tests/DockGestureDiagnostics.m', 'sourcecode.c.objc'),
     ('T1', 'Tests/DockGestureUITests.m', 'sourcecode.c.objc'),
 ]
 # Explicit IDs keep the generated project small and stable in CI diagnostics.
@@ -89,6 +90,8 @@ xcodebuild build-for-testing -project "$project" -scheme DockGestures -configura
 simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
 if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
 xcrun simctl bootstatus "$simulator_id" -b
+test_options=()
+if [ -n "${1:-}" ]; then test_options+=("-only-testing:$1"); fi
 xcodebuild test-without-building -project "$project" -scheme DockGestures -configuration Debug \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
-    -derivedDataPath "$test_root/DerivedData" -resultBundlePath "$test_root/results.xcresult"
+    -derivedDataPath "$test_root/DerivedData" -resultBundlePath "$test_root/results.xcresult" "${test_options[@]}"

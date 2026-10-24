@@ -76,6 +76,7 @@
         NSLog(@"DockMenu frame: %@", NSStringFromCGRect(self.app.buttons[@"DockMenu"].frame));
         [self dragElement:self.app.buttons[@"DockMenu"] dx:(right.boolValue ? 22 : -22) dy:4 hold:0];
         if (![self.app.staticTexts[@"DockStatus"].label isEqualToString:@"hidden"]) {
+            NSLog(@"Menu gesture trace: %@", self.app.staticTexts[@"DockGestureTrace"].label);
             NSLog(@"Menu swipe hierarchy: %@", self.app.debugDescription);
         }
         [self waitForStatus:@"hidden"];

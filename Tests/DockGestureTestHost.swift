@@ -9,9 +9,10 @@ private final class DockGestureFixture: ObservableObject {
     @Published var handleMoves = 0
     @Published var contextActions = 0
     @Published var hiddenDuringTouch = false
+    @Published var gestureTrace = "No touch yet"
     let right: Bool
     let width: CGFloat
-    let hideGesture = LCDockHideGesture()
+    let hideGesture = LCDockDiagnosticHideGesture()
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
@@ -128,6 +129,8 @@ private struct DockGestureTestRoot: View {
                 Text("\(fixture.handleMoves)").accessibilityIdentifier("DockHandleMoves")
                 Text("\(fixture.contextActions)").accessibilityIdentifier("DockContextActions")
                 Text(fixture.hiddenDuringTouch ? "yes" : "no").accessibilityIdentifier("DockHiddenDuringTouch")
+                Text(fixture.gestureTrace).lineLimit(1).frame(width: 300)
+                    .accessibilityIdentifier("DockGestureTrace")
                 Button("Show Dock") { fixture.hidden = false }
                     .accessibilityIdentifier("ShowDock")
             }
@@ -142,9 +145,14 @@ private struct DockGestureTestRoot: View {
 
 private final class DockGestureTestWindow: UIWindow {
     var lastTouchPhase: UITouch.Phase?
+    weak var fixture: DockGestureFixture?
     override func sendEvent(_ event: UIEvent) {
         if event.type == .touches { lastTouchPhase = event.allTouches?.first?.phase }
         super.sendEvent(event)
+        if lastTouchPhase == .ended || lastTouchPhase == .cancelled {
+            let trace = fixture?.hideGesture.traceSummary ?? "No fixture"
+            DispatchQueue.main.async { [weak fixture] in fixture?.gestureTrace = trace }
+        }
     }
 }
 
@@ -153,7 +161,9 @@ private final class DockGestureTestSceneDelegate: UIResponder, UIWindowSceneDele
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         guard let scene = scene as? UIWindowScene else { return }
         let window = DockGestureTestWindow(windowScene: scene)
-        window.rootViewController = UIHostingController(rootView: DockGestureTestRoot(fixture: DockGestureFixture()))
+        let fixture = DockGestureFixture()
+        window.fixture = fixture
+        window.rootViewController = UIHostingController(rootView: DockGestureTestRoot(fixture: fixture))
         self.window = window
         window.makeKeyAndVisible()
     }
