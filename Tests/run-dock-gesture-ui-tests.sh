@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Xcode supplies the UI test runner; the test app uses the production recognizer
+# Xcode supplies the UI test runner; the test app uses the production modifier
 # and ordinary SwiftUI controls so touches traverse the actual gesture arena.
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 test_root="$RUNNER_TEMP/dock-gesture-ui-tests"
@@ -16,7 +16,7 @@ import sys
 repo, root = map(Path, sys.argv[1:])
 project = root / 'DockGestures.xcodeproj'
 (root / 'DockGestures-Bridging-Header.h').write_text(
-    f'#import "{repo}/Tests/DockGestureDiagnostics.h"\n')
+    f'#import "{repo}/MultitaskSupport/DockRevealControl.h"\n')
 plistlib.dump({
     'CFBundleExecutable': '$(EXECUTABLE_NAME)',
     'CFBundleIdentifier': '$(PRODUCT_BUNDLE_IDENTIFIER)',
@@ -34,7 +34,7 @@ sources = [
     ('H1', 'Tests/DockGestureTestHost.swift', 'sourcecode.swift'),
     ('H2', 'MultitaskSupport/DockRevealControl.m', 'sourcecode.c.objc'),
     ('H3', 'MultitaskSupport/MultitaskDockLayout.swift', 'sourcecode.swift'),
-    ('H4', 'Tests/DockGestureDiagnostics.m', 'sourcecode.c.objc'),
+    ('H4', 'MultitaskSupport/MultitaskDockDrag.swift', 'sourcecode.swift'),
     ('T1', 'Tests/DockGestureUITests.m', 'sourcecode.c.objc'),
 ]
 # Explicit IDs keep the generated project small and stable in CI diagnostics.

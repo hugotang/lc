@@ -16,10 +16,12 @@ enum MultitaskDockLayoutTests {
         require(many.height <= 320 && many.rowHeight >= 44, "Overflow escaped the host or shrank targets")
         let narrow = LCDockLayout(preferredWidth: 20, availableHeight: 320, accountCount: 4, showsLabels: false, collapsed: false)
         require(narrow.width - LCDockLayout.padding * 2 >= 44 && narrow.rowHeight >= 44, "Legacy small widths must retain 44pt targets")
-        let short = LCDockLayout(preferredWidth: 80, availableHeight: 200, accountCount: 4, showsLabels: true, collapsed: false)
-        require(short.compact && short.viewportHeight == 0 && short.height <= 200, "A short host must use the account menu")
+        let short = LCDockLayout(preferredWidth: 80, availableHeight: 140, accountCount: 4, showsLabels: true, collapsed: false)
+        require(short.compact && short.viewportHeight == 0 && short.height <= 140, "A short host must use the account menu")
         let collapsed = LCDockLayout(preferredWidth: 80, availableHeight: 700, accountCount: 4, showsLabels: true, collapsed: true)
         require(collapsed.compact && !collapsed.scrolls && collapsed.height < four.height, "Collapsed dock is not compact")
+        require(collapsed.height == LCDockLayout.minimumHitSize + LCDockLayout.padding * 2,
+                "Collapsed Dock retained a separate movement-handle row")
         let invalid = LCDockLayout(preferredWidth: .nan, availableHeight: .infinity, accountCount: -1, showsLabels: true, collapsed: false)
         require(invalid.width.isFinite && invalid.height.isFinite && invalid.height >= 0, "Invalid geometry was not bounded")
         let wide = LCDockLayout(preferredWidth: 120, availableHeight: 500, accountCount: 1, showsLabels: false, collapsed: false)
@@ -45,6 +47,34 @@ enum MultitaskDockLayoutTests {
         }
         require(LCDockPlacement(saved: ["edge": "left", "fraction": 9]).fraction == 1, "Saved fraction must clamp")
         require(LCDockPlacement(saved: ["fraction": Double.nan]).fraction == 0.5, "Nonfinite saved fraction was retained")
+
+        // Original whole-Dock drag semantics: outward release hides without a
+        // second threshold; vertical movement preserves its edge and clamps.
+        for right in [false, true] {
+            let placement = LCDockPlacement(right: right, fraction: 0.5)
+            let frame = placement.frame(size: size, bounds: bounds, insets: insets, hidden: false)
+            let direction: CGFloat = right ? 1 : -1
+            require(placement.endingDrag(frame: frame, translation: CGSize(width: direction * 6, height: 2),
+                                        bounds: bounds, insets: insets) == .hide,
+                    "Short outward release still requires the withdrawn 16pt threshold")
+            require(placement.endingDrag(frame: frame, translation: CGSize(width: direction * 70, height: 20),
+                                        bounds: bounds, insets: insets) == .hide,
+                    "Outward throw does not hide")
+            if case .move(let moved) = placement.endingDrag(frame: frame, translation: CGSize(width: direction * 3, height: 90),
+                                                            bounds: bounds, insets: insets) {
+                require(moved.right == right && moved.fraction > placement.fraction, "Vertical drag hides or changes edge")
+            } else { preconditionFailure("Vertical drag must move") }
+            if case .move(let moved) = placement.endingDrag(frame: frame, translation: CGSize(width: -direction * 20, height: 0),
+                                                            bounds: bounds, insets: insets) {
+                require(moved.right == right, "Short inward drag must snap to the same edge")
+            } else { preconditionFailure("Inward drag must not hide") }
+            if case .move(let moved) = placement.endingDrag(frame: frame, translation: CGSize(width: -direction * bounds.width, height: 10),
+                                                            bounds: bounds, insets: insets) {
+                require(moved.right != right, "Cross-screen drag must switch edges")
+            } else { preconditionFailure("Cross-screen drag must not hide") }
+            require(placement.endingDrag(frame: frame, translation: CGSize(width: .nan, height: 0),
+                                        bounds: bounds, insets: insets) == .cancel, "Invalid drag was accepted")
+        }
 
         // The reveal control stays fully on screen, independent of Dock width,
         // offscreen placement, safe-area cutouts and portrait/landscape hosts.

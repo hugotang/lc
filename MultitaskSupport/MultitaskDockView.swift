@@ -155,10 +155,8 @@ class AppInfoProvider {
     private let accountRegistry = LCDockAccountRegistry(defaults: LCUtils.appGroupUserDefault)
     private var subscriptions = Set<AnyCancellable>()
     private let revealControl = LCDockRevealControl(frame: .zero)
-    private let hideGesture = LCDockHideGesture()
     private var dragStartFrame: CGRect?
     private var dragStartBounds = CGRect.zero
-    private var dragCancelled = false
     private weak var lastHostWindow: UIWindow?
     private var lastWindowBounds = CGRect.zero
     private var lastSafeAreaInsets = UIEdgeInsets.zero
@@ -294,12 +292,6 @@ class AppInfoProvider {
         let newFrame = placement.frame(size: CGSize(width: layout.width, height: layout.height),
                                        bounds: window.bounds, insets: placementInsets, hidden: isDockHidden)
         hostingController.view.isUserInteractionEnabled = isVisible && !isDockHidden
-        if isVisible && !isDockHidden && !isEditingGrid {
-            hideGesture.attach(to: hostingController.view, ignoredTopHeight: LCDockLayout.padding + LCDockLayout.handleHeight,
-                               right: placement.right) { [weak self] in self?.hideDockToSide() }
-        } else {
-            hideGesture.detach()
-        }
         applyNewFrame(newFrame, for: hostingController, animated: animated)
         if isVisible && isDockHidden {
             revealControl.accessibilityLabel = "lc.multitask.showDock".loc
@@ -330,33 +322,32 @@ class AppInfoProvider {
         }
     }
 
-    func dragDock(by translation: CGSize) {
-        guard !isDockHidden, !dragCancelled, let window = keyWindow, let view = hostingController?.view else { return }
-        if dragStartFrame == nil {
-            view.layer.removeAllAnimations()
-            dragStartFrame = view.frame
-            dragStartBounds = window.bounds
+    func beginDockDrag() {
+        guard isVisible, !isDockHidden, !isEditingGrid,
+              let window = keyWindow, let view = hostingController?.view else { return }
+        view.layer.removeAllAnimations()
+        dragStartFrame = view.frame
+        dragStartBounds = window.bounds
+    }
+
+    func finishDockDrag(by translation: CGSize) {
+        defer { dragStartFrame = nil }
+        guard isVisible, !isDockHidden, !isEditingGrid, let frame = dragStartFrame,
+              let window = keyWindow, dragStartBounds == window.bounds else { return }
+        let placement = placementStore.load(landscape: isLandscape)
+        switch placement.endingDrag(frame: frame, translation: translation, bounds: window.bounds, insets: placementInsets) {
+        case .hide:
+            hideDockToSide()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        case .move(let moved):
+            placementStore.save(moved, landscape: isLandscape)
+            updateDockFrame()
+        case .cancel:
+            break
         }
-        guard dragStartBounds == window.bounds, let start = dragStartFrame else { cancelDockDrag(); return }
-        let minY = window.bounds.minY + safeAreaInsets.top + 8
-        let maxY = max(minY, window.bounds.maxY - safeAreaInsets.bottom - start.height - 8)
-        var frame = start.offsetBy(dx: translation.width, dy: translation.height)
-        frame.origin.y = max(minY, min(maxY, frame.origin.y))
-        frame.origin.x = max(window.bounds.minX + safeAreaInsets.left,
-                             min(window.bounds.maxX - safeAreaInsets.right - frame.width, frame.origin.x))
-        view.frame = frame
     }
 
-    func finishDockDrag() {
-        defer { dragStartFrame = nil; dragCancelled = false }
-        guard !dragCancelled, let frame = hostingController?.view.frame,
-              let window = keyWindow, dragStartFrame != nil, dragStartBounds == window.bounds else { return }
-        placementStore.save(.from(frame: frame, bounds: window.bounds, insets: placementInsets), landscape: isLandscape)
-        updateDockFrame()
-    }
-
-    private func cancelDockDrag() {
-        if dragStartFrame != nil { dragCancelled = true }
+    func cancelDockDrag() {
         dragStartFrame = nil
     }
 
@@ -492,7 +483,6 @@ class AppInfoProvider {
             self.windowHostingView.finishGridEditing()
             self.cancelDockDrag()
             self.revealControl.hide()
-            self.hideGesture.detach()
             self.isDockHidden = false
             hostingController.view.isUserInteractionEnabled = false
             UIView.animate(
@@ -741,7 +731,6 @@ public struct MultitaskDockSwiftView: View {
                 Color.clear
             } else {
                 VStack(spacing: LCDockLayout.spacing) {
-                    dragHandle
                     if layout.compact {
                         if !dockManager.isCollapsed {
                             Menu {
@@ -797,27 +786,19 @@ public struct MultitaskDockSwiftView: View {
             }
         }
         .frame(width: layout.width, height: layout.height)
+        .modifier(LCDockDragModifier(enabled: !dockManager.isDockHidden && !dockManager.isEditingGrid,
+                                    geometryRevision: dockManager.geometryRevision,
+                                    begin: { dockManager.beginDockDrag() },
+                                    end: { dockManager.finishDockDrag(by: $0) },
+                                    cancel: { dockManager.cancelDockDrag() }))
         .ignoresSafeArea()
-    }
-
-    private var dragHandle: some View {
-        Image(systemName: "line.3.horizontal")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.6))
-            .frame(maxWidth: .infinity)
-            .frame(height: LCDockLayout.handleHeight)
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 6, coordinateSpace: .global)
-                .onChanged { dockManager.dragDock(by: $0.translation) }
-                .onEnded { _ in dockManager.finishDockDrag() })
-            .accessibilityLabel("lc.dock.drag".loc)
-            .accessibilityHint("lc.dock.dragHint".loc)
-            .accessibilityAction(named: Text("lc.tapSync.moveTopLeft".loc)) { dockManager.moveDock(right: false, fraction: 0) }
-            .accessibilityAction(named: Text("lc.tapSync.moveTopRight".loc)) { dockManager.moveDock(right: true, fraction: 0) }
-            .accessibilityAction(named: Text("lc.tapSync.moveBottomLeft".loc)) { dockManager.moveDock(right: false, fraction: 1) }
-            .accessibilityAction(named: Text("lc.tapSync.moveBottomRight".loc)) { dockManager.moveDock(right: true, fraction: 1) }
-            .onDisappear { dockManager.finishDockDrag() }
-            .id(dockManager.geometryRevision)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("lc.dock.drag".loc)
+        .accessibilityHint("lc.dock.dragHint".loc)
+        .accessibilityAction(named: Text("lc.tapSync.moveTopLeft".loc)) { dockManager.moveDock(right: false, fraction: 0) }
+        .accessibilityAction(named: Text("lc.tapSync.moveTopRight".loc)) { dockManager.moveDock(right: true, fraction: 0) }
+        .accessibilityAction(named: Text("lc.tapSync.moveBottomLeft".loc)) { dockManager.moveDock(right: false, fraction: 1) }
+        .accessibilityAction(named: Text("lc.tapSync.moveBottomRight".loc)) { dockManager.moveDock(right: true, fraction: 1) }
     }
 
     public init() {}
