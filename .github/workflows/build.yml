@@ -181,7 +181,7 @@ jobs:
           xcode-version: '26.2'
       - uses: actions/checkout@v6
       - name: Test Dock gestures through SwiftUI touch delivery
-        run: bash Tests/run-dock-gesture-ui-tests.sh DockGestureUITests/DockGestureUITests/testOutwardSwipeAlsoWorksOnMenuButton
+        run: bash Tests/run-dock-gesture-ui-tests.sh
       - name: Export Dock gesture failure attachments
         if: failure()
         run: |

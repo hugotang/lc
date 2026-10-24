@@ -109,6 +109,13 @@
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
     return YES;
 }
+- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    // Native Menu relationship recognizers otherwise cancel this touch around
+    // 10pt, before outward intent can reach 16pt. Combined with deferred control
+    // touch-down, let this recognizer decide its own direction/end state while
+    // scroll and long-press recognizers continue to recognize simultaneously.
+    return NO;
+}
 @end
 
 @implementation LCDockRevealControl
