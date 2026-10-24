@@ -21,6 +21,9 @@
     XCTAssertTrue([self.app.buttons[@"DockAccount0"] waitForExistenceWithTimeout:5]);
 }
 - (void)waitForStatus:(NSString *)status {
+    if ([status isEqualToString:@"hidden"] && ![self.app.staticTexts[@"DockStatus"].label isEqualToString:status]) {
+        NSLog(@"Dock hide gesture trace: %@", self.app.staticTexts[@"DockGestureTrace"].label);
+    }
     NSPredicate *predicate = [NSPredicate predicateWithFormat:@"label == %@", status];
     XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc]
         initWithPredicate:predicate object:self.app.staticTexts[@"DockStatus"]];

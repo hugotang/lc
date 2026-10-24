@@ -350,7 +350,10 @@
     __block NSUInteger hidden = 0;
     [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{ hidden += 1; }];
     LCDockTestTouch *touch = [self beginHide:hide];
-    [self moveHide:hide touch:touch by:CGPointMake(6, 1)];
+    [self moveHide:hide touch:touch by:CGPointMake(2, 1)];
+    XCTAssertEqual(hide.state, UIGestureRecognizerStatePossible);
+    XCTAssertEqual(hidden, 0u);
+    [self moveHide:hide touch:touch by:CGPointMake(3, 1)];
     XCTAssertEqual(hide.state, UIGestureRecognizerStateBegan);
     XCTAssertEqual(hidden, 0u);
     [self moveHide:hide touch:touch by:CGPointMake(9, 2)];

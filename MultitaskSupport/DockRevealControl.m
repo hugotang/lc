@@ -86,11 +86,11 @@
         // same gesture even if the finger drifts toward the edge.
         self.state = self.state == UIGestureRecognizerStatePossible ? UIGestureRecognizerStateFailed : UIGestureRecognizerStateCancelled;
     } else if (self.state == UIGestureRecognizerStatePossible) {
-        // Claim a clear outward drag before the native Menu's relationship
-        // gesture cancels the contact at about 10pt. Claiming only cancels the
-        // pressed control; hiding still needs 16pt in handleHideGesture:.
+        // Native control arbitration can run before the next 6pt sample is
+        // delivered. Claim clear outward intent earlier, while keeping the
+        // actual hide distance at 16pt in handleHideGesture:.
         // Ambiguous initial jitter stays possible instead of failing early.
-        if (outward >= 6 && outward > dy * 1.25) self.state = UIGestureRecognizerStateBegan;
+        if (outward >= 3 && outward > dy * 1.25) self.state = UIGestureRecognizerStateBegan;
     } else {
         self.state = UIGestureRecognizerStateChanged;
     }
