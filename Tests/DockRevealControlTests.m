@@ -186,7 +186,7 @@
         BOOL right = index % 2;
         [self showRight:right hideArrow:index % 3 == 0];
         [self showRight:right hideArrow:NO];
-        NSArray *edges = [self addedWindowGestures];
+        NSArray<UIGestureRecognizer *> *edges = [self addedWindowGestures];
         XCTAssertEqual(edges.count, 1u);
         XCTAssertEqual(edges.firstObject.view, self.window);
         LCDockTestTouch *touch = [LCDockTestTouch new];
