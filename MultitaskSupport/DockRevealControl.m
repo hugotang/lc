@@ -134,6 +134,17 @@
     // while this recognizer remains possible or fails without hiding.
     return YES;
 }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    // Primary-action menus normally open on touch-down and take ownership of
+    // the contact even when both recognizers can coexist. Their native button
+    // must wait for this swipe to fail before opening. A tap fails at touch-up;
+    // vertical/inward movement fails promptly. Account long presses do not wait.
+    UIView *view = otherGestureRecognizer.view;
+    if (![view isKindOfClass:UIButton.class] || ![view isDescendantOfView:self.view]) return NO;
+    UIButton *button = (UIButton *)view;
+    return button.menu != nil && button.showsMenuAsPrimaryAction;
+}
 @end
 
 @implementation LCDockRevealControl

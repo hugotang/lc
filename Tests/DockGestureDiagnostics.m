@@ -37,6 +37,15 @@
     [self record:[NSString stringWithFormat:@"simultaneous %@=%d", NSStringFromClass(other.class), simultaneous] touch:nil];
     return simultaneous;
 }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture
+    shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)other {
+    BOOL required = [super gestureRecognizer:gesture shouldBeRequiredToFailByGestureRecognizer:other];
+    UIButton *button = [other.view isKindOfClass:UIButton.class] ? (UIButton *)other.view : nil;
+    [self record:[NSString stringWithFormat:@"menu-wait %@ view=%@ menu=%d primary=%d result=%d",
+        NSStringFromClass(other.class), NSStringFromClass(other.view.class), button.menu != nil,
+        button.showsMenuAsPrimaryAction, required] touch:nil];
+    return required;
+}
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];
     [self record:@"down" touch:touches.anyObject];

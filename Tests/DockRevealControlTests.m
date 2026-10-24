@@ -363,4 +363,29 @@
     XCTAssertEqual(hidden, 1u);
     [hide detach];
 }
+- (void)testPrimaryActionMenuWaitsForSwipeIntentButAccountGesturesDoNot {
+    LCDockHideGesture *hide = [LCDockHideGesture new];
+    [hide attachToView:self.guest ignoredTopHeight:50 right:YES hide:^{}];
+    UIButton *menuButton = [UIButton new];
+    menuButton.menu = [UIMenu menuWithChildren:@[[UIAction actionWithTitle:@"Layout" image:nil identifier:nil handler:^(UIAction *action) {}]]];
+    menuButton.showsMenuAsPrimaryAction = YES;
+    [self.guest addSubview:menuButton];
+    UIGestureRecognizer *menuGesture = [UIGestureRecognizer new];
+    [menuButton addGestureRecognizer:menuGesture];
+    XCTAssertTrue([hide gestureRecognizer:hide shouldBeRequiredToFailByGestureRecognizer:menuGesture]);
+    menuButton.showsMenuAsPrimaryAction = NO;
+    XCTAssertFalse([hide gestureRecognizer:hide shouldBeRequiredToFailByGestureRecognizer:menuGesture]);
+    menuButton.showsMenuAsPrimaryAction = YES;
+    menuButton.menu = nil;
+    XCTAssertFalse([hide gestureRecognizer:hide shouldBeRequiredToFailByGestureRecognizer:menuGesture]);
+    menuButton.menu = [UIMenu menuWithChildren:@[]];
+    [self.window addSubview:menuButton];
+    XCTAssertFalse([hide gestureRecognizer:hide shouldBeRequiredToFailByGestureRecognizer:menuGesture]);
+    [menuButton removeFromSuperview];
+    UILongPressGestureRecognizer *accountPress = [UILongPressGestureRecognizer new];
+    [self.guest addGestureRecognizer:accountPress];
+    XCTAssertFalse([hide gestureRecognizer:hide shouldBeRequiredToFailByGestureRecognizer:accountPress]);
+    [self.guest removeGestureRecognizer:accountPress];
+    [hide detach];
+}
 @end
