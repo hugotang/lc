@@ -132,6 +132,38 @@
     }
     XCTAssertEqual(self.reveals, 2u);
 }
+- (void)testHiddenArrowRetainsATransparentImageSurfaceAcrossVisibilityChanges {
+    id contents = self.control.layer.contents;
+    XCTAssertNotNil(contents);
+    CGImageRef image = (__bridge CGImageRef)contents;
+    XCTAssertEqual(CFGetTypeID((__bridge CFTypeRef)contents), CGImageGetTypeID());
+    XCTAssertEqual(CGImageGetWidth(image), 1u);
+    XCTAssertEqual(CGImageGetHeight(image), 1u);
+    uint8_t pixel[4] = {255, 255, 255, 255};
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(pixel, 1, 1, 8, 4, colorSpace,
+                                                kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    XCTAssertNotEqual(context, NULL);
+    CGContextClearRect(context, CGRectMake(0, 0, 1, 1));
+    CGContextDrawImage(context, CGRectMake(0, 0, 1, 1), image);
+    XCTAssertEqual(pixel[3], 0u);
+    CGContextRelease(context);
+    CGColorSpaceRelease(colorSpace);
+    for (NSNumber *right in @[@NO, @YES]) {
+        for (NSNumber *hideArrow in @[@NO, @YES, @NO, @YES]) {
+            [self showRight:right.boolValue hideArrow:hideArrow.boolValue];
+            XCTAssertEqual(self.control.layer.contents, contents);
+            XCTAssertFalse(self.control.layer.hidden);
+            XCTAssertEqualWithAccuracy(self.control.layer.opacity, 1, 0.001);
+            XCTAssertEqual(self.control.subviews.firstObject.hidden, hideArrow.boolValue);
+            XCTAssertEqual([self.window hitTest:CGPointMake(CGRectGetMidX(self.control.frame), CGRectGetMidY(self.control.frame))
+                                    withEvent:nil], self.control);
+            [self.control hide];
+        }
+    }
+    LCDockRevealControl *second = [LCDockRevealControl new];
+    XCTAssertEqual(second.layer.contents, contents);
+}
 - (void)testRevealStaysAboveGuestAndDoesNotCoverTheRestOfTheWindow {
     [self showRight:YES hideArrow:NO];
     XCTAssertFalse(self.control.subviews.firstObject.hidden);

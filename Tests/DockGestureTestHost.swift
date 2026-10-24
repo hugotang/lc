@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 
 // A normal SwiftUI host isolates real Button/contextMenu/ScrollView arbitration
 // around the production native gesture, without the game's private scene APIs.
@@ -15,9 +16,12 @@ private final class DockGestureFixture: ObservableObject {
     @Published var guestDrags = 0
     @Published var guestTaps = 0
     @Published var reveals = 0
+    @Published var guestsMinimized = false
+    @Published var webGuestsReady = 0
     let right: Bool
     let width: CGFloat
-    let hideArrow: Bool
+    @Published var hideArrow: Bool
+    let webGuests: Bool
     let hideGesture = LCDockDiagnosticHideGesture()
     let revealControl = LCDockDiagnosticRevealControl()
     weak var window: UIWindow?
@@ -27,6 +31,7 @@ private final class DockGestureFixture: ObservableObject {
         right = !arguments.contains("--left")
         width = arguments.contains("--narrow") ? 56 : 80
         hideArrow = arguments.contains("--hide-arrow")
+        webGuests = arguments.contains("--web-guests")
         guestCount = arguments.contains("--restore-four") ? 4 : 1
     }
 
@@ -75,6 +80,16 @@ private final class DockGestureFixture: ObservableObject {
         // Account restoration and host layout can refresh the hidden control
         // repeatedly. Exercise the same production show/update path.
         for _ in 0..<4 { refreshReveal() }
+    }
+
+    func setGuestsMinimized(_ minimized: Bool) {
+        guestsMinimized = minimized
+        refreshReveal()
+    }
+
+    func toggleArrow() {
+        hideArrow.toggle()
+        refreshReveal()
     }
 }
 
@@ -133,6 +148,92 @@ private struct FixtureGuestsHost: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: FixtureGuestsController, context: Context) {
         controller.updateGuests()
     }
+}
+
+// WebKit adds real out-of-process rendered content below the host control.
+// Its host-side input transport differs from the game's private scene hosting;
+// this is additional coverage, not a reproduction of Monster Strike on iPad.
+@MainActor
+private final class FixtureWebGuestsController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate {
+    weak var fixture: DockGestureFixture?
+    private var guests: [WKWebView] = []
+
+    func updateGuests() {
+        guard let fixture else { return }
+        while guests.count < fixture.guestCount {
+            let index = guests.count
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .nonPersistent()
+            configuration.userContentController.add(self, name: "guestInput")
+            let guest = WKWebView(frame: .zero, configuration: configuration)
+            guest.navigationDelegate = self
+            guest.accessibilityIdentifier = "FixtureWebGuest\(index)"
+            guests.append(guest)
+            view.addSubview(guest)
+            guest.loadHTMLString("""
+                <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+                <style>body{margin:0;background:#ddd;font:24px system-ui}div{height:300vh;padding:32px;box-sizing:border-box}</style>
+                <div>Guest \(index + 1)</div><script>
+                let start=null, dragged=false;
+                document.addEventListener('touchstart',event=>{
+                    start=[event.touches[0].clientX,event.touches[0].clientY]; dragged=false;
+                },{passive:true});
+                document.addEventListener('touchmove',event=>{
+                    if(start&&!dragged&&Math.hypot(event.touches[0].clientX-start[0],event.touches[0].clientY-start[1])>=6){
+                        dragged=true;window.webkit.messageHandlers.guestInput.postMessage('drag');
+                    }
+                },{passive:true});
+                document.addEventListener('touchend',()=>{
+                    if(start&&!dragged)window.webkit.messageHandlers.guestInput.postMessage('tap');start=null;
+                },{passive:true});
+                document.addEventListener('touchcancel',()=>{start=null;},{passive:true});
+                </script>
+                """, baseURL: nil)
+        }
+        guests.forEach { $0.isHidden = fixture.guestsMinimized }
+        view.setNeedsLayout()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        for (index, guest) in guests.enumerated() {
+            let columns = guests.count > 1 ? 2 : 1
+            let rows = guests.count > 2 ? 2 : 1
+            let size = CGSize(width: view.bounds.width / CGFloat(columns), height: view.bounds.height / CGFloat(rows))
+            guest.frame = CGRect(x: CGFloat(index % columns) * size.width,
+                                 y: CGFloat(index / columns) * size.height, width: size.width, height: size.height)
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { fixture?.webGuestsReady += 1 }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.body as? String == "tap" { fixture?.guestTaps += 1 }
+        if message.body as? String == "drag" { fixture?.guestDrags += 1 }
+    }
+
+    func disconnectGuests() {
+        for guest in guests {
+            guest.stopLoading()
+            guest.configuration.userContentController.removeScriptMessageHandler(forName: "guestInput")
+            guest.navigationDelegate = nil
+        }
+    }
+}
+
+private struct FixtureWebGuestsHost: UIViewControllerRepresentable {
+    @ObservedObject var fixture: DockGestureFixture
+
+    func makeUIViewController(context: Context) -> FixtureWebGuestsController {
+        let controller = FixtureWebGuestsController()
+        controller.fixture = fixture
+        controller.updateGuests()
+        return controller
+    }
+
+    func updateUIViewController(_ controller: FixtureWebGuestsController, context: Context) { controller.updateGuests() }
+
+    static func dismantleUIViewController(_ controller: FixtureWebGuestsController, coordinator: ()) { controller.disconnectGuests() }
 }
 
 private struct FixtureButtonStyle: ButtonStyle {
@@ -221,7 +322,11 @@ private struct DockGestureTestRoot: View {
 
     var body: some View {
         ZStack(alignment: fixture.right ? .trailing : .leading) {
-            FixtureGuestsHost(fixture: fixture).ignoresSafeArea()
+            if fixture.webGuests {
+                FixtureWebGuestsHost(fixture: fixture).ignoresSafeArea()
+            } else {
+                FixtureGuestsHost(fixture: fixture).ignoresSafeArea()
+            }
             VStack(spacing: 16) {
                 Text(fixture.hidden ? "hidden" : "visible").accessibilityIdentifier("DockStatus")
                 Text("\(fixture.taps)").accessibilityIdentifier("DockTaps")
@@ -242,6 +347,14 @@ private struct DockGestureTestRoot: View {
                     .accessibilityIdentifier("HideDock")
                 Button("Restore Four Guests") { fixture.restoreWorkspace() }
                     .accessibilityIdentifier("RestoreWorkspace")
+                if fixture.webGuests {
+                    Text("\(fixture.webGuestsReady)").accessibilityIdentifier("WebGuestsReady")
+                    Text(fixture.guestsMinimized ? "minimized" : "running").accessibilityIdentifier("GuestVisibility")
+                    Text(fixture.hideArrow ? "hidden" : "visible").accessibilityIdentifier("ArrowVisibility")
+                    Button("Minimize Guests") { fixture.setGuestsMinimized(true) }.accessibilityIdentifier("MinimizeGuests")
+                    Button("Restore Guests") { fixture.setGuestsMinimized(false) }.accessibilityIdentifier("RestoreGuests")
+                    Button("Toggle Arrow") { fixture.toggleArrow() }.accessibilityIdentifier("ToggleArrow")
+                }
             }
             .frame(width: 300)
             .frame(maxWidth: .infinity)

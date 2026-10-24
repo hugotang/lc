@@ -2,6 +2,21 @@
 #import <UIKit/UIGestureRecognizerSubclass.h>
 #include <math.h>
 
+static UIImage *LCDockRevealTouchSurface(void) {
+    static UIImage *surface;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+        format.opaque = NO;
+        format.scale = 1;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(1, 1) format:format];
+        surface = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            CGContextClearRect(context.CGContext, CGRectMake(0, 0, 1, 1));
+        }];
+    });
+    return surface;
+}
+
 // Track from touch-down rather than UIKit's pan-recognition point. A short
 // reveal must not lose its first few points to the native pan's movement slop.
 @interface LCDockRevealGesture : UIGestureRecognizer
@@ -173,6 +188,13 @@
 }
 - (void)setUp {
     self.backgroundColor = UIColor.clearColor;
+    // Real event routing on iOS 26/27 can skip an entirely empty render layer
+    // even though UIView hitTest returns this control. Hidden-arrow mode used
+    // to remove our only rendered content. Keep a transparent image on the
+    // host control in both modes instead of relying on a tiny background alpha.
+    self.layer.contents = (__bridge id)LCDockRevealTouchSurface().CGImage;
+    self.layer.contentsGravity = kCAGravityResize;
+    self.layer.contentsScale = 1;
     self.hidden = YES;
     self.isAccessibilityElement = YES;
     self.accessibilityTraits = UIAccessibilityTraitButton;

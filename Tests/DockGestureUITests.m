@@ -236,4 +236,64 @@
         [self.app terminate];
     }
 }
+- (void)launchWebGuestsRight:(BOOL)right {
+    self.app.launchArguments = @[(right ? @"--right" : @"--left"), @"--hide-arrow", @"--restore-four", @"--web-guests"];
+    [self.app launch];
+    XCTAssertTrue([self.app.buttons[@"DockAccount0"] waitForExistenceWithTimeout:5]);
+    NSPredicate *ready = [NSPredicate predicateWithFormat:@"label == '4'"];
+    XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc]
+        initWithPredicate:ready object:self.app.staticTexts[@"WebGuestsReady"]];
+    XCTAssertEqual([XCTWaiter waitForExpectations:@[expectation] timeout:15], XCTWaiterResultCompleted);
+}
+- (void)testHiddenArrowRecoveryAboveFourWebGuestsAndAfterMinimize {
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self launchWebGuestsRight:right.boolValue];
+        // Establish that the WebKit guest actually receives external-content
+        // input away from the local Dock patch, rather than testing blank views.
+        XCUIElement *window = self.app.windows.firstMatch;
+        XCUICoordinate *guest = [[window coordinateWithNormalizedOffset:CGVectorMake(1, 0.25)]
+            coordinateWithOffset:CGVectorMake(-22, 0)];
+        [guest tap];
+        XCTNSPredicateExpectation *tap = [[XCTNSPredicateExpectation alloc]
+            initWithPredicate:[NSPredicate predicateWithFormat:@"label == '1'"] object:self.app.staticTexts[@"GuestTaps"]];
+        XCTAssertEqual([XCTWaiter waitForExpectations:@[tap] timeout:5], XCTWaiterResultCompleted);
+        [self hideDock];
+        [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:0 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        [self.app.buttons[@"MinimizeGuests"] tap];
+        XCTAssertEqualObjects(self.app.staticTexts[@"GuestVisibility"].label, @"minimized");
+        [self hideDock];
+        [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:0 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        [self.app.buttons[@"RestoreGuests"] tap];
+        XCTAssertEqualObjects(self.app.staticTexts[@"GuestVisibility"].label, @"running");
+        [self hideDock];
+        [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:40 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"3");
+        XCTAssertEqualObjects(self.app.staticTexts[@"GuestTaps"].label, @"1");
+        XCTAssertEqualObjects(self.app.staticTexts[@"GuestDrags"].label, @"0");
+        [self.app terminate];
+    }
+}
+- (void)testArrowVisibilityToggleRetainsRecoveryAboveFourWebGuests {
+    [self launchWebGuestsRight:YES];
+    [self hideDock];
+    for (NSUInteger index = 0; index < 3; ++index) {
+        XCTAssertEqualObjects(self.app.staticTexts[@"ArrowVisibility"].label, @"hidden");
+        [self.app.buttons[@"ToggleArrow"] tap];
+        XCTAssertEqualObjects(self.app.staticTexts[@"ArrowVisibility"].label, @"visible");
+        [self dragNearTabRight:YES inwardOffset:0 verticalOffset:0 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        [self hideDock];
+        [self.app.buttons[@"ToggleArrow"] tap];
+        XCTAssertEqualObjects(self.app.staticTexts[@"ArrowVisibility"].label, @"hidden");
+        [self dragNearTabRight:YES inwardOffset:0 verticalOffset:0 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        [self hideDock];
+    }
+    XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"6");
+    XCTAssertEqualObjects(self.app.staticTexts[@"GuestTaps"].label, @"0");
+    XCTAssertEqualObjects(self.app.staticTexts[@"GuestDrags"].label, @"0");
+}
 @end
