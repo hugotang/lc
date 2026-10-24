@@ -270,6 +270,10 @@
 }
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
     if (self.hidden || !self.reveal || self.revealIssued || !self.window) return NO;
+    // The small tab owns its contact and already checks direction/distance in
+    // handleRevealPan:. Do not reject its pan during UIKit's initial slop.
+    // The window route alone must yield early to guest scrolling.
+    if (gestureRecognizer != self.edgePan) return YES;
     CGPoint translation = [(UIPanGestureRecognizer *)gestureRecognizer translationInView:self.window];
     CGFloat inward = self.right ? -translation.x : translation.x;
     return inward > fabs(translation.y);

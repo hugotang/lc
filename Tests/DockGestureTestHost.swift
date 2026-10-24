@@ -10,6 +10,7 @@ private final class DockGestureFixture: ObservableObject {
     @Published var contextActions = 0
     @Published var hiddenDuringTouch = false
     @Published var gestureTrace = "No touch yet"
+    @Published var revealTrace = "No reveal events"
     @Published var guestCount = 1
     @Published var guestDrags = 0
     @Published var guestTaps = 0
@@ -18,7 +19,7 @@ private final class DockGestureFixture: ObservableObject {
     let width: CGFloat
     let hideArrow: Bool
     let hideGesture = LCDockDiagnosticHideGesture()
-    let revealControl = LCDockRevealControl()
+    let revealControl = LCDockDiagnosticRevealControl()
     weak var window: UIWindow?
 
     init() {
@@ -229,6 +230,8 @@ private struct DockGestureTestRoot: View {
                 Text(fixture.hiddenDuringTouch ? "yes" : "no").accessibilityIdentifier("DockHiddenDuringTouch")
                 Text(fixture.gestureTrace).lineLimit(1).frame(width: 300)
                     .accessibilityIdentifier("DockGestureTrace")
+                Text(fixture.revealTrace).lineLimit(1).frame(width: 300)
+                    .accessibilityIdentifier("DockRevealTrace")
                 Text("\(fixture.guestCount)").accessibilityIdentifier("GuestCount")
                 Text("\(fixture.guestDrags)").accessibilityIdentifier("GuestDrags")
                 Text("\(fixture.guestTaps)").accessibilityIdentifier("GuestTaps")
@@ -268,7 +271,11 @@ private final class DockGestureTestWindow: UIWindow {
         super.sendEvent(event)
         if lastTouchPhase == .ended || lastTouchPhase == .cancelled {
             let trace = fixture?.hideGesture.traceSummary ?? "No fixture"
-            DispatchQueue.main.async { [weak fixture] in fixture?.gestureTrace = trace }
+            let revealTrace = fixture?.revealControl.traceSummary ?? "No fixture"
+            DispatchQueue.main.async { [weak fixture] in
+                fixture?.gestureTrace = trace
+                fixture?.revealTrace = revealTrace
+            }
         }
     }
 }

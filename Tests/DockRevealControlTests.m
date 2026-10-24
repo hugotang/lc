@@ -228,17 +228,22 @@
     LCDockTestPan *pan = [LCDockTestPan new];
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:YES];
+        UIPanGestureRecognizer *edge = (UIPanGestureRecognizer *)[self addedWindowGestures].firstObject;
         CGFloat inward = right.boolValue ? -1 : 1;
         for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-15 * inward, 0)],
                                 [NSValue valueWithCGPoint:CGPointMake(4 * inward, 15)],
                                 [NSValue valueWithCGPoint:CGPointMake(10 * inward, 10)]]) {
-            pan.testTranslation = value.CGPointValue;
-            XCTAssertFalse([self.control gestureRecognizerShouldBegin:pan]);
+            [edge setTranslation:value.CGPointValue inView:self.window];
+            XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
         }
-        pan.testTranslation = CGPointMake(15 * inward, 4);
+        [edge setTranslation:CGPointMake(15 * inward, 4) inView:self.window];
+        XCTAssertTrue([self.control gestureRecognizerShouldBegin:edge]);
+        // Local tab pans must receive their move callbacks even when UIKit
+        // reports no accumulated translation while deciding to begin.
+        pan.testTranslation = CGPointZero;
         XCTAssertTrue([self.control gestureRecognizerShouldBegin:pan]);
         [self.control hide];
-        XCTAssertFalse([self.control gestureRecognizerShouldBegin:pan]);
+        XCTAssertFalse([self.control gestureRecognizerShouldBegin:edge]);
     }
 }
 - (void)testMovingControlToAnotherHostRemovesTheOldEdgeRecognizer {

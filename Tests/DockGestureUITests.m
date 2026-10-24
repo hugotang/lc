@@ -31,7 +31,12 @@
     NSPredicate *predicate = [NSPredicate predicateWithFormat:@"label == %@", status];
     XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc]
         initWithPredicate:predicate object:self.app.staticTexts[@"DockStatus"]];
-    XCTAssertEqual([XCTWaiter waitForExpectations:@[expectation] timeout:5], XCTWaiterResultCompleted);
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[expectation] timeout:5];
+    if (result != XCTWaiterResultCompleted) {
+        NSLog(@"Reveal trace: %@", self.app.staticTexts[@"DockRevealTrace"].label);
+        NSLog(@"Actual Dock status: %@", self.app.staticTexts[@"DockStatus"].label);
+    }
+    XCTAssertEqual(result, XCTWaiterResultCompleted);
 }
 - (void)hideDock {
     [self.app.buttons[@"HideDock"] tap];

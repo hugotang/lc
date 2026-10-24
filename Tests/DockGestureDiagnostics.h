@@ -5,3 +5,7 @@
 @interface LCDockDiagnosticHideGesture : LCDockHideGesture
 @property(nonatomic, readonly) NSString *traceSummary;
 @end
+
+@interface LCDockDiagnosticRevealControl : LCDockRevealControl
+@property(nonatomic, readonly) NSString *traceSummary;
+@end

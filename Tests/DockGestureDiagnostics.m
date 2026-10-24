@@ -5,6 +5,39 @@
 @property(nonatomic) NSMutableString *trace;
 @end
 
+@interface LCDockRevealControl (DiagnosticCallbacks)
+- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture;
+@end
+
+@interface LCDockDiagnosticRevealControl ()
+@property(nonatomic) NSMutableString *trace;
+@end
+
+@implementation LCDockDiagnosticRevealControl
+- (NSString *)traceSummary { return self.trace ?: @"No reveal events"; }
+- (void)record:(NSString *)label gesture:(UIGestureRecognizer *)gesture {
+    if (!self.trace) self.trace = [NSMutableString new];
+    CGPoint translation = [(UIPanGestureRecognizer *)gesture translationInView:self.window];
+    [self.trace appendFormat:@"%@ view=%@ state=%ld translation=(%g,%g); ",
+        label, NSStringFromClass(gesture.view.class), (long)gesture.state, translation.x, translation.y];
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture shouldReceiveTouch:(UITouch *)touch {
+    BOOL accepted = [super gestureRecognizer:gesture shouldReceiveTouch:touch];
+    self.trace = [NSMutableString new];
+    [self record:accepted ? @"receive YES" : @"receive NO" gesture:gesture];
+    return accepted;
+}
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gesture {
+    BOOL accepted = [super gestureRecognizerShouldBegin:gesture];
+    [self record:accepted ? @"begin YES" : @"begin NO" gesture:gesture];
+    return accepted;
+}
+- (void)handleRevealPan:(UIPanGestureRecognizer *)gesture {
+    [self record:@"pan" gesture:gesture];
+    [super handleRevealPan:gesture];
+}
+@end
+
 @implementation LCDockDiagnosticHideGesture
 - (NSString *)traceSummary { return self.trace ?: @"No Dock gesture events"; }
 - (void)record:(NSString *)label touch:(UITouch *)touch {
