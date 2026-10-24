@@ -72,7 +72,7 @@ enum MultitaskDockLayoutTests {
                                                             bounds: bounds, insets: insets) {
                 require(moved.right != right, "Cross-screen drag must switch edges")
             } else { preconditionFailure("Cross-screen drag must not hide") }
-            require(placement.endingDrag(frame: frame, translation: CGSize(width: .nan, height: 0),
+            require(placement.endingDrag(frame: frame, translation: CGSize(width: CGFloat.nan, height: 0),
                                         bounds: bounds, insets: insets) == .cancel, "Invalid drag was accepted")
         }
 

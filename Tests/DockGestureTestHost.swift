@@ -102,7 +102,7 @@ private struct FixtureDock: View {
                 .accessibilityIdentifier("DockMenu")
                 ScrollView(.vertical, showsIndicators: fixture.layout.scrolls) {
                     VStack(spacing: LCDockLayout.spacing) {
-                        ForEach(0..<fixture.accountCount) { index in
+                        ForEach(0..<fixture.accountCount, id: \.self) { index in
                             Button { fixture.taps += 1 } label: {
                                 Text("Account \(index)").frame(maxWidth: .infinity)
                                     .frame(height: fixture.layout.rowHeight).contentShape(Rectangle())
