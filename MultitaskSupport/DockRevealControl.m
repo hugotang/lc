@@ -1,4 +1,5 @@
 #import "DockRevealControl.h"
+#import <UIKit/UIGestureRecognizerSubclass.h>
 #include <math.h>
 
 @interface LCDockRevealControl ()
@@ -8,6 +9,142 @@
 @property(nonatomic, copy) void (^reveal)(void);
 @property(nonatomic) BOOL right;
 @property(nonatomic) BOOL revealIssued;
+@end
+
+@interface LCDockHideGesture ()
+@property(nonatomic) CGFloat ignoredTopHeight;
+@property(nonatomic) BOOL right;
+@property(nonatomic) BOOL hideIssued;
+@property(nonatomic) CGPoint startPoint;
+@property(nonatomic) CGPoint displacement;
+@property(nonatomic) BOOL trackingTouch;
+@property(nonatomic, copy) void (^hideDock)(void);
+@end
+
+@implementation LCDockHideGesture
+- (instancetype)init {
+    self = [super initWithTarget:nil action:nil];
+    if (self) {
+        [self addTarget:self action:@selector(handleHideGesture:)];
+        self.delegate = self;
+        self.cancelsTouchesInView = YES;
+        // Let a short outward drag cancel native Menu touch-down before its
+        // interaction takes over. Taps are delivered when this gesture fails.
+        self.delaysTouchesBegan = YES;
+        self.delaysTouchesEnded = NO;
+    }
+    return self;
+}
+- (void)attachToView:(UIView *)view ignoredTopHeight:(CGFloat)ignoredTopHeight
+              right:(BOOL)right hide:(void (^)(void))hide {
+    if (!self.hideDock || self.view != view) self.hideIssued = NO;
+    if (self.view != view) [view addGestureRecognizer:self];
+    self.ignoredTopHeight = ignoredTopHeight;
+    self.right = right;
+    self.hideDock = hide;
+}
+- (void)detach {
+    self.hideDock = nil;
+    [self.view removeGestureRecognizer:self];
+}
+- (void)reset {
+    [super reset];
+    self.trackingTouch = NO;
+    self.displacement = CGPointZero;
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    return self.hideDock && !self.hideIssued && [touch locationInView:self.view].y >= self.ignoredTopHeight;
+}
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    return self.hideDock && !self.hideIssued && self.view && !self.view.hidden && self.view.alpha >= 0.01;
+}
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged) {
+        self.state = UIGestureRecognizerStateCancelled;
+        return;
+    }
+    if (self.state != UIGestureRecognizerStatePossible) return;
+    if (self.trackingTouch || touches.count != 1) {
+        self.state = UIGestureRecognizerStateFailed;
+        return;
+    }
+    self.trackingTouch = YES;
+    // Use window coordinates so layout/pressed-button animations cannot change
+    // the measured direction. The handle is excluded by shouldReceiveTouch:.
+    self.startPoint = [touches.anyObject locationInView:self.view.window];
+}
+- (void)updateHideIntentWithTouch:(UITouch *)touch {
+    if (!self.trackingTouch || (self.state != UIGestureRecognizerStatePossible &&
+        self.state != UIGestureRecognizerStateBegan && self.state != UIGestureRecognizerStateChanged)) return;
+    CGPoint point = [touch locationInView:self.view.window];
+    CGFloat dx = point.x - self.startPoint.x;
+    CGFloat dy = fabs(point.y - self.startPoint.y);
+    CGFloat outward = self.right ? dx : -dx;
+    self.displacement = CGPointMake(dx, point.y - self.startPoint.y);
+    if (outward <= -16 || (dy >= 20 && dy > fabs(dx) * 1.25)) {
+        // Once clearly scrolling or moving inward, do not hide later in the
+        // same gesture even if the finger drifts toward the edge.
+        self.state = self.state == UIGestureRecognizerStatePossible ? UIGestureRecognizerStateFailed : UIGestureRecognizerStateCancelled;
+    } else if (self.state == UIGestureRecognizerStatePossible) {
+        // Native control arbitration can run before the next 6pt sample is
+        // delivered. Claim clear outward intent earlier, while keeping the
+        // actual hide distance at 16pt in handleHideGesture:.
+        // Ambiguous initial jitter stays possible instead of failing early.
+        if (outward >= 3 && outward > dy * 1.25) self.state = UIGestureRecognizerStateBegan;
+    } else {
+        self.state = UIGestureRecognizerStateChanged;
+    }
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.state != UIGestureRecognizerStatePossible && self.state != UIGestureRecognizerStateBegan &&
+        self.state != UIGestureRecognizerStateChanged) return;
+    if (touches.count != 1) {
+        self.state = self.state == UIGestureRecognizerStatePossible ? UIGestureRecognizerStateFailed : UIGestureRecognizerStateCancelled;
+        return;
+    }
+    [self updateHideIntentWithTouch:touches.anyObject];
+}
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (touches.count == 1) [self updateHideIntentWithTouch:touches.anyObject];
+    if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+    else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+        self.state = UIGestureRecognizerStateEnded;
+    self.trackingTouch = NO;
+}
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.state == UIGestureRecognizerStatePossible) self.state = UIGestureRecognizerStateFailed;
+    else if (self.state == UIGestureRecognizerStateBegan || self.state == UIGestureRecognizerStateChanged)
+        self.state = UIGestureRecognizerStateCancelled;
+    self.trackingTouch = NO;
+}
+- (void)handleHideGesture:(UIGestureRecognizer *)gesture {
+    if ((gesture.state != UIGestureRecognizerStateBegan && gesture.state != UIGestureRecognizerStateChanged &&
+         gesture.state != UIGestureRecognizerStateEnded) || !self.hideDock || self.hideIssued) return;
+    CGFloat outward = self.right ? self.displacement.x : -self.displacement.x;
+    // Hide before lift, once the deliberate short swipe reaches the edge.
+    if (outward < 16 || outward <= fabs(self.displacement.y) * 1.25) return;
+    self.hideIssued = YES;
+    self.hideDock();
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    // SwiftUI also routes control and menu input through non-pan recognizers,
+    // sometimes on touch-down. Keep observing alongside those routes. Claiming
+    // outward intent cancels the pressed view; a tap/long press still works
+    // while this recognizer remains possible or fails without hiding.
+    return YES;
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    // Primary-action menus normally open on touch-down and take ownership of
+    // the contact even when both recognizers can coexist. Their native button
+    // must wait for this swipe to fail before opening. A tap fails at touch-up;
+    // vertical/inward movement fails promptly. Account long presses do not wait.
+    UIView *view = otherGestureRecognizer.view;
+    if (![view isKindOfClass:UIButton.class] || ![view isDescendantOfView:self.view]) return NO;
+    UIButton *button = (UIButton *)view;
+    return button.menu != nil && button.showsMenuAsPrimaryAction;
+}
 @end
 
 @implementation LCDockRevealControl

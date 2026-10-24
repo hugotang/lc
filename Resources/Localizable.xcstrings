@@ -38132,19 +38132,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drag the Dock to move it. Drag outward and release to hide it, or use the Dock menu."
+            "value" : "Drag this handle to move the Dock. Swipe outward below the handle or use the Dock menu to hide it."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖动整个 Dock 可移动位置。向外拖动并放手，或使用 Dock 菜单可隐藏。"
+            "value" : "拖动此把手移动 Dock。在把手下方向外滑动或使用 Dock 菜单可隐藏。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "拖動整個 Dock 可移動位置。向外拖動並放手，或使用 Dock 選單可隱藏。"
+            "value" : "拖動此把手移動 Dock。在把手下方向外滑動或使用 Dock 選單可隱藏。"
           }
         }
       }

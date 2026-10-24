@@ -6,6 +6,7 @@ struct LCDockLayout {
     static let minimumHitSize: CGFloat = 44
     static let padding: CGFloat = 6
     static let spacing: CGFloat = 8
+    static let handleHeight: CGFloat = 44
     static let revealHitWidth: CGFloat = 44
 
     let width: CGFloat
@@ -24,12 +25,13 @@ struct LCDockLayout {
         rowHeight = max(Self.minimumHitSize, iconSize) + (showsLabels ? 18 : 0)
         let count = max(0, accountCount)
         let listHeight = CGFloat(count) * rowHeight + CGFloat(max(0, count - 1)) * Self.spacing
-        let fixedHeight = Self.padding * 2 + Self.minimumHitSize * 2 + Self.spacing * 2
+        let fixedHeight = Self.padding * 2 + Self.handleHeight +
+            Self.minimumHitSize * 2 + Self.spacing * 3
         let available = availableHeight.isFinite ? max(0, availableHeight) : 0
         compact = collapsed || available < fixedHeight + Self.minimumHitSize
         let listSpace = max(0, available - fixedHeight)
         viewportHeight = compact ? 0 : min(listHeight, listSpace)
-        height = compact ? min(available, Self.padding * 2 + Self.minimumHitSize) :
+        height = compact ? min(available, Self.padding * 2 + Self.handleHeight + Self.spacing + Self.minimumHitSize) :
             min(available, fixedHeight + viewportHeight)
         scrolls = !compact && listHeight > viewportHeight
     }
@@ -70,29 +72,6 @@ struct LCDockPlacement: Equatable {
         return LCDockPlacement(right: frame.midX >= bounds.midX,
                                fraction: travel > 0 ? (frame.minY - minY) / travel : 0.5)
     }
-
-    func endingDrag(frame: CGRect, translation: CGSize, bounds: CGRect, insets: LCDockInsets) -> LCDockDragResult {
-        guard translation.width.isFinite, translation.height.isFinite,
-              frame.width > 0, frame.height > 0, bounds.width > 0, bounds.height > 0 else { return .cancel }
-        // Match the original whole-Dock drag: recognition already requires 5pt,
-        // so an outward release needs no second distance or velocity threshold.
-        let horizontal = abs(translation.width) > abs(translation.height)
-        let outward = right ? translation.width : -translation.width
-        if horizontal && outward > 0 && hypot(translation.width, translation.height) >= LCDockDragResult.minimumDistance {
-            return .hide
-        }
-        let dragged = frame.offsetBy(dx: translation.width, dy: translation.height)
-        let side = horizontal ? dragged.midX >= bounds.midX : right
-        let moved = Self.from(frame: dragged, bounds: bounds, insets: insets)
-        return .move(Self(right: side, fraction: moved.fraction))
-    }
-}
-
-enum LCDockDragResult: Equatable {
-    static let minimumDistance: CGFloat = 5
-    case hide
-    case move(LCDockPlacement)
-    case cancel
 }
 
 // UIKit-free geometry can also be checked without an iOS simulator.
