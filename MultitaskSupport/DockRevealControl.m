@@ -5,7 +5,7 @@
 @interface LCDockRevealControl ()
 @property(nonatomic) UIView *tab;
 @property(nonatomic) UIImageView *arrow;
-@property(nonatomic) UIScreenEdgePanGestureRecognizer *edgePan;
+@property(nonatomic) UIPanGestureRecognizer *edgePan;
 @property(nonatomic, copy) void (^reveal)(void);
 @property(nonatomic) BOOL right;
 @property(nonatomic) BOOL revealIssued;
@@ -176,7 +176,10 @@
     [self addTarget:self action:@selector(revealDock) forControlEvents:UIControlEventTouchUpInside];
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRevealPan:)];
     pan.delegate = self;
-    pan.cancelsTouchesInView = NO;
+    pan.maximumNumberOfTouches = 1;
+    // Once a tab drag begins, it must not also activate TouchUpInside if it
+    // stops before the reveal distance. A stationary tap remains available.
+    pan.cancelsTouchesInView = YES;
     [self addGestureRecognizer:pan];
 }
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
@@ -184,6 +187,12 @@
     if (self.superview != window) {
         [self removeEdgePan];
         [window addSubview:self];
+    }
+    if (self.edgePan && (self.right != right || !CGRectEqualToRect(self.frame, frame))) {
+        // A rotation or placement change invalidates an in-flight direction.
+        // Repeated workspace refreshes with the same frame leave it tracking.
+        self.edgePan.enabled = NO;
+        self.edgePan.enabled = YES;
     }
     self.frame = frame;
     self.right = right;
@@ -200,11 +209,13 @@
                                                                                                   weight:UIImageSymbolWeightBold]];
     [self setNeedsLayout];
     [window bringSubviewToFront:self];
-    UIRectEdge edge = right ? UIRectEdgeRight : UIRectEdgeLeft;
-    if (self.edgePan && self.edgePan.edges != edge) [self removeEdgePan];
     if (!self.edgePan) {
-        self.edgePan = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRevealPan:)];
-        self.edgePan.edges = edge;
+        // UIScreenEdgePan only accepts UIKit's narrow physical-edge zone.
+        // A hidden arrow gives no way to aim there, and restored guest windows
+        // occupy the rest of the edge. Filter a normal host pan at touch-down
+        // so an inward swipe can start anywhere in our explicit 44pt band.
+        self.edgePan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleRevealPan:)];
+        self.edgePan.maximumNumberOfTouches = 1;
         self.edgePan.delegate = self;
         self.edgePan.cancelsTouchesInView = NO;
         self.edgePan.delaysTouchesBegan = NO;
@@ -241,9 +252,27 @@
 - (void)handleRevealPan:(UIPanGestureRecognizer *)gesture {
     if (gesture.state != UIGestureRecognizerStateBegan && gesture.state != UIGestureRecognizerStateChanged &&
         gesture.state != UIGestureRecognizerStateEnded) return;
-    CGPoint translation = [gesture translationInView:gesture.view];
+    CGPoint translation = [gesture translationInView:self.window];
     CGFloat inward = self.right ? -translation.x : translation.x;
     if (inward >= 30 && inward > fabs(translation.y)) [self revealDock];
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    if (self.hidden || !self.reveal || self.revealIssued || !self.window) return NO;
+    if (gestureRecognizer != self.edgePan) return YES;
+    // The tab has its own drag recognizer. Avoid two recognizers handling the
+    // same contact; the window route observes uncovered guest-edge contacts.
+    if ([touch.view isDescendantOfView:self]) return NO;
+    CGRect bounds = self.window.bounds;
+    CGPoint point = [touch locationInView:self.window];
+    if (!CGRectContainsPoint(bounds, point)) return NO;
+    CGFloat distance = self.right ? CGRectGetMaxX(bounds) - point.x : point.x - CGRectGetMinX(bounds);
+    return distance <= 44;
+}
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    if (self.hidden || !self.reveal || self.revealIssued || !self.window) return NO;
+    CGPoint translation = [(UIPanGestureRecognizer *)gestureRecognizer translationInView:self.window];
+    CGFloat inward = self.right ? -translation.x : translation.x;
+    return inward > fabs(translation.y);
 }
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
     shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {

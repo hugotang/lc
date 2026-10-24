@@ -13,9 +13,11 @@
 
 @interface LCDockTestTouch : UITouch
 @property(nonatomic) CGPoint testLocation;
+@property(nonatomic) UIView *testView;
 @end
 @implementation LCDockTestTouch
 - (CGPoint)locationInView:(UIView *)view { return self.testLocation; }
+- (UIView *)view { return self.testView; }
 @end
 
 @interface LCDockTestPan : UIPanGestureRecognizer
@@ -166,12 +168,15 @@
     NSArray *edges = [self addedWindowGestures];
     XCTAssertEqual(edges.count, 1u);
     UIGestureRecognizer *edge = edges.firstObject;
-    XCTAssertTrue([edge isKindOfClass:UIScreenEdgePanGestureRecognizer.class]);
-    XCTAssertEqual(((UIScreenEdgePanGestureRecognizer *)edge).edges, UIRectEdgeRight);
+    XCTAssertTrue([edge isKindOfClass:UIPanGestureRecognizer.class]);
+    XCTAssertFalse([edge isKindOfClass:UIScreenEdgePanGestureRecognizer.class]);
     XCTAssertFalse(edge.cancelsTouchesInView);
     XCTAssertTrue([edge.delegate gestureRecognizer:edge shouldRecognizeSimultaneouslyWithGestureRecognizer:guestPan]);
     UIGestureRecognizer *tabPan = self.control.gestureRecognizers.firstObject;
     XCTAssertTrue([tabPan.delegate gestureRecognizer:tabPan shouldRecognizeSimultaneouslyWithGestureRecognizer:guestPan]);
+    XCTAssertTrue(tabPan.cancelsTouchesInView);
+    XCTAssertEqual(((UIPanGestureRecognizer *)tabPan).maximumNumberOfTouches, 1u);
+    XCTAssertEqual(((UIPanGestureRecognizer *)edge).maximumNumberOfTouches, 1u);
     [self sendPan:CGPointMake(-40, 0) state:UIGestureRecognizerStateChanged];
     XCTAssertEqual(self.reveals, 1u);
     XCTAssertTrue([self.guest.gestureRecognizers containsObject:guestPan]);
@@ -183,10 +188,57 @@
         [self showRight:right hideArrow:NO];
         NSArray *edges = [self addedWindowGestures];
         XCTAssertEqual(edges.count, 1u);
-        XCTAssertEqual(((UIScreenEdgePanGestureRecognizer *)edges.firstObject).edges, right ? UIRectEdgeRight : UIRectEdgeLeft);
+        XCTAssertEqual(edges.firstObject.view, self.window);
+        LCDockTestTouch *touch = [LCDockTestTouch new];
+        touch.testView = self.guest;
+        touch.testLocation = CGPointMake(right ? CGRectGetMaxX(self.window.bounds) - 22 : CGRectGetMinX(self.window.bounds) + 22,
+                                       CGRectGetMidY(self.window.bounds) - 100);
+        XCTAssertTrue([self.control gestureRecognizer:edges.firstObject shouldReceiveTouch:touch]);
         [self.control hide];
         XCTAssertEqual([self addedWindowGestures].count, 0u);
         XCTAssertNil(self.control.superview);
+    }
+}
+- (void)testWindowPanAcceptsOnlyTheCurrent44PointEdgeBandAtTouchDown {
+    LCDockTestTouch *touch = [LCDockTestTouch new];
+    touch.testView = self.guest;
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        UIGestureRecognizer *edge = [self addedWindowGestures].firstObject;
+        for (NSNumber *distance in @[@2, @22, @44, @45, @100]) {
+            touch.testLocation = CGPointMake(right.boolValue ? CGRectGetMaxX(self.window.bounds) - distance.doubleValue :
+                                                                CGRectGetMinX(self.window.bounds) + distance.doubleValue,
+                                           CGRectGetMidY(self.window.bounds) - 100);
+            XCTAssertEqual([self.control gestureRecognizer:edge shouldReceiveTouch:touch], distance.doubleValue <= 44);
+        }
+        // Tab contacts belong to the local pan, and a touch beyond window
+        // bounds must not be mistaken for a valid edge contact.
+        touch.testView = self.control;
+        touch.testLocation = CGPointMake(CGRectGetMidX(self.control.frame), CGRectGetMidY(self.control.frame));
+        XCTAssertFalse([self.control gestureRecognizer:edge shouldReceiveTouch:touch]);
+        XCTAssertTrue([self.control gestureRecognizer:self.control.gestureRecognizers.firstObject shouldReceiveTouch:touch]);
+        touch.testView = self.guest;
+        touch.testLocation = CGPointMake(CGRectGetMinX(self.window.bounds) - 1, 100);
+        XCTAssertFalse([self.control gestureRecognizer:edge shouldReceiveTouch:touch]);
+        [self.control hide];
+        XCTAssertFalse([self.control gestureRecognizer:edge shouldReceiveTouch:touch]);
+    }
+}
+- (void)testRevealPanBeginsOnlyWithInwardHorizontalIntent {
+    LCDockTestPan *pan = [LCDockTestPan new];
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        CGFloat inward = right.boolValue ? -1 : 1;
+        for (NSValue *value in @[[NSValue valueWithCGPoint:CGPointMake(-15 * inward, 0)],
+                                [NSValue valueWithCGPoint:CGPointMake(4 * inward, 15)],
+                                [NSValue valueWithCGPoint:CGPointMake(10 * inward, 10)]]) {
+            pan.testTranslation = value.CGPointValue;
+            XCTAssertFalse([self.control gestureRecognizerShouldBegin:pan]);
+        }
+        pan.testTranslation = CGPointMake(15 * inward, 4);
+        XCTAssertTrue([self.control gestureRecognizerShouldBegin:pan]);
+        [self.control hide];
+        XCTAssertFalse([self.control gestureRecognizerShouldBegin:pan]);
     }
 }
 - (void)testMovingControlToAnotherHostRemovesTheOldEdgeRecognizer {
