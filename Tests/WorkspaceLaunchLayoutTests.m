@@ -25,7 +25,8 @@ static LCWindowWorkspace *workspace(void) {
         [entries addObject:[[LCWorkspaceWindow alloc] initWithBundleName:@"game.app"
             dataUUID:[NSString stringWithFormat:@"account-%lu", (unsigned long)index] scale:scales[index]]];
     }
-    return [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{} singleRowInLandscape:YES];
+    return [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{} singleRowInLandscape:YES
+        reservePortraitTop:YES reservePortraitBottom:NO reserveLandscapeTop:NO reserveLandscapeBottom:YES];
 }
 
 static NSArray *slots(LCWorkspaceLaunchLayout *plan, NSArray *views) {
@@ -40,6 +41,8 @@ static void testAllFourAccountLaunchOrders(void) {
     NSArray *views = @[window(@"game.app", @"account-0"), window(@"game.app", @"account-1"),
                        window(@"game.app", @"account-2"), window(@"game.app", @"account-3")];
     assert(slots(plan, @[]).count == 4);
+    assert(!plan.workspace.reserveLandscapeTop && plan.workspace.reserveLandscapeBottom);
+    assert(plan.workspace.reservePortraitTop && !plan.workspace.reservePortraitBottom);
     for (NSUInteger a = 0; a < 4; a++) for (NSUInteger b = 0; b < 4; b++) {
         if (b == a) continue;
         for (NSUInteger c = 0; c < 4; c++) {

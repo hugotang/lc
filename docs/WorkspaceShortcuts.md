@@ -22,8 +22,9 @@ a row for **Copy Restore Link** and **Duplicate Workspace**. A duplicate starts
 with the saved arrangement and gets its own name and restore link. Creating a
 save or a duplicate from this list opens its detail page immediately.
 
-In a workspace's detail page, change **Landscape Layout**, **Reserve Top Area**
-or **Reserve Bottom Area** directly. These options save automatically and apply
+In a workspace's detail page, change **Landscape Layout** or the top/bottom
+options under **Portrait Reserved Areas** and **Landscape Reserved Areas**.
+These options save automatically and apply
 the next time you restore that workspace. They retain its apps, containers,
 order, scales, divider proportions and restore link. Renaming and editing these
 options keep the workspace in its existing list position.
@@ -43,7 +44,7 @@ the app list's unlock state.
 Use the copied link if you have multiple LiveContainer installations.
 
 Restoration reopens the apps with their exact containers, order, scale, grid
-proportions, landscape layout and portrait reserved areas, while keeping other
+proportions, landscape layout and both orientations' reserved areas, while keeping other
 open windows. App-specific state, such as a song's playback position,
 is managed by the app itself.
 
@@ -73,20 +74,24 @@ proportions. You can edit this choice directly in an existing workspace's detail
 page, or capture the current layout with **Update with Current Windows**.
 Older snapshots restore Automatic Grid.
 
-In **Portrait Reserved Areas**, independently choose **Reserve Top Area** and
-**Reserve Bottom Area** in Settings → Multitasking or the Dock's layout menu.
+In **Portrait Reserved Areas** and, starting in 3.8.24, **Landscape Reserved Areas**,
+independently choose **Reserve Top Area** and **Reserve Bottom Area** in Settings
+→ Multitasking or the Dock's layout menu. Each orientation remembers its own choices.
 By default, the top is reserved for the status bar and Dynamic Island, while
 content extends behind the home indicator. Turn off the top option to extend
 content upward, or turn on the bottom option to leave space below the grid.
 App controls still receive their safe-area insets; each app decides how to use
 them. These options do not hide the status bar or remove system gestures.
 
-The choices apply to portrait grids, including manually arranged grids with
-automatic tiling off. Landscape keeps its existing top/side exclusions and
-bottom-edge coverage. Floating and maximized windows keep their own placement.
-Save a workspace to have its restore link recall both choices, or edit them
+The choices apply to grids in the matching host orientation, including manually
+arranged grids with automatic tiling off and either landscape layout. Left/right
+system safe areas remain reserved in both landscape directions. Floating and
+maximized windows keep their own placement.
+Save a workspace to have its restore link recall all four choices, or edit them
 directly in Manage Workspaces. Older snapshots preserve the original
-behavior: top reserved, bottom extended.
+behavior in both orientations: top reserved, bottom extended. Editing a saved
+workspace's choices does not change the currently running grid; restore that
+workspace to apply them. Changing the live choices does not overwrite existing saves.
 
 Locked or hidden apps still require authentication. When a guest is running
 in normal mode, the existing app-switch confirmation applies before returning

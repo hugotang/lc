@@ -18695,6 +18695,75 @@
         }
       }
     },
+    "lc.multitask.landscapeReservedAreas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landscape Reserved Areas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏预留区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向預留區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeTop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Top Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeBottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Bottom Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方區域"
+          }
+        }
+      }
+    },
     "lc.multitask.portraitReservedAreas" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19864,6 +19933,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "視窗 %ld"
+          }
+        }
+      }
+    },
+    "lc.settings.landscapeReservedAreasDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose whether landscape grids leave space above and below content. Turning an area off extends content behind the status bar or home indicator. Left and right keep system safe areas. Save or update a workspace to remember these choices."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择横屏网格是否保留上下方空间。关闭后，内容可延伸至状态栏或主屏幕指示条后方。左右仍保留系统安全区域。保存或更新工作区可记住选择。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇橫向網格是否保留上下方空間。關閉後，內容可延伸至狀態列或主畫面指示條後方。左右仍保留系統安全區域。儲存或更新工作區可記住選擇。"
           }
         }
       }

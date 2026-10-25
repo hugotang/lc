@@ -15,6 +15,8 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) var singleRowInLandscape = false
     @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) var reservePortraitTop = true
     @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) var reservePortraitBottom = false
+    @AppStorage("LCGridReserveLandscapeTop", store: LCUtils.appGroupUserDefault) var reserveLandscapeTop = true
+    @AppStorage("LCGridReserveLandscapeBottom", store: LCUtils.appGroupUserDefault) var reserveLandscapeBottom = false
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
@@ -141,6 +143,14 @@ struct LCMultitaskSettingView: View {
                     Text("lc.multitask.portraitReservedAreas".loc)
                 } footer: {
                     Text("lc.settings.portraitReservedAreasDesc".loc)
+                }
+                Section {
+                    Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: $reserveLandscapeTop)
+                    Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: $reserveLandscapeBottom)
+                } header: {
+                    Text("lc.multitask.landscapeReservedAreas".loc)
+                } footer: {
+                    Text("lc.settings.landscapeReservedAreasDesc".loc)
                 }
             }
             

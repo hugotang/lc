@@ -208,7 +208,8 @@ final class MultitaskWorkspaceManager: ObservableObject {
         if !launchEntries.isEmpty,
            let launchWorkspace = LCWindowWorkspace(windows: launchEntries, proportions: workspace.proportions,
                 singleRowInLandscape: workspace.singleRowInLandscape, reservePortraitTop: workspace.reservePortraitTop,
-                reservePortraitBottom: workspace.reservePortraitBottom) {
+                reservePortraitBottom: workspace.reservePortraitBottom, reserveLandscapeTop: workspace.reserveLandscapeTop,
+                reserveLandscapeBottom: workspace.reserveLandscapeBottom) {
             host.prepareWorkspaceForLaunch(launchWorkspace)
         }
         defer { host.finishWorkspaceLaunch() }
@@ -638,6 +639,14 @@ private struct MultitaskWorkspaceDetailView: View {
                         Toggle("lc.multitask.reservePortraitBottom".loc, isOn: preference(.reservePortraitBottom, \.reservePortraitBottom))
                     } header: {
                         Text("lc.multitask.portraitReservedAreas".loc)
+                    } footer: {
+                        Text("lc.workspace.layoutAutosave".loc)
+                    }
+                    Section {
+                        Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: preference(.reserveLandscapeTop, \.reserveLandscapeTop))
+                        Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: preference(.reserveLandscapeBottom, \.reserveLandscapeBottom))
+                    } header: {
+                        Text("lc.multitask.landscapeReservedAreas".loc)
                     } footer: {
                         Text("lc.workspace.layoutAutosave".loc)
                     }

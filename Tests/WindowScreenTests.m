@@ -57,6 +57,8 @@
 @property(nonatomic, strong) LCWindowScreenState *state;
 @property(nonatomic, strong) NSMutableArray<UIWindow *> *windows;
 @property(nonatomic, strong) XCTestExpectation *webLoaded;
+- (void)checkWorkspaceLaunchWithHiddenBar:(BOOL)hidden scale:(CGFloat)scale singleRow:(BOOL)singleRow
+                           landscapeTop:(BOOL)top landscapeBottom:(BOOL)bottom;
 @end
 @implementation WindowScreenTests
 - (void)setUp {
@@ -167,6 +169,10 @@
     }
 }
 - (void)checkWorkspaceLaunchWithHiddenBar:(BOOL)hidden scale:(CGFloat)scale singleRow:(BOOL)singleRow {
+    [self checkWorkspaceLaunchWithHiddenBar:hidden scale:scale singleRow:singleRow landscapeTop:YES landscapeBottom:NO];
+}
+- (void)checkWorkspaceLaunchWithHiddenBar:(BOOL)hidden scale:(CGFloat)scale singleRow:(BOOL)singleRow
+                           landscapeTop:(BOOL)top landscapeBottom:(BOOL)bottom {
     NSMutableArray<LCWorkspaceWindow *> *entries = [NSMutableArray array];
     NSMutableArray<UIView *> *views = [NSMutableArray array];
     for (NSUInteger index = 0; index < 4; index++) {
@@ -174,12 +180,22 @@
             dataUUID:[NSString stringWithFormat:@"account-%lu", (unsigned long)index] scale:scale]];
         [views addObject:[UIView new]];
     }
-    LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{}
-                                                      singleRowInLandscape:singleRow];
+    LCWindowWorkspace *saved = [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{}
+        singleRowInLandscape:singleRow reservePortraitTop:NO reservePortraitBottom:YES
+        reserveLandscapeTop:top reserveLandscapeBottom:bottom];
+    LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithPropertyList:saved.propertyList];
     LCWorkspaceLaunchLayout *plan = [[LCWorkspaceLaunchLayout alloc] initWithWorkspace:workspace];
     UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 1366, 1024)];
     [LCTapSyncTestHostWindow().rootViewController.view addSubview:host];
-    LCWindowGridLayout grid = LCWindowGridLayoutMakeForOrientation(4, 1366, 1024, 2, 88, false, singleRow);
+    LCWindowGridRect content = LCWindowGridContentBoundsWithReservedAreas((LCWindowGridRect){0, 0, 1366, 1024},
+        (LCWindowGridRect){0, 24, 1366, 980}, workspace.reservePortraitTop, workspace.reservePortraitBottom,
+        workspace.reserveLandscapeTop, workspace.reserveLandscapeBottom);
+    LCWindowGridLayout grid = LCWindowGridLayoutMakeForOrientation(4, content.width, content.height, 2, 88,
+                                                                 false, workspace.singleRowInLandscape);
+    CGFloat expectedContentHeight = 1024 - (top ? 24 : 0) - (bottom ? 20 : 0);
+    CGFloat expectedTileHeight = singleRow ? expectedContentHeight : (expectedContentHeight - 2) / 2;
+    XCTAssertEqualWithAccuracy(content.y, top ? 24 : 0, 0.01);
+    XCTAssertEqualWithAccuracy(content.height, expectedContentHeight, 0.01);
     CGSize expected = CGSizeZero;
     // The third and fourth accounts start after only part of the workspace exists.
     NSArray *orders = @[@[@0, @1, @2, @3], @[@3, @1, @0, @2]];
@@ -195,7 +211,8 @@
             NSUInteger slot = [slots indexOfObjectIdenticalTo:views[account]];
             XCTAssertEqual(slot, account);
             LCWindowGridRect tile = LCWindowGridFrameWithDividers(grid, slot, NULL, NULL, NULL);
-            UIStackView *container = [[UIStackView alloc] initWithFrame:CGRectMake(tile.x, tile.y, tile.width, tile.height)];
+            UIStackView *container = [[UIStackView alloc] initWithFrame:CGRectMake(content.x + tile.x, content.y + tile.y,
+                                                                               tile.width, tile.height)];
             container.axis = UILayoutConstraintAxisVertical;
             [container addArrangedSubview:[UIView new]];
             UIView *guest = [UIView new];
@@ -212,6 +229,7 @@
             CGSize screen = UIScreen.mainScreen.bounds.size;
             XCTAssertEqualWithAccuracy(screen.width, tile.width / scale, 0.01);
             XCTAssertEqualWithAccuracy(screen.height, (tile.height - (hidden ? 0 : 44)) / scale, 0.01);
+            XCTAssertEqualWithAccuracy(screen.height, (expectedTileHeight - (hidden ? 0 : 44)) / scale, 0.01);
             if (CGSizeEqualToSize(expected, CGSizeZero)) expected = screen;
             XCTAssertTrue(CGSizeEqualToSize(screen, expected));
             XCTAssertEqual(UIInterfaceOrientationIsLandscape(self.state.readSnapshot.orientation), screen.width > screen.height);
@@ -230,6 +248,20 @@
 }
 - (void)testAutomaticGridLaunchKeepsEqualThirdAndFourthGameDimensions {
     [self checkWorkspaceLaunchWithHiddenBar:YES scale:1 singleRow:NO];
+}
+- (void)testLandscapeReservedAreasKeepEqualSingleRowStartupDimensions {
+    for (NSUInteger choices = 0; choices < 4; choices++) {
+        [self checkWorkspaceLaunchWithHiddenBar:YES scale:1 singleRow:YES
+            landscapeTop:(choices & 1) != 0 landscapeBottom:(choices & 2) != 0];
+    }
+}
+- (void)testLandscapeReservedAreasKeepAutomaticGridScaleAndChromeDimensions {
+    for (NSUInteger choices = 0; choices < 4; choices++) {
+        [self checkWorkspaceLaunchWithHiddenBar:NO scale:0.5 singleRow:NO
+            landscapeTop:(choices & 1) != 0 landscapeBottom:(choices & 2) != 0];
+        [self checkWorkspaceLaunchWithHiddenBar:NO scale:2 singleRow:NO
+            landscapeTop:(choices & 1) != 0 landscapeBottom:(choices & 2) != 0];
+    }
 }
 - (void)testPortraitGameInLandscapeSceneKeepsItsOwnShapeAndScale {
     LCWindowScreenTestScene *scene = [self sceneWithSize:CGSizeMake(1024, 768) orientation:UIInterfaceOrientationLandscapeLeft];

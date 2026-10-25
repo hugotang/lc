@@ -24,6 +24,7 @@ static void testLandscapePreference(void) {
                                                             singleRowInLandscape:enabled.boolValue];
         assert(workspace.singleRowInLandscape == enabled.boolValue);
         assert(workspace.reservePortraitTop && !workspace.reservePortraitBottom);
+        assert(workspace.reserveLandscapeTop && !workspace.reserveLandscapeBottom);
         NSError *error = nil;
         NSData *data = [NSPropertyListSerialization dataWithPropertyList:workspace.propertyList format:NSPropertyListBinaryFormat_v1_0
                                                                options:0 error:&error];
@@ -56,6 +57,7 @@ static void testPortraitReservations(void) {
             LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:@[entry] proportions:@{}
                 singleRowInLandscape:YES reservePortraitTop:top.boolValue reservePortraitBottom:bottom.boolValue];
             assert(workspace && workspace.reservePortraitTop == top.boolValue && workspace.reservePortraitBottom == bottom.boolValue);
+            assert(workspace.reserveLandscapeTop && !workspace.reserveLandscapeBottom);
             NSError *error = nil;
             NSData *data = [NSPropertyListSerialization dataWithPropertyList:workspace.propertyList format:NSPropertyListBinaryFormat_v1_0
                                                                    options:0 error:&error];
@@ -80,6 +82,53 @@ static void testPortraitReservations(void) {
         old[@"reservePortraitBottom"] = invalid;
         restored = [[LCWindowWorkspace alloc] initWithPropertyList:old];
         assert(restored && !restored.reservePortraitTop && !restored.reservePortraitBottom && restored.singleRowInLandscape);
+    }
+}
+
+static void testIndependentReservedAreas(void) {
+    NSArray *windows = @[
+        [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"A" scale:0.5],
+        [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"B" scale:2]
+    ];
+    NSDictionary *proportions = @{@"2:1:2:0": @{@"rows": @[], @"columns": @[@0.4], @"lastRowColumns": @[@0.4]}};
+    NSDictionary *group = @{@"source": @"B", @"targets": @[@"A"], @"mode": @"twoFingers"};
+    for (unsigned int choices = 0; choices < 16; ++choices) {
+        BOOL portraitTop = (choices & 1) != 0, portraitBottom = (choices & 2) != 0;
+        BOOL landscapeTop = (choices & 4) != 0, landscapeBottom = (choices & 8) != 0;
+        LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
+            singleRowInLandscape:YES reservePortraitTop:portraitTop reservePortraitBottom:portraitBottom
+            reserveLandscapeTop:landscapeTop reserveLandscapeBottom:landscapeBottom];
+        assert(workspace);
+        NSMutableDictionary *plist = workspace.propertyList.mutableCopy;
+        plist[@"tapSync"] = group;
+        NSError *error = nil;
+        NSData *data = [NSPropertyListSerialization dataWithPropertyList:plist format:NSPropertyListBinaryFormat_v1_0
+                                                               options:0 error:&error];
+        assert(data && !error);
+        id decoded = [NSPropertyListSerialization propertyListWithData:data options:0 format:NULL error:&error];
+        LCWindowWorkspace *restored = [[LCWindowWorkspace alloc] initWithPropertyList:decoded];
+        assert(restored && restored.singleRowInLandscape);
+        assert(restored.reservePortraitTop == portraitTop && restored.reservePortraitBottom == portraitBottom);
+        assert(restored.reserveLandscapeTop == landscapeTop && restored.reserveLandscapeBottom == landscapeBottom);
+        assert([restored.propertyList isEqual:plist]);
+        assert([restored.proportions isEqual:proportions] && [restored.tapSyncGroup isEqual:group]);
+        assert([[restored.windows valueForKey:@"propertyList"] isEqual:[windows valueForKey:@"propertyList"]]);
+    }
+    NSMutableDictionary *old = [@{@"version": @1, @"windows": @[window(@"A")], @"singleRowInLandscape": @YES,
+        @"reservePortraitTop": @NO, @"reservePortraitBottom": @YES} mutableCopy];
+    LCWindowWorkspace *restored = [[LCWindowWorkspace alloc] initWithPropertyList:old];
+    assert(restored && restored.reserveLandscapeTop && !restored.reserveLandscapeBottom);
+    for (id invalid in @[NSNull.null, @"false", @"true", @2, @-1, @(NAN), @[], @{}]) {
+        old[@"reserveLandscapeTop"] = invalid;
+        old[@"reserveLandscapeBottom"] = @YES;
+        restored = [[LCWindowWorkspace alloc] initWithPropertyList:old];
+        assert(restored && restored.reserveLandscapeTop && restored.reserveLandscapeBottom);
+        assert(!restored.reservePortraitTop && restored.reservePortraitBottom && restored.singleRowInLandscape);
+        old[@"reserveLandscapeTop"] = @NO;
+        old[@"reserveLandscapeBottom"] = invalid;
+        restored = [[LCWindowWorkspace alloc] initWithPropertyList:old];
+        assert(restored && !restored.reserveLandscapeTop && !restored.reserveLandscapeBottom);
+        assert(!restored.reservePortraitTop && restored.reservePortraitBottom && restored.singleRowInLandscape);
     }
 }
 
@@ -141,6 +190,7 @@ int main(void) {
     @autoreleasepool {
         testLandscapePreference();
         testPortraitReservations();
+        testIndependentReservedAreas();
         testTapSyncGroup();
         NSDictionary *validGrid = @{@"rows": @[@0.4], @"columns": @[@0.65], @"lastRowColumns": @[]};
         LCWindowWorkspace *workspace = decode(@[window(@"A"), window(@"B")], @{@"3:2:2:1": validGrid});
@@ -194,7 +244,7 @@ int main(void) {
         LCWindowWorkspace *immutable = decode(@[mutableEntry], @{@"3:2:2:1": validGrid});
         mutableEntry[@"dataUUID"] = @"Changed";
         assert([immutable.windows[0].dataUUID isEqualToString:@"A"]);
-        puts("Workspace tests passed (landscape and portrait preferences, old saves, property-list round trip, multiple containers, invalid snapshots and divider validation).");
+        puts("Workspace tests passed (independent portrait/landscape reserved areas, layout preferences, old saves, property-list round trip, multiple containers, invalid snapshots and divider validation).");
     }
     return 0;
 }

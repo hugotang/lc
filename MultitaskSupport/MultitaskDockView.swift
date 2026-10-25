@@ -921,6 +921,8 @@ private struct DockGridActions: View {
     @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) private var singleRowInLandscape = false
     @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) private var reservePortraitTop = true
     @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) private var reservePortraitBottom = false
+    @AppStorage("LCGridReserveLandscapeTop", store: LCUtils.appGroupUserDefault) private var reserveLandscapeTop = true
+    @AppStorage("LCGridReserveLandscapeBottom", store: LCUtils.appGroupUserDefault) private var reserveLandscapeBottom = false
 
     var body: some View {
         Button {
@@ -940,6 +942,12 @@ private struct DockGridActions: View {
             Toggle("lc.multitask.reservePortraitBottom".loc, isOn: $reservePortraitBottom)
         } label: {
             Label("lc.multitask.portraitReservedAreas".loc, systemImage: "rectangle.portrait")
+        }
+        Menu {
+            Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: $reserveLandscapeTop)
+            Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: $reserveLandscapeBottom)
+        } label: {
+            Label("lc.multitask.landscapeReservedAreas".loc, systemImage: "rectangle")
         }
         Button {
             perform { dockManager.windowHostingView.toggleGridDividerAdjustment() }

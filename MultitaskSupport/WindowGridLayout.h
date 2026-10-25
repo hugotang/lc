@@ -21,10 +21,12 @@ typedef struct {
 
 // These preferences change the grid's drawing area, not the safe areas sent to
 // guests. Use the host's full bounds to identify portrait before applying insets.
-// Landscape always keeps its top/side exclusions and draws beneath the bottom.
-static inline LCWindowGridRect LCWindowGridContentBoundsWithPortraitPreferences(LCWindowGridRect bounds,
+// Left/right always follow system safe areas; top/bottom are independent for
+// each host orientation. Defaults preserve top space and extend beneath bottom.
+static inline LCWindowGridRect LCWindowGridContentBoundsWithReservedAreas(LCWindowGridRect bounds,
                                                         LCWindowGridRect safeBounds,
-                                                        bool reservePortraitTop, bool reservePortraitBottom) {
+                                                        bool reservePortraitTop, bool reservePortraitBottom,
+                                                        bool reserveLandscapeTop, bool reserveLandscapeBottom) {
     if (!isfinite(bounds.x) || !isfinite(bounds.y) || !isfinite(bounds.width) || !isfinite(bounds.height) ||
         !isfinite(safeBounds.x) || !isfinite(safeBounds.y) || !isfinite(safeBounds.width) ||
         !isfinite(safeBounds.height) || bounds.width <= 0 || bounds.height <= 0 ||
@@ -32,10 +34,18 @@ static inline LCWindowGridRect LCWindowGridContentBoundsWithPortraitPreferences(
     double left = fmax(bounds.x, safeBounds.x);
     double right = fmin(bounds.x + bounds.width, safeBounds.x + safeBounds.width);
     bool portrait = bounds.height >= bounds.width;
-    double top = !portrait || reservePortraitTop ? fmax(bounds.y, safeBounds.y) : bounds.y;
-    double bottom = portrait && reservePortraitBottom ?
+    bool reserveTop = portrait ? reservePortraitTop : reserveLandscapeTop;
+    bool reserveBottom = portrait ? reservePortraitBottom : reserveLandscapeBottom;
+    double top = reserveTop ? fmax(bounds.y, safeBounds.y) : bounds.y;
+    double bottom = reserveBottom ?
         fmin(bounds.y + bounds.height, safeBounds.y + safeBounds.height) : bounds.y + bounds.height;
     return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bottom - top)};
+}
+
+static inline LCWindowGridRect LCWindowGridContentBoundsWithPortraitPreferences(LCWindowGridRect bounds,
+                                                        LCWindowGridRect safeBounds,
+                                                        bool reservePortraitTop, bool reservePortraitBottom) {
+    return LCWindowGridContentBoundsWithReservedAreas(bounds, safeBounds, reservePortraitTop, reservePortraitBottom, true, false);
 }
 
 static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds, LCWindowGridRect safeBounds) {
