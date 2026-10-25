@@ -250,6 +250,14 @@ struct LCAppSettingsView: View {
                         Text("lc.appBanner.multitask".loc)
                     }
                 }
+                Section {
+                    Toggle(isOn: $model.uiUseWindowScreenSize) {
+                        Text("lc.appSettings.useWindowScreenSize".loc)
+                    }
+                    .disabled(model.uiDontInjectTweakLoader)
+                } footer: {
+                    Text("lc.appSettings.useWindowScreenSizeDesc".loc)
+                }
             }
             
             Section {

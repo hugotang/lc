@@ -228,6 +228,8 @@
 				TapSyncWindow.m,
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
+				WindowScreen.h,
+				WindowScreen.m,
 			);
 			target = 174140392D9C0D0000F3F928 /* TweakLoader */;
 		};

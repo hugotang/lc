@@ -1,5 +1,14 @@
 # Device checks for multitasking changes
 
+## Window screen compatibility (3.8.22)
+
+- On the affected iPad Pro M1 / iOS 27.0.1, keep the device in landscape and four Monster Strike accounts in the same portrait-shaped grid. With the new app setting off, reproduce the oversized/clipped and landscape ad or popup and note the affected screen. Enable **Use Window Size as Screen Size (Experimental)** in Monster Strike's app settings, close all four accounts and relaunch them. Open that same ad/popup in each account. Check its content, orientation, full close-button visibility and close-button hit target; record sizing and orientation separately. Simulator success does not pass this device check.
+- Repeat in both landscape directions and portrait, with single-row/automatic grids, visible/hidden/top/bottom window bars, divider changes, and 50%/100%/200% content scales. Resize, maximize, minimize/restore, rotate while an ad is open, dismiss it and return to the game. Check that the game's layout, viewport and touch targets stay consistent. Include an ordinary UIKit alert, a web popup and a video ad if available; a hard-coded video direction or JavaScript `screen.*` may still use device information.
+- Start Input Sync before opening and closing an ad and recheck manual Resume in every input mode. The existing popup/geometry interruption rules still apply. Verify game input after dismissal, source/follower selection retention, the tested four-account Minimize All → Restore All flow and hidden-arrow inward Dock reveal. Native windows and an app with this setting off must retain their existing behavior.
+- Disable the setting, close every account and relaunch. Verify the original behavior returns, the preference stays off after LiveContainer relaunch, and saves/resources are intact. No data conversion or reinstall should be necessary. Record the app/ad SDK if the size improves but the layout is still landscape; the initial option intentionally does not spoof physical-device or UIKit scene orientation.
+
+## Existing multitasking checks
+
 The standalone tests cover geometry, ordering, workspace serialization, localization selection and symbol-cache validation. AVKit transitions and private guest-scene APIs also need these checks on an iPhone and iPad; a successful archive does not exercise them.
 
 Device result recorded on 2026-10-25: the user reported that the 3.8.20 near-arrow inward reveal retest passed in the affected iPad Pro M1 / iOS 27.0.1 setup, with four Monster Strike accounts visible and Hide Collapsed Dock enabled. The reported regression is resolved. Cycle counts, other orientations, the full three-state matrix and other device/game combinations were not separately reported; the checks below remain available for broader regression testing.

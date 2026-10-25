@@ -73,6 +73,7 @@
         @"bookmarks": bookmarks,
         @"lcHomePath": NSHomeDirectory(),
     }.mutableCopy;
+    userInfo[@"virtualWindow"] = @(!self.isNativeWindow);
     if (self.tapSyncPeer) userInfo[@"tapSyncEndpoint"] = self.tapSyncPeer.endpoint;
     
     NSString* launchAppUrlScheme = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
@@ -115,22 +116,45 @@
             [weakSelf appTerminationCleanUp];
         });
     }];
-    [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
+    void (^beginRequest)(void) = ^{
+        if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
+        [self.extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
+                self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
+                if (identifier && self.pid > 0) {
+                    self.tapSyncPeer.expectedProcessIdentifier = self.pid;
+                    [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
+                    self.identifier = identifier;
+                    [self completeInitializationWithError:nil];
+                    [self setUpAppPresenter];
+                } else {
+                    [self completeInitializationWithError:[self startupError]];
+                    [self appTerminationCleanUp];
+                }
+            });
+        }];
+    };
+    bool guestIsShared = false;
+    NSBundle *guestBundle = !self.isNativeWindow ? [LCSharedUtils findBundleWithBundleId:bundleId isSharedAppOut:&guestIsShared] : nil;
+    NSDictionary *guestInfo = guestBundle ? [NSDictionary dictionaryWithContentsOfFile:[guestBundle.bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]] : nil;
+    if ([guestInfo[@"LCUseWindowScreenSize"] boolValue] && ![guestInfo[@"dontInjectTweakLoader"] boolValue]) {
+        // The decorated controller attaches and lays out this view after init returns.
+        // Supply content geometry before the guest's SDK constructors query UIScreen.
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
-            self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
-            if (identifier && self.pid > 0) {
-                self.tapSyncPeer.expectedProcessIdentifier = self.pid;
-                [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
-                self.identifier = identifier;
-                [self completeInitializationWithError:nil];
-                [self setUpAppPresenter];
-            } else {
-                [self completeInitializationWithError:[self startupError]];
-                [self appTerminationCleanUp];
+            [self.view.superview.superview layoutIfNeeded];
+            [self.view.superview layoutIfNeeded];
+            CGSize size = self.view.bounds.size;
+            CGFloat scale = self.scaleRatio > 0 ? self.scaleRatio : 1;
+            if (size.width >= 1 && size.height >= 1) {
+                userInfo[@"initialWindowWidth"] = @(size.width / scale);
+                userInfo[@"initialWindowHeight"] = @(size.height / scale);
+                item.userInfo = userInfo;
             }
+            beginRequest();
         });
-    }];
+    } else beginRequest();
     
     return self;
 }

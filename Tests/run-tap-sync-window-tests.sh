@@ -46,7 +46,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/Tests/TapSyncWindowTestHost.m" -o "$app/TapSyncTests"
 xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-arc -Wall -Wextra -Werror \
     -fmodules -Wno-nullability-completeness -Wno-unused-parameter -bundle -F "$test_frameworks" -L "$test_libraries" \
-    -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
+    -framework UIKit -framework WebKit -framework Foundation -framework CoreGraphics -framework QuartzCore -framework XCTest -lXCTestSwiftSupport \
     -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
     -I "$repo_root/LiveContainer" \
     "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" \
@@ -59,6 +59,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/MultitaskSupport/WindowMinimization.m" "$repo_root/MultitaskSupport/WindowGridOrder.m" \
     "$repo_root/Tests/WindowMinimizationTests.m" \
     "$repo_root/MultitaskSupport/DockRevealControl.m" "$repo_root/Tests/DockRevealControlTests.m" \
+    "$repo_root/Tests/WindowScreenTests.m" \
     -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"

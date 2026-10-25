@@ -9583,6 +9583,52 @@
         }
       }
     },
+    "lc.appSettings.useWindowScreenSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Window Size as Screen Size (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以窗口尺寸作为屏幕尺寸（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以視窗尺寸作為螢幕尺寸（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.useWindowScreenSizeDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For ads or popups that use the whole device screen instead of this app’s window. Applies to this app’s virtual windows only; off by default. Close and relaunch every running account after changing it. Some ads choose orientation separately and may still need a fix."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于按整个设备屏幕而非当前应用窗口显示的广告或弹出界面。仅用于此应用的虚拟窗口，默认关闭。更改后请关闭并重新启动所有运行中的账号。部分广告会独立选择方向，仍可能需要修复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於按整部裝置螢幕而非目前 App 視窗顯示的廣告或彈出介面。僅用於此 App 的虛擬視窗，預設關閉。更改後請關閉並重新啟動所有執行中的帳號。部分廣告會獨立選擇方向，仍可能需要修正。"
+          }
+        }
+      }
+    },
     "lc.appSettings.useLCBundleId" : {
       "extractionState" : "manual",
       "localizations" : {

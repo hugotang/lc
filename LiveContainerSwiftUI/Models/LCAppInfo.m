@@ -592,6 +592,15 @@
     [self save];
 }
 
+- (bool)useWindowScreenSize {
+    return [_info[@"LCUseWindowScreenSize"] boolValue];
+}
+
+- (void)setUseWindowScreenSize:(bool)useWindowScreenSize {
+    _info[@"LCUseWindowScreenSize"] = @(useWindowScreenSize);
+    [self save];
+}
+
 - (LCOrientationLock)orientationLock {
     return (LCOrientationLock) [((NSNumber*) _info[@"LCOrientationLock"]) intValue];
 }
