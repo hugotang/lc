@@ -343,9 +343,16 @@
     [web evaluateJavaScript:@"({width:innerWidth,height:innerHeight,right:document.getElementById('close').getBoundingClientRect().right,screenWidth:screen.width,screenHeight:screen.height})"
          completionHandler:^(id result, NSError *error) {
         XCTAssertNil(error);
-        XCTAssertEqualWithAccuracy([result[@"width"] doubleValue], 300, 1);
-        XCTAssertEqualWithAccuracy([result[@"height"] doubleValue], 500, 1);
-        XCTAssertLessThanOrEqual([result[@"right"] doubleValue], 300);
+        // WebKit's automatic scroll insets exclude the scene's status/home
+        // safe area from the CSS viewport, even though its UIView fills the game.
+        UIEdgeInsets insets = web.scrollView.adjustedContentInset;
+        CGFloat viewportWidth = web.bounds.size.width - insets.left - insets.right;
+        CGFloat viewportHeight = web.bounds.size.height - insets.top - insets.bottom;
+        XCTAssertTrue(CGRectContainsRect(game.bounds, web.frame));
+        XCTAssertEqualWithAccuracy([result[@"width"] doubleValue], viewportWidth, 1);
+        XCTAssertEqualWithAccuracy([result[@"height"] doubleValue], viewportHeight, 1);
+        XCTAssertLessThanOrEqual([result[@"right"] doubleValue], viewportWidth);
+        XCTAssertLessThanOrEqual([result[@"height"] doubleValue], game.bounds.size.height);
         // WebKit's screen.* belongs to its separate web process. Record it,
         // without claiming a UIScreen hook rewrites JavaScript/device orientation.
         XCTAttachment *attachment = [XCTAttachment attachmentWithString:[result description]];
