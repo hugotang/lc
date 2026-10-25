@@ -189,7 +189,7 @@
             NSUInteger account = number.unsignedIntegerValue;
             [opened addObject:views[account]];
             NSArray *slots = [plan slotsForWindows:opened matchingEntry:^BOOL(id view, LCWorkspaceWindow *entry) {
-                return views[[entries indexOfObjectIdenticalTo:entry]] == view;
+                return views[[workspace.windows indexOfObjectIdenticalTo:entry]] == view;
             }];
             XCTAssertEqual(slots.count, 4);
             NSUInteger slot = [slots indexOfObjectIdenticalTo:views[account]];
