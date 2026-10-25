@@ -56,6 +56,46 @@
 @implementation LCWindowScreenTestWindow
 @end
 
+// Model an app that rebuilds screen-based layout in its UIKit transition
+// override, before calling super while its window still has the old bounds.
+@interface LCWindowScreenTransitionController : UIViewController
+@property(nonatomic) CGRect screenBeforeSuper, screenAfterSuper, nativeDuringTransition;
+@property(nonatomic) CGRect orientedDuringTransition, fixedDuringTransition, applicationDuringTransition;
+@property(nonatomic) CGRect originalSystemBounds, backgroundDuringTransition;
+@property(nonatomic) CGSize receivedSize, actualWindowSizeDuringTransition;
+@property(nonatomic, strong) id<UIViewControllerTransitionCoordinator> receivedCoordinator;
+@property(nonatomic) NSUInteger calls;
+@property(nonatomic) BOOL throwsOnTransition;
+@property(nonatomic) BOOL skipsSuper;
+@property(nonatomic, copy) dispatch_block_t duringTransition;
+@end
+@implementation LCWindowScreenTransitionController
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    self.calls++;
+    self.receivedSize = size;
+    self.receivedCoordinator = coordinator;
+    self.actualWindowSizeDuringTransition = self.viewIfLoaded.window.bounds.size;
+    self.screenBeforeSuper = UIScreen.mainScreen.bounds;
+    self.nativeDuringTransition = UIScreen.mainScreen.nativeBounds;
+    self.orientedDuringTransition = UIScreen.mainScreen.coordinateSpace.bounds;
+    self.fixedDuringTransition = UIScreen.mainScreen.fixedCoordinateSpace.bounds;
+    self.applicationDuringTransition = UIScreen.mainScreen.applicationFrame;
+    self.originalSystemBounds = [UIScreen.mainScreen lc_windowScreen_bounds];
+    __block CGRect background;
+    dispatch_sync(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ background = UIScreen.mainScreen.bounds; });
+    self.backgroundDuringTransition = background;
+    if (self.duringTransition) self.duringTransition();
+    if (self.throwsOnTransition) @throw [NSException exceptionWithName:@"LCWindowScreenTestException" reason:nil userInfo:nil];
+    if (!self.skipsSuper) [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    self.screenAfterSuper = UIScreen.mainScreen.bounds;
+}
+@end
+
+@interface LCWindowScreenInheritedTransitionController : LCWindowScreenTransitionController
+@end
+@implementation LCWindowScreenInheritedTransitionController
+@end
+
 @interface WindowScreenTests : XCTestCase<WKNavigationDelegate>
 @property(nonatomic, strong) LCWindowScreenState *state;
 @property(nonatomic, strong) NSMutableArray<UIWindow *> *windows;
@@ -737,6 +777,116 @@
     XCTAssertTrue(CGRectEqualToRect(metal.bounds, before));
     XCTAssertTrue(CGSizeEqualToSize(metal.drawableSize, drawable));
     XCTAssertTrue([NSJSONSerialization isValidJSONObject:report]);
+}
+- (void)testTransitionCallbackSeesDestinationScreenBeforeWindowResize {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(297, 834)];
+    LCWindowScreenTransitionController *controller = [LCWindowScreenTransitionController new];
+    game.rootViewController = controller;
+    [game layoutIfNeeded];
+    CGRect originalSystemBounds = [UIScreen.mainScreen lc_windowScreen_bounds];
+    // Only identity is checked here; the production wrapper must forward the
+    // same coordinator, never invent one or invoke a second transition.
+    id<UIViewControllerTransitionCoordinator> coordinator = (id)[NSObject new];
+    controller.skipsSuper = YES; // An app override may not forward to UIKit.
+    for (NSValue *value in @[[NSValue valueWithCGSize:CGSizeMake(416, 596)],
+                             [NSValue valueWithCGSize:CGSizeMake(297, 834)]]) {
+        CGSize destination = value.CGSizeValue;
+        CGSize actual = game.bounds.size;
+        NSUInteger calls = controller.calls;
+        // UIKit may update the root before the window in another transition
+        // path. Both old-root and destination-root callbacks remain eligible.
+        if (destination.width == 297) controller.view.bounds = (CGRect){CGPointZero, destination};
+        [controller viewWillTransitionToSize:destination withTransitionCoordinator:coordinator];
+        XCTAssertEqual(controller.calls, calls + 1);
+        XCTAssertEqual(controller.receivedCoordinator, coordinator);
+        XCTAssertTrue(CGSizeEqualToSize(controller.receivedSize, destination));
+        XCTAssertTrue(CGSizeEqualToSize(controller.actualWindowSizeDuringTransition, actual));
+        XCTAssertTrue(CGSizeEqualToSize(controller.screenBeforeSuper.size, destination));
+        XCTAssertTrue(CGSizeEqualToSize(controller.screenAfterSuper.size, destination));
+        XCTAssertTrue(CGSizeEqualToSize(controller.orientedDuringTransition.size, destination));
+        XCTAssertTrue(CGSizeEqualToSize(controller.fixedDuringTransition.size, destination));
+        XCTAssertTrue(CGSizeEqualToSize(controller.applicationDuringTransition.size, destination));
+        XCTAssertEqualWithAccuracy(controller.nativeDuringTransition.size.width, round(destination.width * UIScreen.mainScreen.nativeScale), 0.01);
+        XCTAssertEqualWithAccuracy(controller.nativeDuringTransition.size.height, round(destination.height * UIScreen.mainScreen.nativeScale), 0.01);
+        XCTAssertTrue(CGRectEqualToRect(controller.originalSystemBounds, originalSystemBounds));
+        XCTAssertTrue(CGSizeEqualToSize(controller.backgroundDuringTransition.size, actual));
+        // The scoped callback must leave window/layer sizing to UIKit.
+        XCTAssertTrue(CGSizeEqualToSize(game.bounds.size, actual));
+        XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.bounds.size, actual));
+        game.frame = (CGRect){CGPointZero, destination};
+        [game layoutIfNeeded];
+        XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.bounds.size, destination));
+    }
+    NSDictionary *diagnostics = LCWindowScreenGeometryForDiagnostics();
+    XCTAssertEqual([diagnostics[@"sizeTransitionCount"] unsignedIntegerValue], 2U);
+    XCTAssertEqualObjects(diagnostics[@"lastSizeTransition"][@"targetSize"], (@[@297, @834]));
+    XCTAssertTrue([NSJSONSerialization isValidJSONObject:diagnostics]);
+}
+- (void)testTransitionDestinationIsScopedToTheBoundRootAndMainThread {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    LCWindowScreenInheritedTransitionController *controller = [LCWindowScreenInheritedTransitionController new];
+    game.rootViewController = controller;
+    [game layoutIfNeeded];
+    // Inherited hooks must call the app implementation once, even if its base
+    // class was previously wrapped. Nested callbacks cannot replace the root.
+    LCWindowScreenTransitionController *child = [LCWindowScreenTransitionController new];
+    [controller addChildViewController:child];
+    child.view.frame = CGRectMake(0, 0, 100, 120);
+    [controller.view addSubview:child.view];
+    [child didMoveToParentViewController:controller];
+    controller.duringTransition = ^{ [child viewWillTransitionToSize:CGSizeMake(120, 100) withTransitionCoordinator:nil]; };
+    NSUInteger calls = controller.calls;
+    [controller viewWillTransitionToSize:CGSizeMake(600, 400) withTransitionCoordinator:nil];
+    XCTAssertEqual(controller.calls, calls + 1);
+    XCTAssertTrue(CGSizeEqualToSize(controller.screenBeforeSuper.size, CGSizeMake(600, 400)));
+    XCTAssertTrue(CGSizeEqualToSize(controller.screenAfterSuper.size, CGSizeMake(600, 400)));
+    XCTAssertTrue(CGSizeEqualToSize(child.screenBeforeSuper.size, CGSizeMake(600, 400)));
+    XCTAssertTrue(CGSizeEqualToSize(controller.backgroundDuringTransition.size, CGSizeMake(300, 500)));
+    XCTAssertEqualWithAccuracy(controller.nativeDuringTransition.size.width, round(400 * UIScreen.mainScreen.nativeScale), 0.01);
+    XCTAssertEqualWithAccuracy(controller.nativeDuringTransition.size.height, round(600 * UIScreen.mainScreen.nativeScale), 0.01);
+    XCTAssertTrue(CGSizeEqualToSize(controller.fixedDuringTransition.size, CGSizeMake(400, 600)));
+    XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.bounds.size, CGSizeMake(300, 500)));
+    controller.duringTransition = nil;
+    [child viewWillTransitionToSize:CGSizeMake(120, 100) withTransitionCoordinator:nil];
+    XCTAssertTrue(CGSizeEqualToSize(child.screenBeforeSuper.size, CGSizeMake(300, 500)));
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    LCWindowScreenTransitionController *adController = [LCWindowScreenTransitionController new];
+    ad.rootViewController = adController;
+    ad.frame = game.frame;
+    [ad makeKeyAndVisible];
+    [ad layoutIfNeeded];
+    [self.windows addObject:ad];
+    [adController viewWillTransitionToSize:CGSizeMake(200, 200) withTransitionCoordinator:nil];
+    XCTAssertTrue(CGSizeEqualToSize(adController.screenBeforeSuper.size, CGSizeMake(300, 500)));
+    XCTAssertEqual(LCWindowScreenGameWindowForDiagnostics(), game);
+    XCTAssertEqual([LCWindowScreenGeometryForDiagnostics()[@"sizeTransitionCount"] unsignedIntegerValue], 1U);
+}
+- (void)testTransitionScopeRestoresAfterExceptionAndWhenDisabled {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    LCWindowScreenTransitionController *controller = [LCWindowScreenTransitionController new];
+    game.rootViewController = controller;
+    [game layoutIfNeeded];
+    controller.throwsOnTransition = YES;
+    XCTAssertThrowsSpecificNamed([controller viewWillTransitionToSize:CGSizeMake(500, 350) withTransitionCoordinator:nil],
+                                 NSException, @"LCWindowScreenTestException");
+    XCTAssertTrue(CGSizeEqualToSize(controller.screenBeforeSuper.size, CGSizeMake(500, 350)));
+    XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.bounds.size, CGSizeMake(300, 500)));
+    XCTAssertEqual(LCWindowScreenTransitionDepth, 0U);
+    controller.throwsOnTransition = NO;
+    LCWindowScreenCurrentState = nil;
+    CGRect original = UIScreen.mainScreen.bounds;
+    NSUInteger calls = controller.calls;
+    [controller viewWillTransitionToSize:CGSizeMake(600, 400) withTransitionCoordinator:nil];
+    XCTAssertEqual(controller.calls, calls + 1);
+    XCTAssertTrue(CGRectEqualToRect(controller.screenBeforeSuper, original));
+    XCTAssertTrue(CGRectEqualToRect(controller.screenAfterSuper, original));
+    XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
+    [self useState:self.state];
+    NSUInteger transitions = self.state.sizeTransitionCount;
+    controller.skipsSuper = YES; // Do not ask UIKit to perform a NaN transition.
+    [controller viewWillTransitionToSize:CGSizeMake(NAN, 400) withTransitionCoordinator:nil];
+    XCTAssertTrue(CGSizeEqualToSize(controller.screenBeforeSuper.size, CGSizeMake(300, 500)));
+    XCTAssertEqual(self.state.sizeTransitionCount, transitions);
 }
 - (void)testGeometryDiagnosticsBoundWorkAndPreserveDisabledScreenHooks {
     LCWindowScreenCurrentState = nil;

@@ -11,6 +11,15 @@ typedef struct {
     UIInterfaceOrientation orientation;
 } LCWindowScreenSnapshot;
 
+// UIKit announces the destination size before changing the window's bounds.
+// Scope that size to the original root-controller callback, including queries
+// made before an app override calls super. Other threads keep the actual window.
+static __thread void *LCWindowScreenTransitionState;
+static __thread LCWindowScreenSnapshot LCWindowScreenTransitionSnapshot;
+static __thread NSUInteger LCWindowScreenTransitionDepth;
+static const char LCWindowScreenTransitionHookKey;
+static void LCWindowScreenInstallControllerTransitionHook(Class cls);
+
 static BOOL LCWindowScreenValidSize(CGSize size) {
     return isfinite(size.width) && isfinite(size.height) && size.width >= 1 && size.height >= 1;
 }
@@ -34,9 +43,12 @@ static CGSize LCWindowScreenFixedSize(LCWindowScreenSnapshot snapshot) {
 @property(nonatomic, weak) UIWindowScene *scene;
 @property(nonatomic, weak) UIWindow *window;
 @property(nonatomic) BOOL hasBoundWindow;
+@property(nonatomic) Class transitionControllerClass;
 @property(nonatomic, strong) NSLock *snapshotLock;
 @property(nonatomic, strong) NSHashTable<UIWindow *> *adjustedWindows;
 @property(nonatomic) LCWindowScreenSnapshot snapshot;
+@property(nonatomic) NSUInteger sizeTransitionCount;
+@property(nonatomic, copy) NSDictionary *lastSizeTransition;
 @property(nonatomic, strong) id<UICoordinateSpace> originalOrientedSpace, originalFixedSpace;
 - (instancetype)initWithSize:(CGSize)size;
 - (LCWindowScreenSnapshot)readSnapshot;
@@ -80,6 +92,8 @@ static BOOL LCWindowScreenIsGameWindow(UIWindow *window, UIWindowScene *scene) {
     return self;
 }
 - (LCWindowScreenSnapshot)readSnapshot {
+    if (NSThread.isMainThread && LCWindowScreenTransitionState == (__bridge void *)self)
+        return LCWindowScreenTransitionSnapshot;
     [self.snapshotLock lock];
     LCWindowScreenSnapshot snapshot = _snapshot;
     [self.snapshotLock unlock];
@@ -91,6 +105,7 @@ static BOOL LCWindowScreenIsGameWindow(UIWindow *window, UIWindowScene *scene) {
         self.scene = nil;
         self.window = nil;
         self.hasBoundWindow = NO;
+        self.transitionControllerClass = Nil;
     }
     if (!self.scene) {
         UIWindowScene *candidate = nil;
@@ -129,6 +144,11 @@ static BOOL LCWindowScreenIsGameWindow(UIWindow *window, UIWindowScene *scene) {
     CGSize size;
     if (self.window) {
         self.hasBoundWindow = YES;
+        Class controllerClass = self.window.rootViewController.class;
+        if (controllerClass != self.transitionControllerClass) {
+            LCWindowScreenInstallControllerTransitionHook(controllerClass);
+            self.transitionControllerClass = controllerClass;
+        }
         size = self.window.bounds.size;
     } else if (self.hasBoundWindow || !LCWindowScreenValidSize(self.readSnapshot.size)) {
         size = scene.coordinateSpace.bounds.size;
@@ -163,7 +183,65 @@ NSDictionary *LCWindowScreenGeometryForDiagnostics(void) {
     if (LCWindowScreenCurrentState) snapshot = [LCWindowScreenCurrentState readSnapshot];
     return @{@"enabled": @(LCWindowScreenCurrentState != nil),
         @"publishedWidth": @(snapshot.size.width), @"publishedHeight": @(snapshot.size.height),
-        @"localOrientation": @(snapshot.orientation)};
+        @"localOrientation": @(snapshot.orientation),
+        @"sizeTransitionCount": @(LCWindowScreenCurrentState.sizeTransitionCount),
+        @"lastSizeTransition": LCWindowScreenCurrentState.lastSizeTransition ?: @{}};
+}
+
+static void LCWindowScreenPerformSizeTransition(UIViewController *controller, CGSize size,
+                                                dispatch_block_t original) {
+    LCWindowScreenState *state = LCWindowScreenCurrentState;
+    if (!NSThread.isMainThread || !state || LCWindowScreenTransitionDepth ||
+        !LCWindowScreenValidSize(size)) { original(); return; }
+    LCWindowScreenRefresh(state);
+    UIWindow *game = state.window;
+    UIView *root = controller.viewIfLoaded;
+    // A child or an ad controller can have its own size. Only the bound game's
+    // full-window root callback describes the compatibility screen.
+    if (!game || controller != game.rootViewController || root.window != game ||
+        (!CGSizeEqualToSize(root.bounds.size, game.bounds.size) &&
+         !CGSizeEqualToSize(root.bounds.size, size))) { original(); return; }
+    LCWindowScreenSnapshot before = state.readSnapshot;
+    state.sizeTransitionCount++;
+    state.lastSizeTransition = @{@"controllerClass": NSStringFromClass(controller.class),
+        @"targetSize": @[@(size.width), @(size.height)],
+        @"windowSizeAtEntry": @[@(game.bounds.size.width), @(game.bounds.size.height)],
+        @"rootSizeAtEntry": @[@(root.bounds.size.width), @(root.bounds.size.height)],
+        @"screenSizeBeforeCallback": @[@(before.size.width), @(before.size.height)],
+        @"screenSizeInCallback": @[@(size.width), @(size.height)],
+        @"sceneOrientationAtEntry": @(game.windowScene.interfaceOrientation)};
+    void *previousState = LCWindowScreenTransitionState;
+    LCWindowScreenSnapshot previousSnapshot = LCWindowScreenTransitionSnapshot;
+    LCWindowScreenTransitionState = (__bridge void *)state;
+    LCWindowScreenTransitionSnapshot = (LCWindowScreenSnapshot){size,
+        LCWindowScreenLocalOrientation(size, game.windowScene.interfaceOrientation)};
+    LCWindowScreenTransitionDepth++;
+    @try { original(); }
+    @finally {
+        LCWindowScreenTransitionDepth--;
+        LCWindowScreenTransitionState = previousState;
+        LCWindowScreenTransitionSnapshot = previousSnapshot;
+    }
+}
+
+static void LCWindowScreenInstallControllerTransitionHook(Class cls) {
+    if (!cls || !NSThread.isMainThread || objc_getAssociatedObject(cls, &LCWindowScreenTransitionHookKey)) return;
+    SEL selector = @selector(viewWillTransitionToSize:withTransitionCoordinator:);
+    Method method = class_getInstanceMethod(cls, selector);
+    if (!method) return;
+    IMP original = method_getImplementation(method);
+    IMP replacement = imp_implementationWithBlock(^(UIViewController *controller, CGSize size,
+                                                    id<UIViewControllerTransitionCoordinator> coordinator) {
+        LCWindowScreenPerformSizeTransition(controller, size, ^{
+            ((void (*)(id, SEL, CGSize, id<UIViewControllerTransitionCoordinator>))original)
+                (controller, selector, size, coordinator);
+        });
+    });
+    // Add a local override for inherited implementations; do not replace a
+    // superclass's method. The original IMP and coordinator stay unchanged.
+    if (!class_addMethod(cls, selector, replacement, method_getTypeEncoding(method)))
+        class_replaceMethod(cls, selector, replacement, method_getTypeEncoding(method));
+    objc_setAssociatedObject(cls, &LCWindowScreenTransitionHookKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 // Keep UIKit's own geometry reads physical. Its private scene converters rely
@@ -327,6 +405,11 @@ static CGRect LCWindowScreenCoordinateSpaceBounds(id space, SEL selector) {
 }
 
 @implementation UIWindow (LCWindowScreen)
+- (void)lc_windowScreen_setRootViewController:(UIViewController *)controller {
+    if (LCWindowScreenCurrentState) LCWindowScreenInstallControllerTransitionHook(controller.class);
+    [self lc_windowScreen_setRootViewController:controller];
+    LCWindowScreenRefresh(LCWindowScreenCurrentState);
+}
 - (instancetype)lc_windowScreen_initWithWindowScene:(UIWindowScene *)scene {
     const void *caller = __builtin_return_address(0);
     UIWindow *window = [self lc_windowScreen_initWithWindowScene:scene];
@@ -436,6 +519,7 @@ void LCWindowScreenInstall(NSDictionary *launchInfo) {
         LCWindowScreenSwizzle(UIWindow.class, @selector(setFrame:), @selector(lc_windowScreen_setFrame:));
         LCWindowScreenSwizzle(UIWindow.class, @selector(initWithWindowScene:), @selector(lc_windowScreen_initWithWindowScene:));
         LCWindowScreenSwizzle(UIWindow.class, @selector(makeKeyAndVisible), @selector(lc_windowScreen_makeKeyAndVisible));
+        LCWindowScreenSwizzle(UIWindow.class, @selector(setRootViewController:), @selector(lc_windowScreen_setRootViewController:));
         LCWindowScreenSwizzle(WKWebView.class, @selector(initWithFrame:configuration:), @selector(lc_windowScreen_initWithFrame:configuration:));
         LCWindowScreenSwizzle(WKWebView.class, @selector(initWithCoder:), @selector(lc_windowScreen_initWithCoder:));
         LCWindowScreenSwizzle(WKWebView.class, @selector(didMoveToWindow), @selector(lc_windowScreen_didMoveToWindow));

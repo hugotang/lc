@@ -19,6 +19,8 @@ static NSDictionary *LCWindowGeometryDescribeLayer(CALayer *layer) {
     if ([layer isKindOfClass:CAMetalLayer.class]) {
         description[@"drawableSize"] = LCWindowGeometrySize(((CAMetalLayer *)layer).drawableSize);
     }
+    if ([layer.delegate isKindOfClass:UIView.class])
+        description[@"viewClass"] = NSStringFromClass(((UIView *)layer.delegate).class);
     return description;
 }
 
@@ -46,6 +48,8 @@ NSDictionary *LCWindowGeometryDescribeWindow(UIWindow *window) {
     return @{@"class": NSStringFromClass(window.class), @"frame": LCWindowGeometryRect(window.frame),
         @"bounds": LCWindowGeometryRect(window.bounds), @"hidden": @(window.hidden),
         @"key": @(window.isKeyWindow), @"level": @(window.windowLevel),
+        @"rootControllerClass": window.rootViewController ? NSStringFromClass(window.rootViewController.class) : @"",
+        @"rootViewClass": root ? NSStringFromClass(root.class) : @"",
         @"rootBounds": root ? LCWindowGeometryRect(root.bounds) : @[],
         @"renderLayers": renderLayers, @"renderTraversalTruncated": @(pending.count > 0)};
 }
