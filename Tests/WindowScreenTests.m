@@ -462,6 +462,41 @@
     }];
     [self waitForExpectations:@[evaluated] timeout:10];
 }
+- (void)testAdWindowCreatedFromSceneStartsWithGuestContentBounds {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    [self.windows addObject:ad];
+    ad.rootViewController = [UIViewController new];
+    ad.windowLevel = UIWindowLevelAlert;
+    [ad makeKeyAndVisible];
+    [ad layoutIfNeeded];
+    XCTAssertTrue(CGSizeEqualToSize(ad.bounds.size, game.bounds.size));
+    XCTAssertTrue(CGSizeEqualToSize(ad.rootViewController.view.bounds.size, game.bounds.size));
+    XCTAssertEqual(self.state.window, game);
+}
+- (void)testWebAdUsingScreenDimensionsFitsGuestAndKeepsCloseButtonReachable {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];
+    web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    web.navigationDelegate = self;
+    [game.rootViewController.view addSubview:web];
+    self.webLoaded = [self expectationWithDescription:@"screen-sized web ad loaded"];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}#ad{position:relative;background:#ddd}#close{position:absolute;right:0;top:0;width:44px;height:44px}</style><div id='ad'><button id='close'>X</button></div><script>function layoutAd(){ad.style.width=screen.width+'px';ad.style.height=screen.height+'px'}layoutAd();addEventListener('resize',layoutAd)</script>" baseURL:nil];
+    [self waitForExpectations:@[self.webLoaded] timeout:15];
+    XCTestExpectation *evaluated = [self expectationWithDescription:@"web ad respects local screen dimensions"];
+    [web evaluateJavaScript:@"({width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,adWidth:ad.getBoundingClientRect().width,adHeight:ad.getBoundingClientRect().height,closeRight:close.getBoundingClientRect().right,closeHit:document.elementFromPoint(278,22)===close})"
+        completionHandler:^(id result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqualWithAccuracy([result[@"screenWidth"] doubleValue], 300, 1);
+        XCTAssertEqualWithAccuracy([result[@"screenHeight"] doubleValue], 500, 1);
+        XCTAssertEqualWithAccuracy([result[@"adWidth"] doubleValue], 300, 1);
+        XCTAssertEqualWithAccuracy([result[@"adHeight"] doubleValue], 500, 1);
+        XCTAssertLessThanOrEqual([result[@"closeRight"] doubleValue], 300);
+        XCTAssertTrue([result[@"closeHit"] boolValue]);
+        [evaluated fulfill];
+    }];
+    [self waitForExpectations:@[evaluated] timeout:10];
+}
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation { [self.webLoaded fulfill]; }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     XCTFail(@"Web popup initial load failed: %@", error);
