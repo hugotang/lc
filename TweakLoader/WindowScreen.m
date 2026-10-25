@@ -54,13 +54,13 @@ static const char LCWindowScreenWebPreferencesKey;
 @end
 
 @interface UIWindow (LCWindowScreenInitializers)
-- (instancetype)lc_windowScreen_initWithWindowScene:(UIWindowScene *)scene NS_METHOD_FAMILY(init);
+- (instancetype)lc_windowScreen_initWithWindowScene:(UIWindowScene *)scene __attribute__((objc_method_family(init)));
 - (void)lc_windowScreen_setFrame:(CGRect)frame;
 @end
 
 @interface WKWebView (LCWindowScreenInitializers)
-- (instancetype)lc_windowScreen_initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration NS_METHOD_FAMILY(init);
-- (instancetype)lc_windowScreen_initWithCoder:(NSCoder *)coder NS_METHOD_FAMILY(init);
+- (instancetype)lc_windowScreen_initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration __attribute__((objc_method_family(init)));
+- (instancetype)lc_windowScreen_initWithCoder:(NSCoder *)coder __attribute__((objc_method_family(init)));
 @end
 
 static BOOL LCWindowScreenIsGameWindow(UIWindow *window, UIWindowScene *scene) {
