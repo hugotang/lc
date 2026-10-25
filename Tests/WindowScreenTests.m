@@ -45,7 +45,7 @@
 @property(nonatomic) CGRect bounds;
 @property(nonatomic) UIWindowLevel windowLevel;
 @property(nonatomic, strong) UIViewController *rootViewController;
-@property(nonatomic) BOOL hidden;
+@property(nonatomic, getter=isHidden) BOOL hidden;
 @end
 @implementation LCWindowScreenTestWindow
 @end
@@ -81,12 +81,8 @@
     [super tearDown];
 }
 - (void)useState:(LCWindowScreenState *)state {
-    state.originalOrientedSpace = [LCWindowScreenMainScreen lc_windowScreen_coordinateSpace];
-    state.orientedSpace = [LCWindowScreenCoordinateSpace new];
-    state.orientedSpace.state = state;
-    state.fixedSpace = [LCWindowScreenCoordinateSpace new];
-    state.fixedSpace.state = state;
-    state.fixedSpace.fixed = YES;
+    state.originalOrientedSpace = UIScreen.mainScreen.coordinateSpace;
+    state.originalFixedSpace = UIScreen.mainScreen.fixedCoordinateSpace;
     self.state = state;
     LCWindowScreenCurrentState = state;
 }
@@ -139,8 +135,8 @@
     XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", @{@"LCUseWindowScreenSize": @YES, @"dontInjectTweakLoader": @YES}, virtual));
     CGRect original = [UIScreen.mainScreen lc_windowScreen_bounds];
     XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
-    XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, [UIScreen.mainScreen lc_windowScreen_coordinateSpace]);
-    XCTAssertNil(LCWindowScreenStateForScreen((UIScreen *)[NSObject new]));
+    XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, self.state.originalOrientedSpace ?: UIScreen.mainScreen.coordinateSpace);
+    XCTAssertNil(LCWindowScreenStateForScreen((UIScreen *)[NSObject new], __builtin_return_address(0)));
 }
 - (void)testStartupAndNativeDimensionsAreConsistentBeforeGameWindowExists {
     CGFloat scale = UIScreen.mainScreen.scale, nativeScale = UIScreen.mainScreen.nativeScale;
@@ -164,7 +160,7 @@
     for (NSUInteger i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
         [self useState:[[LCWindowScreenStartupState alloc] initWithSize:invalid[i]]];
         XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
-        XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, [UIScreen.mainScreen lc_windowScreen_coordinateSpace]);
+        XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, self.state.originalOrientedSpace ?: UIScreen.mainScreen.coordinateSpace);
     }
 }
 - (void)testPortraitGameInLandscapeSceneKeepsItsOwnShapeAndScale {
@@ -206,8 +202,6 @@
 - (void)testWindowResizeRefreshesSnapshotForBackgroundSDKReads {
     UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
     game.frame = CGRectMake(0, 0, 600, 400);
-    LCWindowScreenStartupState *state = [[LCWindowScreenStartupState alloc] initWithSize:self.state.readSnapshot.size];
-    [self useState:state];
     XCTestExpectation *read = [self expectationWithDescription:@"background screen read uses the last geometry"];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
         XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, CGRectMake(0, 0, 600, 400)));
@@ -258,47 +252,65 @@
     [state refreshFromScenes:(id)[NSSet setWithObject:replacement]];
     XCTAssertTrue(CGSizeEqualToSize(state.readSnapshot.size, CGSizeMake(500, 300)));
 }
-- (void)testFixedScreenCoordinatesRotateAndRoundTripInEveryOrientation {
+- (void)testFixedAndNativeDimensionsFollowLocalShapeWithoutReplacingUIKitSpaces {
     UIInterfaceOrientation orientations[] = {UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown,
                                             UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight};
+    id<UICoordinateSpace> oriented = UIScreen.mainScreen.coordinateSpace;
+    id<UICoordinateSpace> fixed = UIScreen.mainScreen.fixedCoordinateSpace;
+    CGPoint point = CGPointMake(30, 70);
+    CGPoint convertedBefore = [fixed convertPoint:point toCoordinateSpace:oriented];
     for (NSUInteger i = 0; i < 4; i++) {
         UIInterfaceOrientation orientation = orientations[i];
         CGSize size = UIInterfaceOrientationIsLandscape(orientation) ? CGSizeMake(500, 300) : CGSizeMake(300, 500);
         LCWindowScreenStartupState *state = [[LCWindowScreenStartupState alloc] initWithSize:size];
         state.snapshot = (LCWindowScreenSnapshot){size, orientation};
         [self useState:state];
-        XCTAssertTrue(CGRectEqualToRect(state.fixedSpace.bounds, CGRectMake(0, 0, 300, 500)));
-        CGPoint point = CGPointMake(30, 70);
-        CGPoint expected[] = {{30, 70}, {270, 430}, {430, 30}, {70, 270}};
-        CGPoint mapped = [state.fixedSpace convertPoint:point toCoordinateSpace:state.orientedSpace];
-        XCTAssertTrue(CGPointEqualToPoint(mapped, expected[i]));
-        XCTAssertTrue(CGPointEqualToPoint([state.orientedSpace convertPoint:mapped toCoordinateSpace:state.fixedSpace], point));
-        XCTAssertTrue(CGPointEqualToPoint([state.orientedSpace convertPoint:point fromCoordinateSpace:state.fixedSpace], expected[i]));
+        XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, oriented);
+        XCTAssertEqual(UIScreen.mainScreen.fixedCoordinateSpace, fixed);
+        XCTAssertTrue(CGRectEqualToRect(fixed.bounds, CGRectMake(0, 0, 300, 500)));
+        XCTAssertTrue(CGRectEqualToRect(oriented.bounds, (CGRect){CGPointZero, size}));
+        CGPoint mapped = [fixed convertPoint:point toCoordinateSpace:oriented];
+        XCTAssertTrue(CGPointEqualToPoint(mapped, convertedBefore));
+        XCTAssertTrue(CGPointEqualToPoint([oriented convertPoint:mapped toCoordinateSpace:fixed], point));
         CGRect rect = CGRectMake(10, 20, 80, 120);
-        CGRect converted = [state.fixedSpace convertRect:rect toCoordinateSpace:state.orientedSpace];
-        XCTAssertTrue(CGRectEqualToRect([state.orientedSpace convertRect:converted toCoordinateSpace:state.fixedSpace], rect));
-        XCTAssertTrue(CGRectEqualToRect([state.fixedSpace convertRect:state.fixedSpace.bounds toCoordinateSpace:state.orientedSpace], UIScreen.mainScreen.bounds));
-        XCTAssertTrue(CGRectIsNull([state.fixedSpace convertRect:CGRectNull toCoordinateSpace:state.orientedSpace]));
+        CGRect converted = [fixed convertRect:rect toCoordinateSpace:oriented];
+        XCTAssertTrue(CGRectEqualToRect([oriented convertRect:converted toCoordinateSpace:fixed], rect));
+        XCTAssertTrue(CGRectIsNull([fixed convertRect:CGRectNull toCoordinateSpace:oriented]));
     }
 }
-- (void)testUIKitViewConversionsAndHitTargetsUseGuestPoints {
+- (void)testSystemCallersAndNestedGeometryQueriesKeepPhysicalDimensions {
+    [self useState:[[LCWindowScreenStartupState alloc] initWithSize:CGSizeMake(300, 500)]];
+    IMP system = method_getImplementation(class_getInstanceMethod(UIWindowScene.class, @selector(interfaceOrientation)));
+    XCTAssertTrue(LCWindowScreenCallerUsesPhysicalGeometry((const void *)system));
+    XCTAssertNil(LCWindowScreenStateForScreen(UIScreen.mainScreen, (const void *)system));
+    XCTAssertTrue(LCWindowScreenCallerUsesPhysicalGeometry(NULL));
+    CGRect original = [UIScreen.mainScreen lc_windowScreen_bounds];
+    LCWindowScreenQueryDepth++;
+    XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
+    LCWindowScreenQueryDepth--;
+    XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, CGRectMake(0, 0, 300, 500)));
+}
+- (void)testUIKitViewAndOtherWindowConversionsRemainUnchanged {
     UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
-    game.bounds = CGRectMake(13, 21, 300, 500);
+    LCWindowScreenState *state = self.state;
+    LCWindowScreenCurrentState = nil;
     UIView *view = [[UIView alloc] initWithFrame:CGRectMake(23, 41, 100, 80)];
     [game addSubview:view];
-    CGPoint screenPoint = CGPointMake(10, 20);
-    CGPoint windowPoint = [(id<UICoordinateSpace>)UIScreen.mainScreen convertPoint:screenPoint toCoordinateSpace:game];
-    XCTAssertTrue(CGPointEqualToPoint(windowPoint, CGPointMake(23, 41)));
-    XCTAssertTrue(CGPointEqualToPoint([UIScreen.mainScreen.coordinateSpace convertPoint:screenPoint toCoordinateSpace:view], CGPointZero));
-    XCTAssertTrue(CGPointEqualToPoint([(id<UICoordinateSpace>)UIScreen.mainScreen convertPoint:windowPoint fromCoordinateSpace:game], screenPoint));
-    XCTAssertTrue(CGPointEqualToPoint([game convertPoint:windowPoint toCoordinateSpace:UIScreen.mainScreen.coordinateSpace], screenPoint));
-    CGRect local = [UIScreen.mainScreen.coordinateSpace convertRect:UIScreen.mainScreen.bounds toCoordinateSpace:game];
-    XCTAssertTrue(CGRectEqualToRect(local, game.bounds));
     UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
     [self.windows addObject:ad];
     ad.frame = CGRectMake(0, 0, 1024, 768);
-    CGPoint adPoint = [UIScreen.mainScreen.coordinateSpace convertPoint:CGPointMake(40, 60) toCoordinateSpace:ad];
-    XCTAssertTrue(CGPointEqualToPoint([UIScreen.mainScreen.coordinateSpace convertPoint:adPoint fromCoordinateSpace:ad], CGPointMake(40, 60)));
+    id<UICoordinateSpace> oriented = UIScreen.mainScreen.coordinateSpace;
+    id<UICoordinateSpace> fixed = UIScreen.mainScreen.fixedCoordinateSpace;
+    CGPoint point = CGPointMake(40, 60);
+    CGPoint toView = [oriented convertPoint:point toCoordinateSpace:view];
+    CGPoint toAd = [fixed convertPoint:point toCoordinateSpace:ad];
+    CGRect gameInScreen = [oriented convertRect:game.bounds fromCoordinateSpace:game];
+    LCWindowScreenCurrentState = state;
+    XCTAssertTrue(CGPointEqualToPoint([oriented convertPoint:point toCoordinateSpace:view], toView));
+    XCTAssertTrue(CGPointEqualToPoint([fixed convertPoint:point toCoordinateSpace:ad], toAd));
+    XCTAssertTrue(CGPointEqualToPoint([oriented convertPoint:toView fromCoordinateSpace:view], point));
+    XCTAssertTrue(CGPointEqualToPoint([fixed convertPoint:toAd fromCoordinateSpace:ad], point));
+    XCTAssertTrue(CGRectEqualToRect([oriented convertRect:game.bounds fromCoordinateSpace:game], gameInScreen));
     XCTAssertEqual([game hitTest:CGPointMake(24, 42) withEvent:nil], view);
 }
 - (void)testFullScreenModalAndCloseButtonFitTheGameWindow {

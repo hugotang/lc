@@ -1,5 +1,8 @@
 #import "WindowScreen.h"
 #import <objc/runtime.h>
+#import <objc/message.h>
+#import <dlfcn.h>
+#include <string.h>
 #include <math.h>
 
 typedef struct {
@@ -26,35 +29,13 @@ static CGSize LCWindowScreenFixedSize(LCWindowScreenSnapshot snapshot) {
         CGSizeMake(snapshot.size.height, snapshot.size.width) : snapshot.size;
 }
 
-static CGPoint LCWindowScreenFromFixed(CGPoint point, LCWindowScreenSnapshot snapshot) {
-    CGSize fixed = LCWindowScreenFixedSize(snapshot);
-    switch (snapshot.orientation) {
-        case UIInterfaceOrientationLandscapeLeft: return CGPointMake(fixed.height - point.y, point.x);
-        case UIInterfaceOrientationLandscapeRight: return CGPointMake(point.y, fixed.width - point.x);
-        case UIInterfaceOrientationPortraitUpsideDown: return CGPointMake(fixed.width - point.x, fixed.height - point.y);
-        default: return point;
-    }
-}
-
-static CGPoint LCWindowScreenToFixed(CGPoint point, LCWindowScreenSnapshot snapshot) {
-    CGSize fixed = LCWindowScreenFixedSize(snapshot);
-    switch (snapshot.orientation) {
-        case UIInterfaceOrientationLandscapeLeft: return CGPointMake(point.y, fixed.height - point.x);
-        case UIInterfaceOrientationLandscapeRight: return CGPointMake(fixed.width - point.y, point.x);
-        case UIInterfaceOrientationPortraitUpsideDown: return CGPointMake(fixed.width - point.x, fixed.height - point.y);
-        default: return point;
-    }
-}
-
-@class LCWindowScreenCoordinateSpace;
 @interface LCWindowScreenState : NSObject
 @property(nonatomic, weak) UIWindowScene *scene;
 @property(nonatomic, weak) UIWindow *window;
 @property(nonatomic) BOOL hasBoundWindow;
 @property(nonatomic, strong) NSLock *snapshotLock;
 @property(nonatomic) LCWindowScreenSnapshot snapshot;
-@property(nonatomic, strong) LCWindowScreenCoordinateSpace *orientedSpace, *fixedSpace;
-@property(nonatomic, strong) id<UICoordinateSpace> originalOrientedSpace;
+@property(nonatomic, strong) id<UICoordinateSpace> originalOrientedSpace, originalFixedSpace;
 - (instancetype)initWithSize:(CGSize)size;
 - (LCWindowScreenSnapshot)readSnapshot;
 - (void)refreshFromScenes:(NSSet<UIScene *> *)scenes;
@@ -150,129 +131,49 @@ static void LCWindowScreenRefresh(LCWindowScreenState *state) {
     LCWindowScreenQueryDepth--;
 }
 
-static LCWindowScreenState *LCWindowScreenStateForScreen(UIScreen *screen) {
-    if (screen != LCWindowScreenMainScreen || LCWindowScreenQueryDepth) return nil;
+// Keep UIKit's own geometry reads physical. Its private scene converters rely
+// on real screen coordinate-space identities and the actual display transform.
+// Only direct game/third-party SDK calls receive the compatibility dimensions.
+static BOOL LCWindowScreenCallerUsesPhysicalGeometry(const void *caller) {
+    Dl_info info;
+    if (!caller || dladdr(caller, &info) == 0 || !info.dli_fname) return YES;
+    return strstr(info.dli_fname, "/System/Library/") || strstr(info.dli_fname, "/usr/lib/");
+}
+
+static LCWindowScreenState *LCWindowScreenStateForScreen(UIScreen *screen, const void *caller) {
+    if (screen != LCWindowScreenMainScreen || LCWindowScreenQueryDepth ||
+        !LCWindowScreenCurrentState || LCWindowScreenCallerUsesPhysicalGeometry(caller)) return nil;
     LCWindowScreenState *state = LCWindowScreenCurrentState;
     LCWindowScreenRefresh(state);
-    return state && LCWindowScreenValidSize(state.readSnapshot.size) ? state : nil;
+    return LCWindowScreenValidSize(state.readSnapshot.size) ? state : nil;
 }
-
-@interface LCWindowScreenCoordinateSpace : NSObject<UICoordinateSpace>
-@property(nonatomic, weak) LCWindowScreenState *state;
-@property(nonatomic) BOOL fixed;
-- (CGRect)convertRect:(CGRect)rect space:(id<UICoordinateSpace>)space from:(BOOL)from;
-@end
-
-@implementation LCWindowScreenCoordinateSpace
-- (CGRect)bounds {
-    LCWindowScreenRefresh(self.state);
-    LCWindowScreenSnapshot snapshot = self.state.readSnapshot;
-    return (CGRect){CGPointZero, self.fixed ? LCWindowScreenFixedSize(snapshot) : snapshot.size};
-}
-- (CGPoint)convertPoint:(CGPoint)point toCoordinateSpace:(id<UICoordinateSpace>)space {
-    if (space == self) return point;
-    LCWindowScreenRefresh(self.state);
-    LCWindowScreenSnapshot snapshot = self.state.readSnapshot;
-    CGPoint oriented = self.fixed ? LCWindowScreenFromFixed(point, snapshot) : point;
-    if ((id)space == LCWindowScreenMainScreen) return oriented;
-    if ([(id)space isKindOfClass:LCWindowScreenCoordinateSpace.class] && ((LCWindowScreenCoordinateSpace *)space).state == self.state) {
-        return ((LCWindowScreenCoordinateSpace *)space).fixed ? LCWindowScreenToFixed(oriented, snapshot) : oriented;
-    }
-    LCWindowScreenQueryDepth++;
-    UIWindow *window = NSThread.isMainThread ? self.state.window : nil;
-    id<UICoordinateSpace> anchor = window ?: self.state.originalOrientedSpace;
-    CGRect anchorBounds = window ? window.bounds : CGRectZero;
-    CGPoint result = [anchor convertPoint:CGPointMake(oriented.x + anchorBounds.origin.x,
-                                                    oriented.y + anchorBounds.origin.y) toCoordinateSpace:space];
-    LCWindowScreenQueryDepth--;
-    return result;
-}
-- (CGPoint)convertPoint:(CGPoint)point fromCoordinateSpace:(id<UICoordinateSpace>)space {
-    if (space == self) return point;
-    LCWindowScreenRefresh(self.state);
-    LCWindowScreenSnapshot snapshot = self.state.readSnapshot;
-    CGPoint oriented;
-    if ((id)space == LCWindowScreenMainScreen) oriented = point;
-    else if ([(id)space isKindOfClass:LCWindowScreenCoordinateSpace.class] && ((LCWindowScreenCoordinateSpace *)space).state == self.state) {
-        oriented = ((LCWindowScreenCoordinateSpace *)space).fixed ? LCWindowScreenFromFixed(point, snapshot) : point;
-    } else {
-        LCWindowScreenQueryDepth++;
-        UIWindow *window = NSThread.isMainThread ? self.state.window : nil;
-        id<UICoordinateSpace> anchor = window ?: self.state.originalOrientedSpace;
-        oriented = [anchor convertPoint:point fromCoordinateSpace:space];
-        if (window) {
-            oriented.x -= window.bounds.origin.x;
-            oriented.y -= window.bounds.origin.y;
-        }
-        LCWindowScreenQueryDepth--;
-    }
-    return self.fixed ? LCWindowScreenToFixed(oriented, snapshot) : oriented;
-}
-- (CGRect)convertRect:(CGRect)rect toCoordinateSpace:(id<UICoordinateSpace>)space {
-    return [self convertRect:rect space:space from:NO];
-}
-- (CGRect)convertRect:(CGRect)rect fromCoordinateSpace:(id<UICoordinateSpace>)space {
-    return [self convertRect:rect space:space from:YES];
-}
-- (CGRect)convertRect:(CGRect)rect space:(id<UICoordinateSpace>)space from:(BOOL)from {
-    if (CGRectIsNull(rect) || CGRectIsInfinite(rect)) return rect;
-    CGPoint corners[] = {{CGRectGetMinX(rect), CGRectGetMinY(rect)}, {CGRectGetMaxX(rect), CGRectGetMinY(rect)},
-                         {CGRectGetMinX(rect), CGRectGetMaxY(rect)}, {CGRectGetMaxX(rect), CGRectGetMaxY(rect)}};
-    CGFloat minX = CGFLOAT_MAX, minY = CGFLOAT_MAX, maxX = -CGFLOAT_MAX, maxY = -CGFLOAT_MAX;
-    for (NSUInteger i = 0; i < 4; i++) {
-        CGPoint point = from ? [self convertPoint:corners[i] fromCoordinateSpace:space] :
-                              [self convertPoint:corners[i] toCoordinateSpace:space];
-        minX = MIN(minX, point.x); minY = MIN(minY, point.y);
-        maxX = MAX(maxX, point.x); maxY = MAX(maxY, point.y);
-    }
-    return CGRectMake(minX, minY, maxX - minX, maxY - minY);
-}
-@end
 
 @implementation UIScreen (LCWindowScreen)
 - (CGRect)lc_windowScreen_bounds {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
+    LCWindowScreenState *state = LCWindowScreenStateForScreen(self, __builtin_return_address(0));
     return state ? (CGRect){CGPointZero, state.readSnapshot.size} : [self lc_windowScreen_bounds];
 }
 - (CGRect)lc_windowScreen_nativeBounds {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
+    LCWindowScreenState *state = LCWindowScreenStateForScreen(self, __builtin_return_address(0));
     if (!state) return [self lc_windowScreen_nativeBounds];
     CGSize size = LCWindowScreenFixedSize(state.readSnapshot);
     return CGRectMake(0, 0, round(size.width * self.nativeScale), round(size.height * self.nativeScale));
 }
 - (CGRect)lc_windowScreen_applicationFrame {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
+    LCWindowScreenState *state = LCWindowScreenStateForScreen(self, __builtin_return_address(0));
     return state ? (CGRect){CGPointZero, state.readSnapshot.size} : [self lc_windowScreen_applicationFrame];
 }
-- (id<UICoordinateSpace>)lc_windowScreen_coordinateSpace {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? state.orientedSpace : [self lc_windowScreen_coordinateSpace];
-}
-- (id<UICoordinateSpace>)lc_windowScreen_fixedCoordinateSpace {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? state.fixedSpace : [self lc_windowScreen_fixedCoordinateSpace];
-}
-- (CGPoint)lc_windowScreen_convertPoint:(CGPoint)point toCoordinateSpace:(id<UICoordinateSpace>)space {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? [state.orientedSpace convertPoint:point toCoordinateSpace:space] :
-                  [self lc_windowScreen_convertPoint:point toCoordinateSpace:space];
-}
-- (CGPoint)lc_windowScreen_convertPoint:(CGPoint)point fromCoordinateSpace:(id<UICoordinateSpace>)space {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? [state.orientedSpace convertPoint:point fromCoordinateSpace:space] :
-                  [self lc_windowScreen_convertPoint:point fromCoordinateSpace:space];
-}
-- (CGRect)lc_windowScreen_convertRect:(CGRect)rect toCoordinateSpace:(id<UICoordinateSpace>)space {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? [state.orientedSpace convertRect:rect toCoordinateSpace:space] :
-                  [self lc_windowScreen_convertRect:rect toCoordinateSpace:space];
-}
-- (CGRect)lc_windowScreen_convertRect:(CGRect)rect fromCoordinateSpace:(id<UICoordinateSpace>)space {
-    LCWindowScreenState *state = LCWindowScreenStateForScreen(self);
-    return state ? [state.orientedSpace convertRect:rect fromCoordinateSpace:space] :
-                  [self lc_windowScreen_convertRect:rect fromCoordinateSpace:space];
-}
 @end
+
+static CGRect LCWindowScreenCoordinateSpaceBounds(id space, SEL selector) {
+    LCWindowScreenState *state = LCWindowScreenStateForScreen(LCWindowScreenMainScreen, __builtin_return_address(0));
+    if (state && (space == state.originalOrientedSpace || space == state.originalFixedSpace)) {
+        CGSize size = space == state.originalFixedSpace ? LCWindowScreenFixedSize(state.readSnapshot) : state.readSnapshot.size;
+        return (CGRect){CGPointZero, size};
+    }
+    CGRect (*original)(id, SEL) = (void *)objc_msgSend;
+    return original(space, NSSelectorFromString(@"lc_windowScreen_spaceBounds"));
+}
 
 @implementation UIWindow (LCWindowScreen)
 - (void)lc_windowScreen_setBounds:(CGRect)bounds {
@@ -308,21 +209,24 @@ void LCWindowScreenInstall(NSDictionary *launchInfo) {
             CGSizeMake([width doubleValue], [height doubleValue]) : CGSizeZero;
         LCWindowScreenState *state = [[LCWindowScreenState alloc] initWithSize:initial];
         state.originalOrientedSpace = LCWindowScreenMainScreen.coordinateSpace;
-        state.orientedSpace = [LCWindowScreenCoordinateSpace new];
-        state.orientedSpace.state = state;
-        state.fixedSpace = [LCWindowScreenCoordinateSpace new];
-        state.fixedSpace.state = state;
-        state.fixedSpace.fixed = YES;
+        state.originalFixedSpace = LCWindowScreenMainScreen.fixedCoordinateSpace;
         LCWindowScreenCurrentState = state;
         LCWindowScreenSwizzle(UIScreen.class, @selector(bounds), @selector(lc_windowScreen_bounds));
         LCWindowScreenSwizzle(UIScreen.class, @selector(nativeBounds), @selector(lc_windowScreen_nativeBounds));
         LCWindowScreenSwizzle(UIScreen.class, @selector(applicationFrame), @selector(lc_windowScreen_applicationFrame));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(coordinateSpace), @selector(lc_windowScreen_coordinateSpace));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(fixedCoordinateSpace), @selector(lc_windowScreen_fixedCoordinateSpace));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(convertPoint:toCoordinateSpace:), @selector(lc_windowScreen_convertPoint:toCoordinateSpace:));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(convertPoint:fromCoordinateSpace:), @selector(lc_windowScreen_convertPoint:fromCoordinateSpace:));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(convertRect:toCoordinateSpace:), @selector(lc_windowScreen_convertRect:toCoordinateSpace:));
-        LCWindowScreenSwizzle(UIScreen.class, @selector(convertRect:fromCoordinateSpace:), @selector(lc_windowScreen_convertRect:fromCoordinateSpace:));
+        // Keep the original objects and all converters. Hook only their bounds
+        // getter, and only for the two objects belonging to this process's screen.
+        NSMutableSet *classes = [NSMutableSet set];
+        for (id space in @[state.originalOrientedSpace, state.originalFixedSpace]) {
+            Class cls = object_getClass(space);
+            if ([space isKindOfClass:UIScreen.class] || [classes containsObject:cls]) continue;
+            Method bounds = class_getInstanceMethod(cls, @selector(bounds));
+            SEL replacement = NSSelectorFromString(@"lc_windowScreen_spaceBounds");
+            if (bounds && class_addMethod(cls, replacement, (IMP)LCWindowScreenCoordinateSpaceBounds, method_getTypeEncoding(bounds))) {
+                LCWindowScreenSwizzle(cls, @selector(bounds), replacement);
+                [classes addObject:cls];
+            }
+        }
         LCWindowScreenSwizzle(UIWindow.class, @selector(setBounds:), @selector(lc_windowScreen_setBounds:));
         LCWindowScreenSwizzle(UIWindow.class, @selector(setFrame:), @selector(lc_windowScreen_setFrame:));
         // A background SDK reads a locked snapshot. Window changes and lifecycle
