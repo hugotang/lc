@@ -481,10 +481,10 @@
     web.navigationDelegate = self;
     [game.rootViewController.view addSubview:web];
     self.webLoaded = [self expectationWithDescription:@"screen-sized web ad loaded"];
-    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}#ad{position:relative;background:#ddd}#close{position:absolute;right:0;top:0;width:44px;height:44px}</style><div id='ad'><button id='close'>X</button></div><script>function layoutAd(){ad.style.width=screen.width+'px';ad.style.height=screen.height+'px'}layoutAd();addEventListener('resize',layoutAd)</script>" baseURL:nil];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}#ad{position:relative;background:#ddd}#close{position:absolute;right:0;top:0;width:44px;height:44px}</style><div id='ad'><button id='close'>X</button></div><script>function layoutAd(){const ad=document.getElementById('ad');ad.style.width=screen.width+'px';ad.style.height=screen.height+'px'}layoutAd();addEventListener('resize',layoutAd)</script>" baseURL:nil];
     [self waitForExpectations:@[self.webLoaded] timeout:15];
     XCTestExpectation *evaluated = [self expectationWithDescription:@"web ad respects local screen dimensions"];
-    [web evaluateJavaScript:@"({width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,adWidth:ad.getBoundingClientRect().width,adHeight:ad.getBoundingClientRect().height,closeRight:close.getBoundingClientRect().right,closeHit:document.elementFromPoint(278,22)===close})"
+    [web evaluateJavaScript:@"({width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,adWidth:document.getElementById('ad').getBoundingClientRect().width,adHeight:document.getElementById('ad').getBoundingClientRect().height,closeRight:document.getElementById('close').getBoundingClientRect().right,closeHit:document.elementFromPoint(278,22)===document.getElementById('close')})"
         completionHandler:^(id result, NSError *error) {
         XCTAssertNil(error);
         XCTAssertEqualWithAccuracy([result[@"screenWidth"] doubleValue], 300, 1);
