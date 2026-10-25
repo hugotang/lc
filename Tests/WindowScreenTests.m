@@ -453,8 +453,8 @@
         XCTAssertEqualWithAccuracy([result[@"height"] doubleValue], viewportHeight, 1);
         XCTAssertLessThanOrEqual([result[@"right"] doubleValue], viewportWidth);
         XCTAssertLessThanOrEqual([result[@"height"] doubleValue], game.bounds.size.height);
-        // WebKit's screen.* belongs to its separate web process. Record it,
-        // without claiming a UIScreen hook rewrites JavaScript/device orientation.
+        XCTAssertEqualWithAccuracy([result[@"screenWidth"] doubleValue], viewportWidth, 1);
+        XCTAssertEqualWithAccuracy([result[@"screenHeight"] doubleValue], viewportHeight, 1);
         XCTAttachment *attachment = [XCTAttachment attachmentWithString:[result description]];
         attachment.lifetime = XCTAttachmentLifetimeKeepAlways;
         [self addAttachment:attachment];
@@ -474,6 +474,98 @@
     XCTAssertTrue(CGSizeEqualToSize(ad.rootViewController.view.bounds.size, game.bounds.size));
     XCTAssertEqual(self.state.window, game);
 }
+- (void)testWholeSceneAdTracksGameResizeAndKeepsCloseButtonReachable {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    [self.windows addObject:ad];
+    ad.rootViewController = [UIViewController new];
+    ad.windowLevel = UIWindowLevelAlert;
+    [ad makeKeyAndVisible];
+    UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem];
+    close.frame = CGRectMake(256, 0, 44, 44);
+    close.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin;
+    [ad.rootViewController.view addSubview:close];
+    CGSize sizes[] = {{600, 400}, {280, 680}, {300, 500}};
+    for (NSUInteger i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+        game.frame = (CGRect){CGPointMake(17, 23), sizes[i]};
+        [ad layoutIfNeeded];
+        XCTAssertTrue(CGRectEqualToRect(ad.frame, game.frame));
+        XCTAssertTrue(CGSizeEqualToSize(ad.bounds.size, game.bounds.size));
+        XCTAssertTrue(CGRectContainsRect(ad.rootViewController.view.bounds, close.frame));
+        CGPoint hit = [close convertPoint:CGPointMake(22, 22) toView:ad];
+        XCTAssertEqual([ad hitTest:hit withEvent:nil], close);
+        XCTAssertEqual(self.state.window, game);
+    }
+}
+- (void)testSmallCustomPopupRetainsItsRectangleAfterGameResize {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    UIWindow *popup = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    [self.windows addObject:popup];
+    CGRect custom = CGRectMake(20, 40, 180, 140);
+    popup.frame = custom;
+    popup.rootViewController = [UIViewController new];
+    [popup makeKeyAndVisible];
+    game.frame = CGRectMake(0, 0, 600, 400);
+    XCTAssertTrue(CGRectEqualToRect(popup.frame, custom));
+    XCTAssertNil(objc_getAssociatedObject(popup, &LCWindowScreenAdjustedWindowKey));
+}
+- (void)testLateWholeScreenAdFrameAndBoundsAreRefittedBeforePresentation {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    LCWindowScreenCurrentState = nil;
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    [self.windows addObject:ad];
+    LCWindowScreenCurrentState = self.state;
+    ad.rootViewController = [UIViewController new];
+    CGRect physical = [UIScreen.mainScreen lc_windowScreen_bounds];
+    ad.frame = physical;
+    XCTAssertTrue(CGRectEqualToRect(ad.frame, game.frame));
+    ad.bounds = CGRectMake(0, 0, physical.size.height, physical.size.width);
+    XCTAssertTrue(CGSizeEqualToSize(ad.bounds.size, game.bounds.size));
+    [ad makeKeyAndVisible];
+    XCTAssertTrue(CGSizeEqualToSize(ad.rootViewController.view.bounds.size, game.bounds.size));
+}
+- (void)testAuxiliaryWindowCorrectionExcludesSystemOtherSceneAndDisabledState {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    LCWindowScreenCurrentState = nil;
+    UIWindow *systemWindow = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    [self.windows addObject:systemWindow];
+    CGRect physical = [UIScreen.mainScreen lc_windowScreen_bounds];
+    XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(systemWindow, physical, __builtin_return_address(0)), physical));
+    WKPreferences *preferences = [WKPreferences new];
+    XCTAssertFalse(LCWindowScreenConfigureWebPreferences(preferences));
+    XCTAssertNil(objc_getAssociatedObject(preferences, &LCWindowScreenWebPreferencesKey));
+    LCWindowScreenCurrentState = self.state;
+    IMP system = method_getImplementation(class_getInstanceMethod(UIWindowScene.class, @selector(interfaceOrientation)));
+    XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(systemWindow, physical, (const void *)system), physical));
+    XCTAssertNil(objc_getAssociatedObject(systemWindow, &LCWindowScreenAdjustedWindowKey));
+    UIWindow *detached = [[UIWindow alloc] initWithFrame:physical];
+    [self.windows addObject:detached];
+    XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(detached, physical, __builtin_return_address(0)), physical));
+    XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(game, physical, __builtin_return_address(0)), physical));
+}
+- (void)testWebPreferencesPreserveGuestConfigurationAndUserScripts {
+    WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
+    WKUserContentController *controller = [WKUserContentController new];
+    WKUserScript *script = [[WKUserScript alloc] initWithSource:@"window.guestMarker=42"
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
+    [controller addUserScript:script];
+    configuration.userContentController = controller;
+    configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
+    configuration.preferences.minimumFontSize = 13;
+    configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
+    WKWebView *ordinary = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 300, 500) configuration:configuration];
+    XCTAssertNil(objc_getAssociatedObject(configuration.preferences, &LCWindowScreenWebPreferencesKey));
+    [self gameWindowWithSize:CGSizeMake(300, 500)];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 300, 500) configuration:configuration];
+    XCTAssertEqual(web.configuration.userContentController, controller);
+    XCTAssertEqual(web.configuration.websiteDataStore, configuration.websiteDataStore);
+    XCTAssertEqual(web.configuration.preferences.minimumFontSize, 13);
+    XCTAssertTrue(web.configuration.preferences.javaScriptCanOpenWindowsAutomatically);
+    XCTAssertEqualObjects(controller.userScripts, @[script]);
+    XCTAssertEqualObjects(web.configuration.userContentController.userScripts, @[script]);
+    XCTAssertEqualObjects(ordinary.configuration.userContentController.userScripts, @[script]);
+    XCTAssertEqualObjects(objc_getAssociatedObject(web.configuration.preferences, &LCWindowScreenWebPreferencesKey), @YES);
+}
 - (void)testWebAdUsingScreenDimensionsFitsGuestAndKeepsCloseButtonReachable {
     UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
     WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];
@@ -492,6 +584,35 @@
         XCTAssertEqualWithAccuracy([result[@"adWidth"] doubleValue], 300, 1);
         XCTAssertEqualWithAccuracy([result[@"adHeight"] doubleValue], 500, 1);
         XCTAssertLessThanOrEqual([result[@"closeRight"] doubleValue], 300);
+        XCTAssertTrue([result[@"closeHit"] boolValue]);
+        [evaluated fulfill];
+    }];
+    [self waitForExpectations:@[evaluated] timeout:10];
+}
+- (void)testScreenSizedWebAdUpdatesAfterViewportResize {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];
+    web.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    web.navigationDelegate = self;
+    [game.rootViewController.view addSubview:web];
+    self.webLoaded = [self expectationWithDescription:@"resizable screen-sized web ad loaded"];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}#ad{position:relative}#close{position:absolute;right:0;top:0;width:44px;height:44px}</style><div id='ad'><button id='close'>X</button></div><script>function layoutAd(){const ad=document.getElementById('ad');ad.style.width=screen.width+'px';ad.style.height=screen.height+'px'}layoutAd();addEventListener('resize',layoutAd)</script>" baseURL:nil];
+    [self waitForExpectations:@[self.webLoaded] timeout:15];
+    game.frame = CGRectMake(0, 0, 600, 400);
+    [game layoutIfNeeded];
+    XCTestExpectation *evaluated = [self expectationWithDescription:@"resized web ad follows local viewport"];
+    // Wait for the web process's actual resize event, bounded by a failure result.
+    [web callAsyncJavaScript:@"return await new Promise(resolve=>{const start=performance.now();function check(){if((innerWidth===600&&innerHeight===400&&screen.width===600&&screen.height===400&&document.getElementById('ad').getBoundingClientRect().width===600)||performance.now()-start>5000){resolve({width:innerWidth,height:innerHeight,screenWidth:screen.width,screenHeight:screen.height,adWidth:document.getElementById('ad').getBoundingClientRect().width,adHeight:document.getElementById('ad').getBoundingClientRect().height,closeHit:document.elementFromPoint(578,22)===document.getElementById('close')})}else{requestAnimationFrame(check)}}requestAnimationFrame(check)})"
+        arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
+        completionHandler:^(id result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqualWithAccuracy([result[@"width"] doubleValue], 600, 1);
+        XCTAssertEqualWithAccuracy([result[@"height"] doubleValue], 400, 1);
+        XCTAssertEqualWithAccuracy([result[@"screenWidth"] doubleValue], 600, 1);
+        XCTAssertEqualWithAccuracy([result[@"screenHeight"] doubleValue], 400, 1);
+        XCTAssertEqualWithAccuracy([result[@"adWidth"] doubleValue], 600, 1);
+        XCTAssertEqualWithAccuracy([result[@"adHeight"] doubleValue], 400, 1);
         XCTAssertTrue([result[@"closeHit"] boolValue]);
         [evaluated fulfill];
     }];
