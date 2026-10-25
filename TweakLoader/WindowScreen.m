@@ -272,7 +272,10 @@ static BOOL LCWindowScreenConfigureWebConfiguration(WKWebViewConfiguration *conf
         (double)initial.width, (double)initial.height];
     WKUserScript *script = [[WKUserScript alloc] initWithSource:source
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
-    NSArray<WKUserScript *> *existing = controller.userScripts;
+    // WebKit returns a live API::Array wrapper. Retain each existing script
+    // before clearing it, rather than reading that wrapper after mutation.
+    NSMutableArray<WKUserScript *> *existing = [NSMutableArray array];
+    for (WKUserScript *guestScript in controller.userScripts) [existing addObject:guestScript];
     [controller removeAllUserScripts];
     [controller addUserScript:script];
     for (WKUserScript *guestScript in existing) [controller addUserScript:guestScript];
