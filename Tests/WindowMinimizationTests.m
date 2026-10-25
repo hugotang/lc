@@ -186,9 +186,10 @@
     [window invalidate];
     // Another presentation owns visibility now. Even if it later becomes eligible, it is not an ordinary minimize.
     window.view.alpha = 0.6;
+    CGFloat alpha = window.view.alpha;
     window.view.hidden = YES;
     [self waitPastAnimationDeadline];
-    XCTAssertEqual(window.view.alpha, 0.6);
+    XCTAssertEqual(window.view.alpha, alpha);
     XCTAssertTrue(window.view.hidden);
     XCTAssertFalse(window.canRestore);
     XCTAssertEqual([LCWindowMinimization restoreWindows:@[window] inHost:self.host layout:^(NSArray *restored) {
