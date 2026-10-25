@@ -109,7 +109,7 @@ static BOOL LCWindowScreenIsGameWindow(UIWindow *window, UIWindowScene *scene) {
     if (!scene) return; // Keep the startup/last valid snapshot during disconnection.
     if (!LCWindowScreenIsGameWindow(self.window, scene)) {
         self.window = nil;
-        id<UIWindowSceneDelegate> delegate = scene.delegate;
+        id<UIWindowSceneDelegate> delegate = (id)scene.delegate;
         UIWindow *delegateWindow = [delegate respondsToSelector:@selector(window)] ? delegate.window : nil;
         if (LCWindowScreenIsGameWindow(delegateWindow, scene) &&
             (!self.hasBoundWindow || CGSizeEqualToSize(delegateWindow.bounds.size, scene.coordinateSpace.bounds.size))) {
@@ -174,7 +174,7 @@ static LCWindowScreenState *LCWindowScreenStateForScreen(UIScreen *screen) {
     LCWindowScreenRefresh(self.state);
     LCWindowScreenSnapshot snapshot = self.state.readSnapshot;
     CGPoint oriented = self.fixed ? LCWindowScreenFromFixed(point, snapshot) : point;
-    if (space == LCWindowScreenMainScreen) return oriented;
+    if ((id)space == LCWindowScreenMainScreen) return oriented;
     if ([(id)space isKindOfClass:LCWindowScreenCoordinateSpace.class] && ((LCWindowScreenCoordinateSpace *)space).state == self.state) {
         return ((LCWindowScreenCoordinateSpace *)space).fixed ? LCWindowScreenToFixed(oriented, snapshot) : oriented;
     }
@@ -192,7 +192,7 @@ static LCWindowScreenState *LCWindowScreenStateForScreen(UIScreen *screen) {
     LCWindowScreenRefresh(self.state);
     LCWindowScreenSnapshot snapshot = self.state.readSnapshot;
     CGPoint oriented;
-    if (space == LCWindowScreenMainScreen) oriented = point;
+    if ((id)space == LCWindowScreenMainScreen) oriented = point;
     else if ([(id)space isKindOfClass:LCWindowScreenCoordinateSpace.class] && ((LCWindowScreenCoordinateSpace *)space).state == self.state) {
         oriented = ((LCWindowScreenCoordinateSpace *)space).fixed ? LCWindowScreenFromFixed(point, snapshot) : point;
     } else {

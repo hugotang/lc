@@ -113,7 +113,7 @@
     LCWindowScreenTestScene *scene = [LCWindowScreenTestScene new];
     scene.screen = LCWindowScreenMainScreen;
     scene.session = [LCWindowScreenTestSession new];
-    scene.session.role = UISceneSessionRoleApplication;
+    scene.session.role = UIWindowSceneSessionRoleApplication;
     scene.coordinateSpace = [[UIView alloc] initWithFrame:(CGRect){CGPointZero, size}];
     scene.interfaceOrientation = orientation;
     scene.windows = @[];
@@ -287,10 +287,10 @@
     UIView *view = [[UIView alloc] initWithFrame:CGRectMake(23, 41, 100, 80)];
     [game addSubview:view];
     CGPoint screenPoint = CGPointMake(10, 20);
-    CGPoint windowPoint = [UIScreen.mainScreen convertPoint:screenPoint toCoordinateSpace:game];
+    CGPoint windowPoint = [(id<UICoordinateSpace>)UIScreen.mainScreen convertPoint:screenPoint toCoordinateSpace:game];
     XCTAssertTrue(CGPointEqualToPoint(windowPoint, CGPointMake(23, 41)));
     XCTAssertTrue(CGPointEqualToPoint([UIScreen.mainScreen.coordinateSpace convertPoint:screenPoint toCoordinateSpace:view], CGPointZero));
-    XCTAssertTrue(CGPointEqualToPoint([UIScreen.mainScreen convertPoint:windowPoint fromCoordinateSpace:game], screenPoint));
+    XCTAssertTrue(CGPointEqualToPoint([(id<UICoordinateSpace>)UIScreen.mainScreen convertPoint:windowPoint fromCoordinateSpace:game], screenPoint));
     XCTAssertTrue(CGPointEqualToPoint([game convertPoint:windowPoint toCoordinateSpace:UIScreen.mainScreen.coordinateSpace], screenPoint));
     CGRect local = [UIScreen.mainScreen.coordinateSpace convertRect:UIScreen.mainScreen.bounds toCoordinateSpace:game];
     XCTAssertTrue(CGRectEqualToRect(local, game.bounds));
