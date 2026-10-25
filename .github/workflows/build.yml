@@ -79,6 +79,10 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
           "$RUNNER_TEMP/window-workspace-tests"
+      - name: Test workspace launch slots
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m MultitaskSupport/WorkspaceLaunchLayout.m Tests/WorkspaceLaunchLayoutTests.m -o "$RUNNER_TEMP/workspace-launch-layout-tests"
+          "$RUNNER_TEMP/workspace-launch-layout-tests"
       - name: Test workspace restore requests
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/WorkspaceRestoreRequestTests.m -o "$RUNNER_TEMP/workspace-restore-request-tests"

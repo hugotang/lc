@@ -60,6 +60,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/Tests/WindowMinimizationTests.m" \
     "$repo_root/MultitaskSupport/DockRevealControl.m" "$repo_root/Tests/DockRevealControlTests.m" \
     "$repo_root/Tests/WindowScreenTests.m" \
+    "$repo_root/MultitaskSupport/WorkspaceLaunchLayout.m" \
     -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"

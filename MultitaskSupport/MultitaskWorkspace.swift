@@ -199,9 +199,23 @@ final class MultitaskWorkspaceManager: ObservableObject {
         }
         let host = MultitaskDockManager.shared.windowHostingView
         host.finishGridEditing()
+        // Exclude entries that cannot launch, and reserve the remaining saved
+        // slots before any game reads its startup screen dimensions.
+        let launchEntries = workspace.windows.filter { entry in
+            guard let model = models.first(where: { $0.appInfo.relativeBundlePath == entry.bundleName }) else { return false }
+            return model.appInfo.defaultClassicMode == 0 && model.uiContainers.contains { $0.folderName == entry.dataUUID }
+        }
+        if !launchEntries.isEmpty,
+           let launchWorkspace = LCWindowWorkspace(windows: launchEntries, proportions: workspace.proportions,
+                singleRowInLandscape: workspace.singleRowInLandscape, reservePortraitTop: workspace.reservePortraitTop,
+                reservePortraitBottom: workspace.reservePortraitBottom) {
+            host.prepareWorkspaceForLaunch(launchWorkspace)
+        }
+        defer { host.finishWorkspaceLaunch() }
         var restored = 0
         var failures: [String] = []
         for entry in workspace.windows {
+            if Task.isCancelled { return }
             guard let model = models.first(where: { $0.appInfo.relativeBundlePath == entry.bundleName }) else {
                 failures.append("lc.workspace.missingApp".localizeWithFormat(entry.bundleName))
                 continue

@@ -47,6 +47,13 @@ proportions, landscape layout and portrait reserved areas, while keeping other
 open windows. App-specific state, such as a song's playback position,
 is managed by the app itself.
 
+Starting in 3.8.23, restoration reserves the final grid slots while accounts
+start and applies each saved content scale before launch. A game using the
+experimental window screen-size option therefore starts with its intended
+content dimensions instead of the temporary layout for fewer accounts. Failed
+launches release their reserved slots at the end. Existing saves need no update
+or data conversion.
+
 Your previous single save is automatically imported as **Original Workspace**.
 Existing links without a workspace selection continue to restore whichever
 workspace was most recently saved or updated:

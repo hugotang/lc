@@ -35,7 +35,7 @@
     _scaleRatio = 1.0;
     _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"] &&
                    !MultitaskDockManager.shared.windowHostingView.automaticallyTilesWindows;
-    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
+    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self deferLaunch:YES];
     self.title = windowName;
     [self setupDecoratedView];
     
@@ -102,6 +102,13 @@
     });
 
     [MultitaskDockManager.shared.windowHostingView setNeedsGridLayout];
+    // Allow the launcher to install its completion handler, then settle the
+    // final content frame before starting the extension or its constructors.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.isAppTerminationRequested || self.isAppTerminated) return;
+        [MultitaskDockManager.shared.windowHostingView prepareWindowForLaunch:self];
+        [self.appSceneVC startApp];
+    });
     return self;
 }
 

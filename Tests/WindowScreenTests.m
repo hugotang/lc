@@ -2,6 +2,9 @@
 #import <WebKit/WebKit.h>
 // Exercise the production hooks explicitly, without guest launch constructors.
 #import "../TweakLoader/WindowScreen.m"
+#import "../MultitaskSupport/WorkspaceLaunchLayout.h"
+#import "../MultitaskSupport/WindowGridLayout.h"
+#import "../MultitaskSupport/WindowChromeLayout.h"
 #import "TapSyncTestWindow.h"
 
 @interface LCWindowScreenStartupState : LCWindowScreenState
@@ -162,6 +165,71 @@
         XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
         XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, self.state.originalOrientedSpace ?: UIScreen.mainScreen.coordinateSpace);
     }
+}
+- (void)checkWorkspaceLaunchWithHiddenBar:(BOOL)hidden scale:(CGFloat)scale singleRow:(BOOL)singleRow {
+    NSMutableArray<LCWorkspaceWindow *> *entries = [NSMutableArray array];
+    NSMutableArray<UIView *> *views = [NSMutableArray array];
+    for (NSUInteger index = 0; index < 4; index++) {
+        [entries addObject:[[LCWorkspaceWindow alloc] initWithBundleName:@"game.app"
+            dataUUID:[NSString stringWithFormat:@"account-%lu", (unsigned long)index] scale:scale]];
+        [views addObject:[UIView new]];
+    }
+    LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{}
+                                                      singleRowInLandscape:singleRow];
+    LCWorkspaceLaunchLayout *plan = [[LCWorkspaceLaunchLayout alloc] initWithWorkspace:workspace];
+    UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 1366, 1024)];
+    [LCTapSyncTestHostWindow().rootViewController.view addSubview:host];
+    LCWindowGridLayout grid = LCWindowGridLayoutMakeForOrientation(4, 1366, 1024, 2, 88, false, singleRow);
+    CGSize expected = CGSizeZero;
+    // The third and fourth accounts start after only part of the workspace exists.
+    NSArray *orders = @[@[@0, @1, @2, @3], @[@3, @1, @0, @2]];
+    for (NSArray<NSNumber *> *order in orders) {
+        NSMutableArray<UIView *> *opened = [NSMutableArray array];
+        for (NSNumber *number in order) {
+            NSUInteger account = number.unsignedIntegerValue;
+            [opened addObject:views[account]];
+            NSArray *slots = [plan slotsForWindows:opened matchingEntry:^BOOL(id view, LCWorkspaceWindow *entry) {
+                return views[[entries indexOfObjectIdenticalTo:entry]] == view;
+            }];
+            XCTAssertEqual(slots.count, 4);
+            NSUInteger slot = [slots indexOfObjectIdenticalTo:views[account]];
+            XCTAssertEqual(slot, account);
+            LCWindowGridRect tile = LCWindowGridFrameWithDividers(grid, slot, NULL, NULL, NULL);
+            UIStackView *container = [[UIStackView alloc] initWithFrame:CGRectMake(tile.x, tile.y, tile.width, tile.height)];
+            container.axis = UILayoutConstraintAxisVertical;
+            [container addArrangedSubview:[UIView new]];
+            UIView *guest = [UIView new];
+            [container insertSubview:guest atIndex:0];
+            [host addSubview:container];
+            UINavigationBar *bar = [UINavigationBar new];
+            bar.items = @[[[UINavigationItem alloc] initWithTitle:@"Account"]];
+            LCWindowChromeLayout *chrome = [LCWindowChromeLayout new];
+            [chrome applyToContainer:container guest:guest bar:bar bottom:account >= 2 hidden:hidden overlay:NO];
+            [container layoutIfNeeded];
+            LCWorkspaceWindow *entry = [plan entryForBundleName:@"game.app" dataUUID:entries[account].dataUUID];
+            CGSize startup = CGSizeMake(guest.bounds.size.width / entry.scale, guest.bounds.size.height / entry.scale);
+            [self useState:[[LCWindowScreenStartupState alloc] initWithSize:startup]];
+            CGSize screen = UIScreen.mainScreen.bounds.size;
+            XCTAssertEqualWithAccuracy(screen.width, tile.width / scale, 0.01);
+            XCTAssertEqualWithAccuracy(screen.height, (tile.height - (hidden ? 0 : 44)) / scale, 0.01);
+            if (CGSizeEqualToSize(expected, CGSizeZero)) expected = screen;
+            XCTAssertTrue(CGSizeEqualToSize(screen, expected));
+            XCTAssertEqual(UIInterfaceOrientationIsLandscape(self.state.readSnapshot.orientation), screen.width > screen.height);
+            [container removeFromSuperview];
+        }
+    }
+    LCWindowScreenCurrentState = nil;
+    [host removeFromSuperview];
+}
+- (void)testFourAccountWorkspaceLaunchHasEqualPortraitContentBeforeConstructors {
+    [self checkWorkspaceLaunchWithHiddenBar:YES scale:1 singleRow:YES];
+}
+- (void)testWorkspaceLaunchUsesSavedScaleWithVisibleTopAndBottomBars {
+    [self checkWorkspaceLaunchWithHiddenBar:NO scale:0.5 singleRow:YES];
+    [self checkWorkspaceLaunchWithHiddenBar:NO scale:2 singleRow:YES];
+}
+- (void)testAutomaticGridLaunchKeepsEqualThirdAndFourthGameDimensions {
+    [self checkWorkspaceLaunchWithHiddenBar:YES scale:1 singleRow:NO];
 }
 - (void)testPortraitGameInLandscapeSceneKeepsItsOwnShapeAndScale {
     LCWindowScreenTestScene *scene = [self sceneWithSize:CGSizeMake(1024, 768) orientation:UIInterfaceOrientationLandscapeLeft];

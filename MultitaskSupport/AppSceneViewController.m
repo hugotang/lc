@@ -29,12 +29,17 @@
 @property(nonatomic) NSExtension* extension;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @property(nonatomic) BOOL didCompleteInitialization;
+@property(nonatomic, copy) dispatch_block_t launchRequest;
 @end
 
 @implementation AppSceneViewController
 
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate {
+    return [self initWithBundleId:bundleId dataUUID:dataUUID delegate:delegate deferLaunch:NO];
+}
+
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate deferLaunch:(BOOL)deferLaunch {
     self = [super initWithNibName:nil bundle:nil];
     self.delegate = delegate;
     self.dataUUID = dataUUID;
@@ -117,20 +122,21 @@
         });
     }];
     void (^beginRequest)(void) = ^{
-        if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
-        [self.extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
+        AppSceneViewController *controller = weakSelf;
+        if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+        [controller.extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
-                self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
-                if (identifier && self.pid > 0) {
-                    self.tapSyncPeer.expectedProcessIdentifier = self.pid;
-                    [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
-                    self.identifier = identifier;
-                    [self completeInitializationWithError:nil];
-                    [self setUpAppPresenter];
+                if (controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+                controller.pid = identifier ? [controller.extension pidForRequestIdentifier:identifier] : 0;
+                if (identifier && controller.pid > 0) {
+                    controller.tapSyncPeer.expectedProcessIdentifier = controller.pid;
+                    [MultitaskManager registerMultitaskContainerWithContainer:controller.dataUUID];
+                    controller.identifier = identifier;
+                    [controller completeInitializationWithError:nil];
+                    [controller setUpAppPresenter];
                 } else {
-                    [self completeInitializationWithError:[self startupError]];
-                    [self appTerminationCleanUp];
+                    [controller completeInitializationWithError:[controller startupError]];
+                    [controller appTerminationCleanUp];
                 }
             });
         }];
@@ -138,25 +144,36 @@
     bool guestIsShared = false;
     NSBundle *guestBundle = !self.isNativeWindow ? [LCSharedUtils findBundleWithBundleId:bundleId isSharedAppOut:&guestIsShared] : nil;
     NSDictionary *guestInfo = guestBundle ? [NSDictionary dictionaryWithContentsOfFile:[guestBundle.bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]] : nil;
-    if ([guestInfo[@"LCUseWindowScreenSize"] boolValue] && ![guestInfo[@"dontInjectTweakLoader"] boolValue]) {
-        // The decorated controller attaches and lays out this view after init returns.
-        // Supply content geometry before the guest's SDK constructors query UIScreen.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
-            [self.view.superview.superview layoutIfNeeded];
-            [self.view.superview layoutIfNeeded];
-            CGSize size = self.view.bounds.size;
-            CGFloat scale = self.scaleRatio > 0 ? self.scaleRatio : 1;
+    BOOL reportWindowGeometry = [guestInfo[@"LCUseWindowScreenSize"] boolValue] && ![guestInfo[@"dontInjectTweakLoader"] boolValue];
+    self.launchRequest = ^{
+        AppSceneViewController *controller = weakSelf;
+        if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+        if (reportWindowGeometry) {
+            // The decorated controller has already applied the launch slot,
+            // chrome and saved scale before any guest SDK constructor runs.
+            CGSize size = controller.view.bounds.size;
+            CGFloat scale = controller.scaleRatio > 0 ? controller.scaleRatio : 1;
             if (size.width >= 1 && size.height >= 1) {
                 userInfo[@"initialWindowWidth"] = @(size.width / scale);
                 userInfo[@"initialWindowHeight"] = @(size.height / scale);
                 item.userInfo = userInfo;
             }
-            beginRequest();
-        });
-    } else beginRequest();
+        }
+        beginRequest();
+    };
+    if (!deferLaunch) {
+        if (reportWindowGeometry) dispatch_async(dispatch_get_main_queue(), ^{ [self startApp]; });
+        else [self startApp];
+    }
     
     return self;
+}
+
+- (void)startApp {
+    NSAssert(NSThread.isMainThread, @"Guest launch geometry is prepared on the main thread");
+    dispatch_block_t request = self.launchRequest;
+    self.launchRequest = nil;
+    if (request) request();
 }
 
 - (NSError *)startupError {
@@ -247,6 +264,13 @@
         
         // Now it's time to get the initial settings from decorated VC
         [self.delegate appSceneVCWillActivateScene:self];
+        if (!self.isNativeWindow) {
+            // A saved scale may have been applied before the hosting view existed.
+            // Set it before activation so the initial scene and launch metadata agree.
+            self.contentView.transform = CGAffineTransformMakeScale(self.scaleRatio, self.scaleRatio);
+            self.shouldSkipDebounceOnce = YES;
+            [self updateFrameWithSettingsBlock:nil];
+        }
         [self addChildViewController:self.hostingController.sceneViewController];
         
         // For new API, let FBSSceneObserver send host scene events instead of NSExtensionContext
@@ -274,6 +298,7 @@
         
         self.contentView = [[UIView alloc] init];
         [self.contentView addSubview:self.presenter.presentationView];
+        self.contentView.layer.sublayerTransform = CATransform3DMakeScale(self.scaleRatio, self.scaleRatio, 1);
     }
     [self.view addSubview:_contentView];
     
@@ -322,6 +347,10 @@
     }
 }
 - (void)updateFrameWithSettingsBlock:(void (^)(UIMutableApplicationSceneSettings *settings))block {
+    // Before the private scene exists, this is only Auto Layout preparation.
+    // Applying a saved scale here would divide the host guest view itself and
+    // then divide it again when serializing the launch dimensions.
+    if (!self.presenter || self.isAppTerminationCleanUpCalled) return;
     __block int currentDebounceToken = ++_resizeDebounceToken;
     dispatch_block_t queueBlock = ^{
         if(currentDebounceToken != self.resizeDebounceToken) {
@@ -403,6 +432,7 @@
         return;
     }
     _isAppTerminationCleanUpCalled = true;
+    self.launchRequest = nil;
     [LCTapSyncCoordinator.shared unregisterScene:self];
     if (!self.didCompleteInitialization) [self completeInitializationWithError:[self startupError]];
     [PiPManager.shared stopPiPForVC:self];
