@@ -7,6 +7,24 @@
 #import "TapSyncTestWindow.h"
 #include <math.h>
 
+// Only the remote provider is controlled. Submission, layout, coalescing and
+// lifetime cancellation use the production update object and real UIKit views.
+@interface LCWindowContentTestUpdater : NSObject<LCWindowHostingGeometryUpdating>
+@property(nonatomic, weak) UIView *view;
+@property(nonatomic) NSUInteger submissions;
+@property(nonatomic) BOOL fenced;
+@property(nonatomic) CGSize submittedSize;
+@property(nonatomic, copy) dispatch_block_t didSubmit;
+@end
+@implementation LCWindowContentTestUpdater
+- (void)_updateSceneSettingsFromSettingsProvidersWithFence:(BOOL)fence {
+    self.submissions++;
+    self.fenced = fence;
+    self.submittedSize = self.view.bounds.size;
+    if (self.didSubmit) self.didSubmit();
+}
+@end
+
 @interface WindowContentGeometryTests : XCTestCase
 @property(nonatomic, strong) UIView *host;
 @end
@@ -273,5 +291,189 @@
         XCTAssertTrue(CGSizeEqualToSize(hosting.bounds.size, CGSizeMake(333, 777)));
         XCTAssertTrue(CGAffineTransformIsIdentity(hosting.transform));
     }
+}
+- (void)drainHostingUpdates {
+    XCTestExpectation *settled = [self expectationWithDescription:@"queued hosting geometry completed"];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_async(dispatch_get_main_queue(), ^{ [settled fulfill]; });
+    });
+    [self waitForExpectations:@[settled] timeout:5];
+}
+- (void)testHostingSubmissionUsesTheLatestCompletedLayout {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    [update requestUpdate];
+    LCWindowContentApplyHostingSize(hosting, CGSizeMake(250, 700), 0.5);
+    [update requestUpdate];
+    LCWindowContentApplyHostingSize(hosting, CGSizeMake(333, 777), 1);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 1U);
+    XCTAssertTrue(controller.fenced);
+    XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(333, 777)));
+    XCTAssertEqual(update.committedUpdateCount, 1U);
+}
+- (void)testRepeatedProviderLayoutNotificationsDoNotCreateAnUpdateLoop {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    __weak LCWindowHostingGeometryUpdate *weakUpdate = update;
+    controller.didSubmit = ^{ [weakUpdate requestUpdate]; };
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    for (NSUInteger count = 0; count < 10; count++) [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 1U);
+    hosting.bounds = CGRectMake(0, 0, 500, 350);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 2U);
+    XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(500, 350)));
+}
+- (void)testBothRestorePathsSubmitTheSameCurrentSizeAfterRotation {
+    LCWindowContentTestUpdater *controllers[2];
+    LCWindowHostingGeometryUpdate *updates[2];
+    UIView *views[2];
+    for (NSUInteger path = 0; path < 2; path++) {
+        views[path] = [[UIView alloc] initWithFrame:(CGRect){CGPointZero,
+            path == 0 ? CGSizeMake(510, 650) : CGSizeMake(338, 980)}];
+        [self.host addSubview:views[path]];
+        controllers[path] = [LCWindowContentTestUpdater new];
+        controllers[path].view = views[path];
+        updates[path] = [[LCWindowHostingGeometryUpdate alloc] initWithView:views[path]
+            controller:controllers[path] canUpdate:nil];
+        [updates[path] requestUpdate];
+    }
+    [self drainHostingUpdates];
+    XCTAssertFalse(CGSizeEqualToSize(controllers[0].submittedSize, controllers[1].submittedSize));
+    for (NSNumber *portrait in @[@NO, @YES, @NO, @YES]) {
+        CGSize size = portrait.boolValue ? CGSizeMake(510, 650) : CGSizeMake(338, 980);
+        for (NSUInteger path = 0; path < 2; path++) {
+            LCWindowContentApplyHostingSize(views[path], size, 1);
+            [updates[path] requestUpdate];
+        }
+        [self drainHostingUpdates];
+        XCTAssertTrue(CGSizeEqualToSize(controllers[0].submittedSize, size));
+        XCTAssertTrue(CGSizeEqualToSize(controllers[1].submittedSize, size));
+    }
+    XCTAssertEqual(controllers[0].submissions, 5U);
+    XCTAssertEqual(controllers[1].submissions, 4U);
+}
+- (void)testLayoutChangedDuringSubmissionIsNotDropped {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    __weak LCWindowHostingGeometryUpdate *weakUpdate = update;
+    __weak LCWindowContentTestUpdater *weakController = controller;
+    controller.didSubmit = ^{
+        if (weakController.submissions == 1) {
+            LCWindowContentApplyHostingSize(hosting, CGSizeMake(500, 350), 1);
+            [weakUpdate requestUpdate];
+        }
+    };
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 2U);
+    XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(500, 350)));
+    controller.didSubmit = nil;
+}
+- (void)testPiPSuspensionCancelsPendingGeometryAndReturnSubmitsAgain {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    __block BOOL inPiP = NO;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:^BOOL { return !inPiP; }];
+    [update requestUpdate];
+    inPiP = YES;
+    [update cancelPendingUpdate];
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 0U);
+    inPiP = NO;
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 1U);
+    [update requestUpdate];
+    [update cancelPendingUpdate];
+    LCWindowContentApplyHostingSize(hosting, CGSizeMake(500, 350), 1);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 2U);
+    XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(500, 350)));
+}
+- (void)testClosedSceneCannotSubmitAnOldOrNewQueuedUpdate {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    [update requestUpdate];
+    [update invalidate];
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 0U);
+    update = [[LCWindowHostingGeometryUpdate alloc] initWithView:hosting controller:controller canUpdate:nil];
+    [update requestUpdate];
+    update = nil;
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 0U);
+}
+- (void)testDetachedInvalidOrUnsupportedHostingDoesNotSubmit {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 0U);
+    [self.host addSubview:hosting];
+    hosting.bounds = CGRectZero;
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 0U);
+    hosting.bounds = CGRectMake(0, 0, 300, 500);
+    NSObject *unsupported = [NSObject new];
+    LCWindowHostingGeometryUpdate *unsupportedUpdate = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:(id<LCWindowHostingGeometryUpdating>)unsupported canUpdate:nil];
+    [unsupportedUpdate requestUpdate];
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 1U);
+    XCTAssertEqual(unsupportedUpdate.committedUpdateCount, 0U);
+}
+- (void)testAncestorMovementAndSavedScaleSubmitWithoutChangingTheGridSize {
+    UIView *hosting = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    [self.host addSubview:hosting];
+    LCWindowContentTestUpdater *controller = [LCWindowContentTestUpdater new];
+    controller.view = hosting;
+    LCWindowHostingGeometryUpdate *update = [[LCWindowHostingGeometryUpdate alloc]
+        initWithView:hosting controller:controller canUpdate:nil];
+    LCWindowContentApplyHostingSize(hosting, CGSizeMake(300, 500), 1);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    self.host.frame = CGRectOffset(self.host.frame, 25, 15);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 2U);
+    LCWindowContentApplyHostingSize(hosting, CGSizeMake(300, 500), 0.5);
+    [update requestUpdate];
+    [self drainHostingUpdates];
+    XCTAssertEqual(controller.submissions, 3U);
+    XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(600, 1000)));
+    XCTAssertTrue(CGSizeEqualToSize(hosting.frame.size, CGSizeMake(300, 500)));
 }
 @end

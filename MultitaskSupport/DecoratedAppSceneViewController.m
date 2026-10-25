@@ -57,6 +57,9 @@
             UIAction *copyPID = [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction *action) {
                 UIPasteboard.generalPasteboard.string = @(weakSelf.appSceneVC.pid).stringValue;
             }];
+            UIAction *copyGeometry = [UIAction actionWithTitle:@"lc.multitask.copyWindowGeometry".loc image:[UIImage systemImageNamed:@"rectangle.and.text.magnifyingglass"] identifier:nil handler:^(UIAction *action) {
+                [weakSelf.appSceneVC copyWindowGeometryDiagnostics];
+            }];
             NSArray *menuItems = @[
                 [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction *action) {
                     [weakSelf togglePictureInPicture];
@@ -65,7 +68,7 @@
                     return [weakSelf scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:weakSelf.scaleRatio stepInterval:0.01];
                 }],
                 [MultitaskTapSyncManager.shared windowMenuForContainer:controller.appSceneVC.dataUUID],
-                [UIMenu menuWithTitle:@"lc.dock.diagnostics".loc image:[UIImage systemImageNamed:@"wrench.and.screwdriver"] identifier:nil options:0 children:@[copyPID]]
+                [UIMenu menuWithTitle:@"lc.dock.diagnostics".loc image:[UIImage systemImageNamed:@"wrench.and.screwdriver"] identifier:nil options:0 children:@[copyPID, copyGeometry]]
             ];
             return [UIMenu menuWithTitle:[MultitaskDockManager.shared accountTitleForContainer:controller.dataUUID] children:menuItems];
         }

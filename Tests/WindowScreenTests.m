@@ -1,11 +1,13 @@
 #import <XCTest/XCTest.h>
 #import <WebKit/WebKit.h>
+#import <QuartzCore/QuartzCore.h>
 // Exercise the production hooks explicitly, without guest launch constructors.
 #import "../TweakLoader/WindowScreen.m"
 #import "../MultitaskSupport/WorkspaceLaunchLayout.h"
 #import "../MultitaskSupport/WindowGridLayout.h"
 #import "../MultitaskSupport/WindowChromeLayout.h"
 #import "../MultitaskSupport/WindowContentGeometry.h"
+#import "../TweakLoader/WindowGeometryDiagnostics.h"
 #import "TapSyncTestWindow.h"
 
 @interface LCWindowScreenStartupState : LCWindowScreenState
@@ -700,6 +702,56 @@
     }
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation { [self.webLoaded fulfill]; }
+- (void)testGeometryDiagnosticsKeepTheBoundGameAfterAnAdBecomesKey {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    ad.rootViewController = [UIViewController new];
+    ad.frame = game.frame;
+    [self.windows addObject:ad];
+    [ad makeKeyAndVisible];
+    NSDictionary *report = LCWindowGeometryDiagnostics();
+    XCTAssertEqual(LCWindowScreenGameWindowForDiagnostics(), game);
+    XCTAssertTrue([report[@"gameSelected"] boolValue]);
+    XCTAssertEqualObjects(report[@"game"][@"bounds"], (@[@0, @0, @300, @500]));
+    XCTAssertTrue([report[@"screenCompatibility"][@"enabled"] boolValue]);
+    XCTAssertEqualObjects(report[@"screenCompatibility"][@"publishedWidth"], @300);
+    XCTAssertTrue([NSJSONSerialization isValidJSONObject:report]);
+}
+- (void)testGeometryDiagnosticsDistinguishResizedWindowFromCachedMetalDrawable {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    CAMetalLayer *metal = [CAMetalLayer layer];
+    metal.bounds = CGRectMake(0, 0, 300, 500);
+    metal.contentsScale = 2;
+    metal.drawableSize = CGSizeMake(600, 1000);
+    [game.layer addSublayer:metal];
+    game.frame = CGRectMake(0, 0, 500, 350);
+    CGRect before = metal.bounds;
+    CGSize drawable = metal.drawableSize;
+    NSDictionary *report = LCWindowGeometryDiagnostics();
+    XCTAssertEqualObjects(report[@"game"][@"bounds"], (@[@0, @0, @500, @350]));
+    XCTAssertEqualObjects(report[@"screenCompatibility"][@"publishedWidth"], @500);
+    NSArray *layers = report[@"game"][@"renderLayers"];
+    XCTAssertEqual(layers.count, 1U);
+    XCTAssertEqualObjects(layers[0][@"bounds"], (@[@0, @0, @300, @500]));
+    XCTAssertEqualObjects(layers[0][@"drawableSize"], (@[@600, @1000]));
+    XCTAssertTrue(CGRectEqualToRect(metal.bounds, before));
+    XCTAssertTrue(CGSizeEqualToSize(metal.drawableSize, drawable));
+    XCTAssertTrue([NSJSONSerialization isValidJSONObject:report]);
+}
+- (void)testGeometryDiagnosticsBoundWorkAndPreserveDisabledScreenHooks {
+    LCWindowScreenCurrentState = nil;
+    UIWindow *game = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 300, 500)];
+    for (NSUInteger index = 0; index < 40; index++) [game.layer addSublayer:[CAMetalLayer layer]];
+    CGRect screen = UIScreen.mainScreen.bounds;
+    NSDictionary *description = LCWindowGeometryDescribeWindow(game);
+    XCTAssertEqual([description[@"renderLayers"] count], 32U);
+    XCTAssertTrue([description[@"renderTraversalTruncated"] boolValue]);
+    XCTAssertEqualObjects(description[@"rootBounds"], @[]);
+    XCTAssertNil(LCWindowScreenGameWindowForDiagnostics());
+    XCTAssertFalse([LCWindowScreenGeometryForDiagnostics()[@"enabled"] boolValue]);
+    XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, screen));
+    XCTAssertTrue([NSJSONSerialization isValidJSONObject:description]);
+}
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     XCTFail(@"Web popup initial load failed: %@", error);
     [self.webLoaded fulfill];

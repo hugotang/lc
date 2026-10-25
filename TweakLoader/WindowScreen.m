@@ -150,6 +150,22 @@ static void LCWindowScreenRefresh(LCWindowScreenState *state) {
     LCWindowScreenQueryDepth--;
 }
 
+UIWindow *LCWindowScreenGameWindowForDiagnostics(void) {
+    NSAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
+    LCWindowScreenRefresh(LCWindowScreenCurrentState);
+    return LCWindowScreenCurrentState.window;
+}
+
+NSDictionary *LCWindowScreenGeometryForDiagnostics(void) {
+    NSAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
+    LCWindowScreenRefresh(LCWindowScreenCurrentState);
+    LCWindowScreenSnapshot snapshot = {CGSizeZero, UIInterfaceOrientationUnknown};
+    if (LCWindowScreenCurrentState) snapshot = [LCWindowScreenCurrentState readSnapshot];
+    return @{@"enabled": @(LCWindowScreenCurrentState != nil),
+        @"publishedWidth": @(snapshot.size.width), @"publishedHeight": @(snapshot.size.height),
+        @"localOrientation": @(snapshot.orientation)};
+}
+
 // Keep UIKit's own geometry reads physical. Its private scene converters rely
 // on real screen coordinate-space identities and the actual display transform.
 // Only direct game/third-party SDK calls receive the compatibility dimensions.

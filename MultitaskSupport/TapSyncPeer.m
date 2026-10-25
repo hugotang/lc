@@ -5,6 +5,7 @@
 @property(nonatomic) NSXPCConnection *connection;
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) NSUUID *performanceRequest;
+@property(nonatomic) NSUUID *geometryRequest;
 @end
 
 @implementation LCTapSyncPeer
@@ -43,6 +44,7 @@
             if (!peer || !previous || peer.connection != previous) return;
             peer.connection = nil;
             peer.performanceRequest = nil;
+            peer.geometryRequest = nil;
             peer->_ready = NO;
             peer->_canReplay = NO;
             [previous invalidate];
@@ -174,6 +176,7 @@
     NSXPCConnection *connection = self.connection;
     self.connection = nil;
     self.performanceRequest = nil;
+    self.geometryRequest = nil;
     _ready = NO;
     _canReplay = NO;
     [connection invalidate];
@@ -212,5 +215,31 @@
     };
     id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
     [proxy samplePerformanceWithReply:finish];
+}
+- (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply {
+    // One on-demand request per guest. Timeouts discard late replies; they do
+    // not queue another UI request behind an unresponsive game.
+    if (!self.ready || !self.connection || self.geometryRequest) { reply(nil); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.geometryRequest = request;
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *geometry) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.geometryRequest == request) self.geometryRequest = nil;
+            if (completed) return;
+            completed = YES;
+            BOOL current = self.connection == connection && !self.invalidated;
+            reply(current && [geometry isKindOfClass:NSDictionary.class] ? geometry : nil);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
+    [proxy readWindowGeometryWithReply:finish];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (completed) return;
+        completed = YES;
+        // Retain the in-flight gate until its response or connection closes.
+        reply(nil);
+    });
 }
 @end

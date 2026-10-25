@@ -30,6 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary * _Nullable))reply;
+- (void)readWindowGeometryWithReply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)invalidate;
 @end
 

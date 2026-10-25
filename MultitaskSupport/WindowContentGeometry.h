@@ -10,4 +10,19 @@ CGRect LCWindowContentSceneFrame(CGRect contentFrame, CGFloat scale, BOOL usesHo
 // use the same operation for rotation, saved-scale changes and later resizes.
 void LCWindowContentApplyHostingSize(UIView *contentView, CGSize hostSize, CGFloat scale);
 
+// Submit the completed view geometry through UIKit's hosting controller. A
+// hosting view's bounds alone do not establish delivery to the remote scene.
+@protocol LCWindowHostingGeometryUpdating <NSObject>
+- (void)_updateSceneSettingsFromSettingsProvidersWithFence:(BOOL)fence;
+@end
+
+@interface LCWindowHostingGeometryUpdate : NSObject
+@property(nonatomic, readonly) NSUInteger committedUpdateCount;
+- (instancetype)initWithView:(UIView *)view controller:(id<LCWindowHostingGeometryUpdating>)controller
+                   canUpdate:(BOOL (^ _Nullable)(void))canUpdate;
+- (void)requestUpdate;
+- (void)cancelPendingUpdate;
+- (void)invalidate;
+@end
+
 NS_ASSUME_NONNULL_END

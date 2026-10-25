@@ -1203,6 +1203,9 @@ private struct DockWindowActions: View {
                 Button {
                     UIPasteboard.general.string = String(vc.appSceneVC.pid)
                 } label: { Label("lc.multitask.copyPid".loc, systemImage: "doc.on.doc") }
+                Button {
+                    vc.appSceneVC.copyWindowGeometryDiagnostics()
+                } label: { Label("lc.multitask.copyWindowGeometry".loc, systemImage: "rectangle.and.text.magnifyingglass") }
             } label: { Label("lc.dock.diagnostics".loc, systemImage: "wrench.and.screwdriver") }
         }
         Divider()

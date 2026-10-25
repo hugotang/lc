@@ -16,6 +16,8 @@
 #import "TapSyncCoordinator.h"
 #import "WindowContentGeometry.h"
 
+static NSUUID *LCWindowGeometryClipboardRequest;
+
 @interface AppSceneViewController()
 @property int resizeDebounceToken;
 @property CFTimeInterval lastResizeRequestTime;
@@ -31,6 +33,8 @@
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @property(nonatomic) BOOL didCompleteInitialization;
 @property(nonatomic, copy) dispatch_block_t launchRequest;
+@property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
+@property(nonatomic) CGSize initialLogicalWindowSize;
 @end
 
 @implementation AppSceneViewController
@@ -154,6 +158,7 @@
             // first scene and later rotation. Divide the saved scale once.
             CGSize size = LCWindowContentLogicalSize(controller.view.bounds.size, controller.scaleRatio);
             if (size.width >= 1 && size.height >= 1) {
+                controller.initialLogicalWindowSize = size;
                 userInfo[@"initialWindowWidth"] = @(size.width);
                 userInfo[@"initialWindowHeight"] = @(size.height);
                 item.userInfo = userInfo;
@@ -241,6 +246,14 @@
         self.contentView = self.hostingController.sceneViewController.view;
         self.contentView.clipsToBounds = NO;
         if (!self.isNativeWindow) {
+            __weak typeof(self) weakController = self;
+            self.hostingGeometryUpdate = [[LCWindowHostingGeometryUpdate alloc]
+                initWithView:self.contentView controller:(id<LCWindowHostingGeometryUpdating>)self.hostingController
+                canUpdate:^BOOL {
+                    AppSceneViewController *controller = weakController;
+                    return controller && !controller.shouldIgnoreSceneUpdates &&
+                        !controller.isAppTerminationCleanUpCalled && controller.hostingController != nil;
+                }];
             // Prepare both logical bounds and saved scale before any initial
             // scene configuration can deliver geometry to the guest.
             LCWindowContentApplyHostingSize(self.contentView, self.view.bounds.size, self.scaleRatio);
@@ -324,6 +337,7 @@
     }];
     self.contentView.layer.anchorPoint = CGPointMake(0, 0);
     self.contentView.layer.position = CGPointMake(0, 0);
+    [self.hostingGeometryUpdate requestUpdate];
     
     [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
 }
@@ -412,6 +426,7 @@
     if (self.contentView) {
         if (self.hostingController && !self.isNativeWindow) {
             LCWindowContentApplyHostingSize(self.contentView, frame.size, self.scaleRatio);
+            [self.hostingGeometryUpdate requestUpdate];
         } else {
             frame.origin = CGPointZero;
             self.contentView.frame = frame;
@@ -420,6 +435,56 @@
         // This method can be called while contentView is nil to set up initial frame
         self.view.frame = frame;
     }
+}
+
+- (void)setShouldIgnoreSceneUpdates:(BOOL)shouldIgnoreSceneUpdates {
+    _shouldIgnoreSceneUpdates = shouldIgnoreSceneUpdates;
+    if (shouldIgnoreSceneUpdates) [self.hostingGeometryUpdate cancelPendingUpdate];
+}
+
+- (NSDictionary *)windowGeometryDiagnostics {
+    UIView *host = self.viewIfLoaded;
+    UIWindow *window = host.window;
+    UIApplicationSceneSettings *scene = self.presenter.scene.settings;
+    return @{
+        @"contentBounds": NSStringFromCGRect(host.bounds),
+        @"hostingBounds": NSStringFromCGRect(self.contentView.bounds),
+        @"hostingFrame": NSStringFromCGRect(self.contentView.frame),
+        @"hostingTransform": NSStringFromCGAffineTransform(self.contentView.transform),
+        @"initialLogicalSize": NSStringFromCGSize(self.initialLogicalWindowSize),
+        @"expectedLogicalSize": NSStringFromCGSize(LCWindowContentLogicalSize(host.bounds.size, self.scaleRatio)),
+        @"remoteSceneFrame": NSStringFromCGRect(scene.frame),
+        @"remoteSceneOrientation": @(scene.interfaceOrientation),
+        @"hostWindowBounds": NSStringFromCGRect(window.bounds),
+        @"hostOrientation": @(window.windowScene.interfaceOrientation),
+        @"contentScale": @(self.scaleRatio), @"usesHostingController": @(self.usesHostingControllerAPI),
+        @"geometrySubmissionSupported": @([self.hostingController respondsToSelector:@selector(_updateSceneSettingsFromSettingsProvidersWithFence:)]),
+        @"geometrySubmissions": @(self.hostingGeometryUpdate.committedUpdateCount),
+        @"ignoresSceneUpdates": @(self.shouldIgnoreSceneUpdates),
+        @"timestamp": @(NSProcessInfo.processInfo.systemUptime),
+    };
+}
+- (void)copyWindowGeometryDiagnostics {
+    NSAssert(NSThread.isMainThread, @"Window diagnostics start on the main thread");
+    NSUUID *request = NSUUID.UUID;
+    LCWindowGeometryClipboardRequest = request;
+    NSMutableDictionary *report = [@{
+        @"version": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
+        @"hostAtRequest": [self windowGeometryDiagnostics],
+    } mutableCopy];
+    __weak typeof(self) weakSelf = self;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *guest) {
+        if (LCWindowGeometryClipboardRequest != request) return;
+        LCWindowGeometryClipboardRequest = nil;
+        AppSceneViewController *controller = weakSelf;
+        report[@"hostAtReply"] = controller ? [controller windowGeometryDiagnostics] : @{};
+        report[@"guestStatus"] = guest ? @"received" : @"unavailableOrTimedOut";
+        report[@"guest"] = guest ?: @{};
+        NSData *data = [NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
+        if (data) UIPasteboard.generalPasteboard.string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    };
+    if (self.tapSyncPeer) [self.tapSyncPeer readWindowGeometryWithReply:finish];
+    else finish(nil);
 }
 
 - (BOOL)isAppRunning {
@@ -436,6 +501,7 @@
     }
     _isAppTerminationCleanUpCalled = true;
     self.launchRequest = nil;
+    [self.hostingGeometryUpdate invalidate];
     [LCTapSyncCoordinator.shared unregisterScene:self];
     if (!self.didCompleteInitialization) [self completeInitializationWithError:[self startupError]];
     [PiPManager.shared stopPiPForVC:self];

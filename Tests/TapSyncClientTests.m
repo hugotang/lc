@@ -119,6 +119,23 @@
     self.window = nil;
     [super tearDown];
 }
+- (void)testOnDemandGeometryReplyLeavesTheInputSessionAndCaptureUnchanged {
+    NSString *session = self.client.session;
+    BOOL source = self.client.source;
+    XCTestExpectation *replied = [self expectationWithDescription:@"guest geometry arrives from the UI queue"];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        [self.client readWindowGeometryWithReply:^(NSDictionary *geometry) {
+            XCTAssertTrue(NSThread.isMainThread);
+            XCTAssertTrue([NSJSONSerialization isValidJSONObject:geometry]);
+            XCTAssertEqualObjects(self.client.session, session);
+            XCTAssertEqual(self.client.source, source);
+            XCTAssertEqual(self.host.taps, 0U);
+            XCTAssertEqual(self.host.interrupts, 0U);
+            [replied fulfill];
+        }];
+    });
+    [self waitForExpectations:@[replied] timeout:5];
+}
 - (LCTestInputTouch *)touch {
     LCTestInputTouch *touch = [LCTestInputTouch new];
     touch.testWindow = self.window;

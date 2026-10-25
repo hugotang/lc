@@ -8,6 +8,7 @@
 #import "TapSyncClientState.h"
 #import "TapSyncReturnGesture.h"
 #import "TapSyncWindow.h"
+#import "WindowGeometryDiagnostics.h"
 
 // These setters are used only inside the selected guest process. No system-wide HID injection is used.
 typedef struct __IOHIDEvent *LCTapHIDEventRef;
@@ -234,6 +235,9 @@ static LCTapSyncClient *tapSyncClient;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply {
     // NSXPC calls this on its service queue. Sampling does not use the guest's UI loop.
     reply(LCReadProcessMetrics());
+}
+- (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply {
+    dispatch_async(dispatch_get_main_queue(), ^{ reply(LCWindowGeometryDiagnostics()); });
 }
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
          syncReturnGesture:(BOOL)syncReturnGesture
