@@ -31,7 +31,9 @@
     NSPredicate *predicate = [NSPredicate predicateWithFormat:@"label == %@", status];
     XCTNSPredicateExpectation *expectation = [[XCTNSPredicateExpectation alloc]
         initWithPredicate:predicate object:self.app.staticTexts[@"DockStatus"]];
-    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[expectation] timeout:5];
+    // Accessibility snapshots can take several seconds on a busy CI simulator.
+    // Wait for the same state without repeating the gesture or relaxing it.
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[expectation] timeout:15];
     if (result != XCTWaiterResultCompleted) {
         NSLog(@"Reveal trace: %@", self.app.staticTexts[@"DockRevealTrace"].label);
         NSLog(@"Actual Dock status: %@", self.app.staticTexts[@"DockStatus"].label);
@@ -53,14 +55,26 @@
     [start pressForDuration:0.05 thenDragToCoordinate:end withVelocity:120 thenHoldForDuration:0];
 }
 - (void)dragElement:(XCUIElement *)element dx:(CGFloat)dx dy:(CGFloat)dy hold:(NSTimeInterval)hold {
-    XCUICoordinate *start = [element coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+    // Resolve the element before touching. Repeated element-relative coordinate
+    // lookups during synthesis can turn a short drag into a context-menu hold.
+    XCUIElement *window = self.app.windows.firstMatch;
+    CGRect windowFrame = window.frame;
+    CGRect elementFrame = element.frame;
+    XCUICoordinate *start = [[window coordinateWithNormalizedOffset:CGVectorMake(0, 0)]
+        coordinateWithOffset:CGVectorMake(CGRectGetMidX(elementFrame) - CGRectGetMinX(windowFrame),
+                                         CGRectGetMidY(elementFrame) - CGRectGetMinY(windowFrame))];
     XCUICoordinate *end = [start coordinateWithOffset:CGVectorMake(dx, dy)];
-    [start pressForDuration:0.05 thenDragToCoordinate:end withVelocity:60 thenHoldForDuration:hold];
+    [start pressForDuration:0.01 thenDragToCoordinate:end withVelocity:300 thenHoldForDuration:hold];
 }
 - (void)dragNearTabRight:(BOOL)right inwardOffset:(CGFloat)inwardOffset verticalOffset:(CGFloat)verticalOffset
                 distance:(CGFloat)distance dy:(CGFloat)dy velocity:(CGFloat)velocity {
-    XCUICoordinate *start = [[self.app.buttons[@"LCDockRevealControl"] coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)]
-        coordinateWithOffset:CGVectorMake(right ? -inwardOffset : inwardOffset, verticalOffset)];
+    XCUIElement *window = self.app.windows.firstMatch;
+    CGRect windowFrame = window.frame;
+    CGRect tabFrame = self.app.buttons[@"LCDockRevealControl"].frame;
+    XCUICoordinate *start = [[window coordinateWithNormalizedOffset:CGVectorMake(0, 0)]
+        coordinateWithOffset:CGVectorMake(CGRectGetMidX(tabFrame) - CGRectGetMinX(windowFrame) +
+                                         (right ? -inwardOffset : inwardOffset),
+                                         CGRectGetMidY(tabFrame) - CGRectGetMinY(windowFrame) + verticalOffset)];
     XCUICoordinate *end = [start coordinateWithOffset:CGVectorMake(right ? -distance : distance, dy)];
     [start pressForDuration:0.01 thenDragToCoordinate:end withVelocity:velocity thenHoldForDuration:0];
 }
@@ -83,8 +97,12 @@
 - (void)testAccountScrollingAndHandleMovementDoNotHide {
     [self launchRight:YES narrow:NO];
     [self dragElement:self.app.buttons[@"DockAccount1"] dx:5 dy:-110 hold:0];
-    XCTAssertTrue(self.app.buttons[@"DockAccount3"].hittable);
     [self waitForStatus:@"visible"];
+    NSPredicate *hittable = [NSPredicate predicateWithFormat:@"hittable == YES"];
+    XCTNSPredicateExpectation *scrolled = [[XCTNSPredicateExpectation alloc]
+        initWithPredicate:hittable object:self.app.buttons[@"DockAccount3"]];
+    XCTAssertEqual([XCTWaiter waitForExpectations:@[scrolled] timeout:15], XCTWaiterResultCompleted);
+    XCTAssertFalse(self.app.buttons[@"Window action"].exists);
     XCTAssertEqualObjects(self.app.staticTexts[@"DockTaps"].label, @"0");
     [self dragElement:self.app.images[@"DockHandle"] dx:22 dy:0 hold:0];
     [self waitForStatus:@"visible"];
@@ -96,6 +114,7 @@
     XCTAssertEqualObjects(self.app.staticTexts[@"DockTaps"].label, @"1");
     [self dragElement:self.app.buttons[@"DockAccount0"] dx:-8 dy:0 hold:0];
     [self waitForStatus:@"visible"];
+    XCTAssertFalse(self.app.buttons[@"Window action"].exists);
     [self.app.buttons[@"DockAccount0"] pressForDuration:1];
     XCUIElement *action = self.app.buttons[@"Window action"];
     XCTAssertTrue([action waitForExistenceWithTimeout:3]);
