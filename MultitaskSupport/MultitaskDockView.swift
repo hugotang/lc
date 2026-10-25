@@ -142,6 +142,7 @@ class AppInfoProvider {
     @Published private(set) var canAdjustGridDividers: Bool = false
     @Published private(set) var isChoosingGridSwap: Bool = false
     @Published private(set) var canUndoGridSwap: Bool = false
+    @Published private(set) var canRestoreMinimizedWindows: Bool = false
     @Published private(set) var geometryRevision = 0
     @Published private(set) var isOnRightSide = true
     @Published private(set) var sourceContainer: String?
@@ -534,6 +535,7 @@ class AppInfoProvider {
         let isHidden = view.isHidden || view.alpha < 0.1
         let decoratedVC = view._viewDelegate() as? DecoratedAppSceneViewController
         let isMaximized = decoratedVC?.isMaximized ?? false
+        decoratedVC?.prepareForWindowRestore()
         
         // when a fullscreen multitask app is brought to front, optionally hide other windows
         if UserDefaults.lcShared().bool(forKey: "LCMaxOneAppOnStage") && isMaximized && !windowHostingView.automaticallyTilesWindows {
@@ -640,13 +642,19 @@ class AppInfoProvider {
             self.apps.forEach { app in
                 if let vc = app.view?._viewDelegate() as? DecoratedAppSceneViewController,
                    vc != except {
-                    app.view?.layer.removeAllAnimations()
                     vc.minimizeWindow()
                 }
             }
         }
     }
     
+    func restoreAllMinimizedWindows() {
+        DispatchQueue.main.async {
+            _ = self.windowHostingView.restoreAllMinimizedWindows()
+            self.gridLayoutDidChange()
+        }
+    }
+
     @objc public func collapseDockForGrid() {
         DispatchQueue.main.async {
             guard self.windowHostingView.hasVisibleGridWindows, !self.isCollapsed else { return }
@@ -658,6 +666,10 @@ class AppInfoProvider {
     @objc public func gridLayoutDidChange() {
         // The host calls this during UIKit layout. Publish after that layout pass completes.
         DispatchQueue.main.async {
+            let canRestore = self.windowHostingView.hasRestorableMinimizedWindows
+            if self.canRestoreMinimizedWindows != canRestore {
+                self.canRestoreMinimizedWindows = canRestore
+            }
             let canAdjust = self.windowHostingView.canAdjustGridDividers
             if self.canAdjustGridDividers != canAdjust {
                 self.canAdjustGridDividers = canAdjust
@@ -896,6 +908,10 @@ private struct DockGlobalActions: View {
         Button { dockManager.minimizeAllWindows() } label: {
             Label("lc.multitask.minimizeAll".loc, systemImage: "rectangle.stack.badge.minus")
         }
+        Button { dockManager.restoreAllMinimizedWindows() } label: {
+            Label("lc.multitask.restoreAllMinimized".loc, systemImage: "rectangle.stack.badge.plus")
+        }
+        .disabled(!dockManager.canRestoreMinimizedWindows)
     }
 }
 

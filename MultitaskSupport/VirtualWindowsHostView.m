@@ -295,6 +295,38 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     return windows.copy;
 }
 
+- (BOOL)hasRestorableMinimizedWindows {
+    if (!self.window) return NO;
+    for (UIView *view in self.windowOrder.windows) {
+        DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+        if (view.superview == self && [vc isKindOfClass:DecoratedAppSceneViewController.class] &&
+            vc.windowMinimization.canRestore) return YES;
+    }
+    return NO;
+}
+
+- (NSUInteger)restoreAllMinimizedWindows {
+    if (!self.hasRestorableMinimizedWindows) return 0;
+    [LCTapSyncCoordinator.shared pauseForWindowChange];
+    [self finishGridEditing];
+    NSMutableArray<LCWindowMinimization *> *windows = [NSMutableArray array];
+    for (UIView *view in self.windowOrder.windows) {
+        DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+        if ([vc isKindOfClass:DecoratedAppSceneViewController.class] && vc.windowMinimization) {
+            [windows addObject:vc.windowMinimization];
+        }
+    }
+    return [LCWindowMinimization restoreWindows:windows inHost:self layout:^(NSArray<UIView *> *restored) {
+        for (UIView *view in restored) {
+            DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+            [vc updateVerticalConstraints];
+            if (vc.isMaximized || !vc.isInGridLayout) [vc updateFrameForKeyboard];
+        }
+        [self setNeedsGridLayout];
+        [self layoutIfNeeded];
+    }];
+}
+
 - (void)performanceDidChange:(NSNotification *)notification {
     BOOL visible = LCPerformanceMonitor.shared.enabled;
     BOOL wasVisible = self.performanceOverlay && !self.performanceOverlay.hidden;
@@ -651,6 +683,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
         DecoratedAppSceneViewController *vc = [self windowForContainer:entry.dataUUID];
         if (!vc || vc.isAppTerminated || !vc.appSceneVC.isAppRunning || vc.appSceneVC.shouldIgnoreSceneUpdates ||
             ![vc.appSceneVC.bundleId isEqualToString:entry.bundleName]) continue;
+        [vc prepareForWindowRestore];
         [vc.view.layer removeAllAnimations];
         vc.view.hidden = NO;
         vc.view.alpha = 1;

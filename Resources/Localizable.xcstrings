@@ -20448,6 +20448,29 @@
         }
       }
     },
+    "lc.multitask.restoreAllMinimized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore All Minimized Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原所有最小化窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原所有最小化視窗"
+          }
+        }
+      }
+    },
     "lc.multitask.restoreWindow" : {
       "extractionState" : "manual",
       "localizations" : {

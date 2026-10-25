@@ -312,6 +312,8 @@
 				WindowGridOrder.m,
 				WindowChromeLayout.h,
 				WindowChromeLayout.m,
+				WindowMinimization.h,
+				WindowMinimization.m,
 				WindowWorkspace.h,
 				WindowWorkspace.m,
 			);

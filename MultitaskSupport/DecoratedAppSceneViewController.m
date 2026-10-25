@@ -19,6 +19,7 @@
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 @property(nonatomic) bool isAppTerminationRequested;
 @property(nonatomic, readwrite) BOOL isAppTerminated;
+@property(nonatomic, readwrite) LCWindowMinimization *windowMinimization;
 @property(nonatomic) UIEdgeInsets lastGridSafeAreaInsets;
 - (void)updateGridSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings;
 @end
@@ -41,6 +42,12 @@
     [MultitaskDockManager.shared addRunningApp:windowName appUUID:dataUUID view:self.view];
     
     __weak typeof(self) weakSelf = self;
+    self.windowMinimization = [[LCWindowMinimization alloc] initWithView:self.view availability:^BOOL {
+        typeof(self) controller = weakSelf;
+        return controller && !controller.isAppTerminated && !controller.isAppTerminationRequested &&
+            controller.appSceneVC.isAppRunning && !controller.appSceneVC.shouldIgnoreSceneUpdates &&
+            ![PiPManager hasSessionForVC:controller.appSceneVC];
+    }];
     [self.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
         typeof(self) controller = weakSelf;
         if(!controller.appSceneVC.isAppRunning) {
@@ -265,6 +272,8 @@
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     _isAppTerminationRequested = true;
+    [self.windowMinimization invalidate];
+    [MultitaskDockManager.shared gridLayoutDidChange];
     if([_appSceneVC isAppRunning]) {
         [_appSceneVC terminate];
     } else {
@@ -283,22 +292,21 @@
 }
 
 - (void)minimizeWindow {
-    if (self.view.hidden) return;
+    if (self.view.hidden || self.windowMinimization.isMinimized || self.isAppTerminationRequested ||
+        self.appSceneVC.shouldIgnoreSceneUpdates || [PiPManager hasSessionForVC:self.appSceneVC]) return;
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
-    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        self.view.alpha = 0;
-        self.view.transform = CGAffineTransformMakeScale(0.1, 0.1);
-    } completion:^(BOOL finished) {
-        if (!finished) return;
-        self.view.hidden = YES;
-        self.view.transform = CGAffineTransformIdentity;
-        [self.view.superview sendSubviewToBack:self.view];
-        [self.view.superview setNeedsLayout];
-    }];
+    [self.windowMinimization minimize];
+    [MultitaskDockManager.shared gridLayoutDidChange];
+}
+
+- (void)prepareForWindowRestore {
+    [self.windowMinimization invalidate];
+    [MultitaskDockManager.shared gridLayoutDidChange];
 }
 
 - (void)minimizeWindowPiP {
+    [self prepareForWindowRestore];
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
@@ -311,6 +319,7 @@
 }
 
 - (void)unminimizeWindowPiP {
+    [self prepareForWindowRestore];
     [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         self.view.hidden = NO;
         self.view.alpha = 1;
@@ -417,6 +426,8 @@
 - (void)appSceneVCAppDidExit:(AppSceneViewController*)vc {
     BOOL wasTerminated = self.isAppTerminated;
     self.isAppTerminated = YES;
+    [self.windowMinimization invalidate];
+    [MultitaskDockManager.shared gridLayoutDidChange];
     BOOL skipTerminationScreen = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCSkipTerminatedScreen"];
     BOOL isManual = _isAppTerminationRequested;
     if(isManual || skipTerminationScreen) {
@@ -468,6 +479,7 @@
         } else {
             self.pid = vc.pid;
             [self updateOriginalFrame];
+            [MultitaskDockManager.shared gridLayoutDidChange];
             if (handler) handler(@(self.pid), nil);
         }
     });
