@@ -7,6 +7,7 @@
 #import "PiPManager.h"
 #import "VirtualWindowsHostView.h"
 #import "WindowChromeLayout.h"
+#import "WindowContentGeometry.h"
 #import "../LiveContainer/Localization.h"
 #import "utils.h"
 
@@ -498,6 +499,7 @@
 }
 
 - (void)appSceneVC:(AppSceneViewController*)vc didUpdateFromSettings:(UIMutableApplicationSceneSettings *)baseSettings transitionContext:(id)newContext lifecycleActionType:(uint32_t)actionType {
+    [self.view layoutIfNeeded];
     [self.appSceneVC updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
         settings.userInterfaceStyle = baseSettings.userInterfaceStyle;
         settings.interfaceOrientation = baseSettings.interfaceOrientation;
@@ -509,14 +511,10 @@
         } else {
             [self updateWindowedFrameWithSettings:settings];
         }
-        CGFloat barHeight = self.navigationBar.hidden || self.chromeLayout.isOverlay ? 0 : self.navigationBar.frame.size.height / self.scaleRatio;
-        CGRect newFrame = CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height - barHeight);
-        
-        if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
-            settings.frame = CGRectMake(0, 0, newFrame.size.height, newFrame.size.width);
-        } else {
-            settings.frame = CGRectMake(0, 0, newFrame.size.width, newFrame.size.height);
-        }
+        // Use the laid-out guest content, as the normal resize path does. The
+        // decorated frame minus a scaled bar disagrees with content geometry.
+        settings.frame = LCWindowContentSceneFrame((CGRect){CGPointZero, self.appSceneVC.view.bounds.size},
+            self.scaleRatio, self.appSceneVC.usesHostingControllerAPI, settings.interfaceOrientation);
     }];
 }
 

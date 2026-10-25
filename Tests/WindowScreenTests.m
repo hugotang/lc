@@ -5,6 +5,7 @@
 #import "../MultitaskSupport/WorkspaceLaunchLayout.h"
 #import "../MultitaskSupport/WindowGridLayout.h"
 #import "../MultitaskSupport/WindowChromeLayout.h"
+#import "../MultitaskSupport/WindowContentGeometry.h"
 #import "TapSyncTestWindow.h"
 
 @interface LCWindowScreenStartupState : LCWindowScreenState
@@ -224,7 +225,7 @@
             [chrome applyToContainer:container guest:guest bar:bar bottom:account >= 2 hidden:hidden overlay:NO];
             [container layoutIfNeeded];
             LCWorkspaceWindow *entry = [plan entryForBundleName:@"game.app" dataUUID:entries[account].dataUUID];
-            CGSize startup = CGSizeMake(guest.bounds.size.width / entry.scale, guest.bounds.size.height / entry.scale);
+            CGSize startup = LCWindowContentLogicalSize(guest.bounds.size, entry.scale);
             [self useState:[[LCWindowScreenStartupState alloc] initWithSize:startup]];
             CGSize screen = UIScreen.mainScreen.bounds.size;
             XCTAssertEqualWithAccuracy(screen.width, tile.width / scale, 0.01);
@@ -309,6 +310,33 @@
         [read fulfill];
     });
     [self waitForExpectations:@[read] timeout:5];
+}
+- (void)testRotationReplacesStartupScreenDimensionsWithCurrentGameContent {
+    CGSize portrait = LCWindowContentLogicalSize(CGSizeMake(510, 638), 0.5);
+    CGSize landscape = LCWindowContentLogicalSize(CGSizeMake(340, 980), 0.5);
+    UIWindow *game = [self gameWindowWithSize:portrait];
+    [game makeKeyWindow];
+    UIWindow *ad = [[UIWindow alloc] initWithWindowScene:game.windowScene];
+    ad.rootViewController = [UIViewController new];
+    [self.windows addObject:ad];
+    [ad makeKeyAndVisible];
+    for (NSValue *value in @[[NSValue valueWithCGSize:landscape], [NSValue valueWithCGSize:portrait],
+                            [NSValue valueWithCGSize:landscape]]) {
+        CGSize target = value.CGSizeValue;
+        game.bounds = (CGRect){CGPointZero, target};
+        [game layoutIfNeeded];
+        XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.bounds.size, target));
+        XCTAssertTrue(CGSizeEqualToSize(UIScreen.mainScreen.coordinateSpace.bounds.size, target));
+        XCTAssertTrue(CGSizeEqualToSize(ad.frame.size, game.frame.size));
+        UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem];
+        close.frame = CGRectMake(CGRectGetWidth(UIScreen.mainScreen.bounds) - 44, 0, 44, 44);
+        [game.rootViewController.view addSubview:close];
+        CGPoint hit = [close convertPoint:CGPointMake(22, 22) toView:game];
+        XCTAssertTrue(CGRectContainsPoint(game.bounds, hit));
+        XCTAssertEqual([game hitTest:hit withEvent:nil], close);
+        [close removeFromSuperview];
+        XCTAssertEqual(self.state.window, game);
+    }
 }
 - (void)testSceneSelectionIgnoresExternalAndNonApplicationScenesAndAmbiguity {
     LCWindowScreenState *state = [[LCWindowScreenState alloc] initWithSize:CGSizeMake(300, 500)];

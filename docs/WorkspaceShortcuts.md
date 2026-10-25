@@ -55,6 +55,13 @@ content dimensions instead of the temporary layout for fewer accounts. Failed
 launches release their reserved slots at the end. Existing saves need no update
 or data conversion.
 
+Version 3.8.26 uses the actual guest content view and applies content scale once
+for launch, initial scene geometry and subsequent rotation. Portrait and landscape
+retain their own grid, divider proportions and reserved areas. A restore does not
+force a portrait startup size or lock the game to a fixed aspect ratio. Games that
+cache their initial renderer layout may still need to be closed and relaunched;
+the host cannot make an arbitrary game discard that private state.
+
 Your previous single save is automatically imported as **Original Workspace**.
 Existing links without a workspace selection continue to restore whichever
 workspace was most recently saved or updated:

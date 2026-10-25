@@ -14,6 +14,7 @@
 #import "utils.h"
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "TapSyncCoordinator.h"
+#import "WindowContentGeometry.h"
 
 @interface AppSceneViewController()
 @property int resizeDebounceToken;
@@ -149,13 +150,12 @@
         AppSceneViewController *controller = weakSelf;
         if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
         if (reportWindowGeometry) {
-            // The decorated controller has already applied the launch slot,
-            // chrome and saved scale before any guest SDK constructor runs.
-            CGSize size = controller.view.bounds.size;
-            CGFloat scale = controller.scaleRatio > 0 ? controller.scaleRatio : 1;
+            // The current orientation's laid-out content is also used for the
+            // first scene and later rotation. Divide the saved scale once.
+            CGSize size = LCWindowContentLogicalSize(controller.view.bounds.size, controller.scaleRatio);
             if (size.width >= 1 && size.height >= 1) {
-                userInfo[@"initialWindowWidth"] = @(size.width / scale);
-                userInfo[@"initialWindowHeight"] = @(size.height / scale);
+                userInfo[@"initialWindowWidth"] = @(size.width);
+                userInfo[@"initialWindowHeight"] = @(size.height);
                 item.userInfo = userInfo;
             }
         }
@@ -208,6 +208,13 @@
         settings.level = 1;
         settings.persistenceIdentifier = self.dataUUID;
         settings.statusBarDisabled = !self.isNativeWindow;
+        if (!self.isNativeWindow) {
+            // Initial parameters are delivered before later hosting-view
+            // updates. Supply the laid-out logical size here as well, including
+            // at 100% scale, rather than starting with the physical display.
+            settings.frame = LCWindowContentSceneFrame((CGRect){CGPointZero, self.view.bounds.size},
+                self.scaleRatio, NO, settings.interfaceOrientation);
+        }
         //settings.previewMaximumSize =
         //settings.deviceOrientationEventsEnabled = YES;
         if(!self.usesHostingControllerAPI) {
@@ -233,6 +240,11 @@
         /// !! do NOT use self.hostingController.sceneView here as it breaks keyboard focus on iOS 26 below. I have no idea why this happens even though both return the same object. Maybe sceneView didn't initialize its ViewController properly?
         self.contentView = self.hostingController.sceneViewController.view;
         self.contentView.clipsToBounds = NO;
+        if (!self.isNativeWindow) {
+            // Prepare both logical bounds and saved scale before any initial
+            // scene configuration can deliver geometry to the guest.
+            LCWindowContentApplyHostingSize(self.contentView, self.view.bounds.size, self.scaleRatio);
+        }
         // _scenePresenter was a property in 26, but made only ivar in 27
         self.presenter = [self.contentView valueForKey:@"_scenePresenter"];
         self.sceneID = self.presenter.identifier;
@@ -265,9 +277,6 @@
         // Now it's time to get the initial settings from decorated VC
         [self.delegate appSceneVCWillActivateScene:self];
         if (!self.isNativeWindow) {
-            // A saved scale may have been applied before the hosting view existed.
-            // Set it before activation so the initial scene and launch metadata agree.
-            self.contentView.transform = CGAffineTransformMakeScale(self.scaleRatio, self.scaleRatio);
             self.shouldSkipDebounceOnce = YES;
             [self updateFrameWithSettingsBlock:nil];
         }
@@ -360,16 +369,9 @@
             settings.deviceOrientation = UIDevice.currentDevice.orientation;
             settings.interfaceOrientation = self.view.window.windowScene.interfaceOrientation;
             CGRect frame = self.view.frame;
-            if(!self.usesHostingControllerAPI) {
-                frame.size.width /= self.scaleRatio;
-                frame.size.height /= self.scaleRatio;
-            }
-            if(UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
-                CGSize size = frame.size;
-                frame.size.width = size.height;
-                frame.size.height = size.width;
-            }
-            settings.frame = frame;
+            frame.size = self.view.bounds.size;
+            settings.frame = LCWindowContentSceneFrame(frame, self.scaleRatio,
+                self.usesHostingControllerAPI, settings.interfaceOrientation);
             if(block) {
                 block(settings);
             }
@@ -408,11 +410,12 @@
     }
     
     if (self.contentView) {
-        BOOL isiOS26 = NO;
-        if(@available(iOS 19.0, *)) { if(@available(iOS 27.0, *)) {} else isiOS26 = YES; }
-        // Discard position
-        frame.origin = CGPointZero;
-        self.contentView.frame = frame;
+        if (self.hostingController && !self.isNativeWindow) {
+            LCWindowContentApplyHostingSize(self.contentView, frame.size, self.scaleRatio);
+        } else {
+            frame.origin = CGPointZero;
+            self.contentView.frame = frame;
+        }
     } else {
         // This method can be called while contentView is nil to set up initial frame
         self.view.frame = frame;
