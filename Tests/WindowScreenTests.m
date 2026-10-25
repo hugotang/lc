@@ -531,9 +531,9 @@
     [self.windows addObject:systemWindow];
     CGRect physical = [UIScreen.mainScreen lc_windowScreen_bounds];
     XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(systemWindow, physical, __builtin_return_address(0)), physical));
-    WKPreferences *preferences = [WKPreferences new];
-    XCTAssertFalse(LCWindowScreenConfigureWebPreferences(preferences));
-    XCTAssertNil(objc_getAssociatedObject(preferences, &LCWindowScreenWebPreferencesKey));
+    WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
+    XCTAssertFalse(LCWindowScreenConfigureWebConfiguration(configuration));
+    XCTAssertNil(objc_getAssociatedObject(configuration.userContentController, &LCWindowScreenWebScriptKey));
     LCWindowScreenCurrentState = self.state;
     IMP system = method_getImplementation(class_getInstanceMethod(UIWindowScene.class, @selector(interfaceOrientation)));
     XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(systemWindow, physical, (const void *)system), physical));
@@ -543,10 +543,10 @@
     XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(detached, physical, __builtin_return_address(0)), physical));
     XCTAssertTrue(CGRectEqualToRect(LCWindowScreenAuxiliaryFrame(game, physical, __builtin_return_address(0)), physical));
 }
-- (void)testWebPreferencesPreserveGuestConfigurationAndUserScripts {
+- (void)testWebConfigurationPreservesGuestConfigurationAndUserScripts {
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     WKUserContentController *controller = [WKUserContentController new];
-    WKUserScript *script = [[WKUserScript alloc] initWithSource:@"window.guestMarker=42"
+    WKUserScript *script = [[WKUserScript alloc] initWithSource:@"window.guestMarker=42;window.initialScreenWidth=screen.width"
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
     [controller addUserScript:script];
     configuration.userContentController = controller;
@@ -554,17 +554,37 @@
     configuration.preferences.minimumFontSize = 13;
     configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
     WKWebView *ordinary = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 300, 500) configuration:configuration];
-    XCTAssertNil(objc_getAssociatedObject(configuration.preferences, &LCWindowScreenWebPreferencesKey));
-    [self gameWindowWithSize:CGSizeMake(300, 500)];
+    XCTAssertNil(objc_getAssociatedObject(controller, &LCWindowScreenWebScriptKey));
+    XCTAssertEqualObjects(controller.userScripts, @[script]);
+    XCTAssertEqual(ordinary.configuration.defaultWebpagePreferences.preferredContentMode, WKContentModeRecommended);
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
     WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 300, 500) configuration:configuration];
     XCTAssertEqual(web.configuration.userContentController, controller);
     XCTAssertEqual(web.configuration.websiteDataStore, configuration.websiteDataStore);
     XCTAssertEqual(web.configuration.preferences.minimumFontSize, 13);
     XCTAssertTrue(web.configuration.preferences.javaScriptCanOpenWindowsAutomatically);
-    XCTAssertEqualObjects(controller.userScripts, @[script]);
-    XCTAssertEqualObjects(web.configuration.userContentController.userScripts, @[script]);
-    XCTAssertEqualObjects(ordinary.configuration.userContentController.userScripts, @[script]);
-    XCTAssertEqualObjects(objc_getAssociatedObject(web.configuration.preferences, &LCWindowScreenWebPreferencesKey), @YES);
+    XCTAssertEqual(web.configuration.defaultWebpagePreferences.preferredContentMode, WKContentModeMobile);
+    WKUserScript *compatibility = objc_getAssociatedObject(controller, &LCWindowScreenWebScriptKey);
+    XCTAssertNotNil(compatibility);
+    XCTAssertEqualObjects(controller.userScripts, (@[compatibility, script]));
+    XCTAssertTrue(LCWindowScreenConfigureWebConfiguration(web.configuration));
+    XCTAssertEqual(controller.userScripts.count, 2);
+    configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
+    XCTAssertTrue(LCWindowScreenConfigureWebConfiguration(configuration));
+    XCTAssertEqual(configuration.defaultWebpagePreferences.preferredContentMode, WKContentModeDesktop);
+    web.navigationDelegate = self;
+    [game.rootViewController.view addSubview:web];
+    self.webLoaded = [self expectationWithDescription:@"existing guest user script runs after geometry setup"];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'>" baseURL:nil];
+    [self waitForExpectations:@[self.webLoaded] timeout:15];
+    XCTestExpectation *evaluated = [self expectationWithDescription:@"guest script preserved with initial screen size"];
+    [web evaluateJavaScript:@"({marker:guestMarker,width:initialScreenWidth})" completionHandler:^(id result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqual([result[@"marker"] integerValue], 42);
+        XCTAssertEqualWithAccuracy([result[@"width"] doubleValue], 300, 1);
+        [evaluated fulfill];
+    }];
+    [self waitForExpectations:@[evaluated] timeout:10];
 }
 - (void)testWebAdUsingScreenDimensionsFitsGuestAndKeepsCloseButtonReachable {
     UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
@@ -617,6 +637,38 @@
         [evaluated fulfill];
     }];
     [self waitForExpectations:@[evaluated] timeout:10];
+}
+- (void)testCrossOriginWebAdFrameKeepsGameScreenDimensionsAfterResize {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];
+    web.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    web.navigationDelegate = self;
+    [game.rootViewController.view addSubview:web];
+    NSString *child = @"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}#ad{position:relative}#close{position:absolute;right:0;top:0;width:44px;height:44px}</style><div id='ad'><button id='close'>X</button></div><script>function layoutAd(){const ad=document.getElementById('ad');ad.style.width=screen.width+'px';ad.style.height=screen.height+'px';parent.postMessage({type:'adResult',width:screen.width,height:screen.height,adWidth:ad.offsetWidth},'*')}addEventListener('resize',layoutAd);layoutAd()</script>";
+    NSString *dataURL = [@"data:text/html;base64," stringByAppendingString:
+        [[child dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0]];
+    NSString *html = [NSString stringWithFormat:@"<meta name='viewport' content='width=device-width,initial-scale=1'><style>body{margin:0}iframe{border:0;width:100vw;height:100vh}</style><script>window.adResult=null;addEventListener('message',e=>{if(e.source===document.getElementById('frame').contentWindow&&e.data.type==='adResult')adResult=e.data})</script><iframe id='frame' src='%@'></iframe>", dataURL];
+    self.webLoaded = [self expectationWithDescription:@"cross-origin web ad frame loaded"];
+    [web loadHTMLString:html baseURL:nil];
+    [self waitForExpectations:@[self.webLoaded] timeout:15];
+    for (NSNumber *width in @[@300, @600]) {
+        CGFloat height = width.doubleValue == 300 ? 500 : 400;
+        game.frame = CGRectMake(0, 0, width.doubleValue, height);
+        [game layoutIfNeeded];
+        XCTestExpectation *evaluated = [self expectationWithDescription:@"cross-origin ad reports the game screen"];
+        [web callAsyncJavaScript:@"return await new Promise(resolve=>{const start=performance.now();function check(){if((adResult&&adResult.width===expectedWidth&&adResult.height===expectedHeight&&adResult.adWidth===expectedWidth)||performance.now()-start>5000){resolve(adResult)}else{requestAnimationFrame(check)}}requestAnimationFrame(check)})"
+            arguments:@{@"expectedWidth": width, @"expectedHeight": @(height)} inFrame:nil inContentWorld:WKContentWorld.pageWorld
+            completionHandler:^(id result, NSError *error) {
+            XCTAssertNil(error);
+            XCTAssertNotNil(result);
+            XCTAssertEqualWithAccuracy([result[@"width"] doubleValue], width.doubleValue, 1);
+            XCTAssertEqualWithAccuracy([result[@"height"] doubleValue], height, 1);
+            XCTAssertEqualWithAccuracy([result[@"adWidth"] doubleValue], width.doubleValue, 1);
+            [evaluated fulfill];
+        }];
+        [self waitForExpectations:@[evaluated] timeout:10];
+    }
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation { [self.webLoaded fulfill]; }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {

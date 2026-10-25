@@ -47,7 +47,7 @@ static UIScreen *LCWindowScreenMainScreen;
 static LCWindowScreenState *LCWindowScreenCurrentState;
 static __thread NSUInteger LCWindowScreenQueryDepth;
 static const char LCWindowScreenAdjustedWindowKey;
-static const char LCWindowScreenWebPreferencesKey;
+static const char LCWindowScreenWebScriptKey;
 
 @interface UIScreen (LCWindowScreenOriginal)
 - (CGRect)lc_windowScreen_bounds;
@@ -236,32 +236,49 @@ static CGRect LCWindowScreenAuxiliaryFrame(UIWindow *window, CGRect frame, const
     return target;
 }
 
-// WebKit's screen.* is computed in its web process. This per-preferences engine
-// setting reports that page's actual viewport and does not change UIKit geometry
-// or inject JavaScript into the advertisement. Resolve SPI at runtime so missing
-// functions leave the ordinary WebKit configuration intact.
-static BOOL LCWindowScreenConfigureWebPreferences(WKPreferences *preferences) {
-    if (!NSThread.isMainThread || !LCWindowScreenCurrentState || !preferences) return NO;
-    if (objc_getAssociatedObject(preferences, &LCWindowScreenWebPreferencesKey)) return YES;
-    typedef const void *(*CreateString)(const char *);
-    typedef void (*SetBool)(const void *, bool, const void *);
-    typedef void (*Release)(const void *);
-    static CreateString createString;
-    static SetBool setBool;
-    static Release release;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        createString = (CreateString)dlsym(RTLD_DEFAULT, "WKStringCreateWithUTF8CString");
-        setBool = (SetBool)dlsym(RTLD_DEFAULT, "WKPreferencesSetBoolValueForKeyForTesting");
-        release = (Release)dlsym(RTLD_DEFAULT, "WKRelease");
-    });
-    if (!createString || !setBool || !release) return NO;
-    const void *key = createString("ShouldReportViewportSizeAsScreenSize");
-    if (!key) return NO;
-    // On Cocoa, WKPreferencesRef is the WKPreferences wrapper, not its C++ ivar.
-    setBool((__bridge const void *)preferences, true, key);
-    release(key);
-    objc_setAssociatedObject(preferences, &LCWindowScreenWebPreferencesKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+// WKWebView's web process retains the physical screen even when direct UIScreen
+// calls use guest bounds. Supply live viewport dimensions in the page world at
+// document start. Preserve the SDK's controller, scripts, delegates and store.
+static BOOL LCWindowScreenConfigureWebConfiguration(WKWebViewConfiguration *configuration) {
+    LCWindowScreenState *state = LCWindowScreenCurrentState;
+    if (!NSThread.isMainThread || !state || !configuration) return NO;
+    LCWindowScreenRefresh(state);
+    CGSize initial = state.readSnapshot.size;
+    if (!LCWindowScreenValidSize(initial)) return NO;
+    // Recommended desktop browsing on iPad can ignore a mobile ad's viewport
+    // meta tag. Preserve explicitly chosen mobile/desktop modes.
+    if (configuration.defaultWebpagePreferences.preferredContentMode == WKContentModeRecommended) {
+        WKWebpagePreferences *preferences = [configuration.defaultWebpagePreferences copy];
+        preferences.preferredContentMode = WKContentModeMobile;
+        configuration.defaultWebpagePreferences = preferences;
+    }
+    WKUserContentController *controller = configuration.userContentController;
+    if (objc_getAssociatedObject(controller, &LCWindowScreenWebScriptKey)) return YES;
+    NSString *source = [NSString stringWithFormat:
+        @"(()=>{const update='__lcWindowScreenViewport',request=update+'Request';"
+         "let parentSize={width:%.17g,height:%.17g};"
+         "function size(){try{const root=window.top,v=root.visualViewport;"
+         "if(v&&v.width>0&&v.height>0&&v.scale>0)return {width:Math.round(v.width*v.scale),height:Math.round(v.height*v.scale)};"
+         "}catch(e){}return parentSize}"
+         "function send(target){const s=size();target.postMessage({type:update,width:s.width,height:s.height},'*')}"
+         "function broadcast(){for(let i=0;i<frames.length;i++)send(frames[i])}"
+         "try{for(const [key,axis]of [['width','width'],['height','height'],['availWidth','width'],['availHeight','height']])"
+         "Object.defineProperty(Screen.prototype,key,{configurable:true,enumerable:true,get(){return size()[axis]}})}catch(e){}"
+         "addEventListener('message',e=>{const d=e.data;if(!d||typeof d!=='object')return;"
+         "if(d.type===update&&e.source===parent&&Number.isFinite(d.width)&&Number.isFinite(d.height)&&d.width>=1&&d.height>=1){"
+         "const changed=parentSize.width!==d.width||parentSize.height!==d.height;"
+         "parentSize={width:d.width,height:d.height};if(changed)dispatchEvent(new Event('resize'));else broadcast()}"
+         "else if(d.type===request){for(let i=0;i<frames.length;i++)if(e.source===frames[i]){send(e.source);break}}});"
+         "addEventListener('resize',broadcast);if(visualViewport)visualViewport.addEventListener('resize',broadcast);"
+         "if(window!==window.top)parent.postMessage({type:request},'*');})();",
+        (double)initial.width, (double)initial.height];
+    WKUserScript *script = [[WKUserScript alloc] initWithSource:source
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
+    NSArray<WKUserScript *> *existing = controller.userScripts;
+    [controller removeAllUserScripts];
+    [controller addUserScript:script];
+    for (WKUserScript *guestScript in existing) [controller addUserScript:guestScript];
+    objc_setAssociatedObject(controller, &LCWindowScreenWebScriptKey, script, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return YES;
 }
 
@@ -341,19 +358,19 @@ static CGRect LCWindowScreenCoordinateSpaceBounds(id space, SEL selector) {
 
 @implementation WKWebView (LCWindowScreen)
 - (instancetype)lc_windowScreen_initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration {
-    LCWindowScreenConfigureWebPreferences(configuration.preferences);
+    LCWindowScreenConfigureWebConfiguration(configuration);
     WKWebView *web = [self lc_windowScreen_initWithFrame:frame configuration:configuration];
-    LCWindowScreenConfigureWebPreferences(web.configuration.preferences);
+    LCWindowScreenConfigureWebConfiguration(web.configuration);
     return web;
 }
 - (instancetype)lc_windowScreen_initWithCoder:(NSCoder *)coder {
     WKWebView *web = [self lc_windowScreen_initWithCoder:coder];
-    LCWindowScreenConfigureWebPreferences(web.configuration.preferences);
+    LCWindowScreenConfigureWebConfiguration(web.configuration);
     return web;
 }
 - (void)lc_windowScreen_didMoveToWindow {
     [self lc_windowScreen_didMoveToWindow];
-    LCWindowScreenConfigureWebPreferences(self.configuration.preferences);
+    LCWindowScreenConfigureWebConfiguration(self.configuration);
 }
 @end
 
