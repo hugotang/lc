@@ -248,9 +248,7 @@ static BOOL LCWindowScreenConfigureWebConfiguration(WKWebViewConfiguration *conf
     // Recommended desktop browsing on iPad can ignore a mobile ad's viewport
     // meta tag. Preserve explicitly chosen mobile/desktop modes.
     if (configuration.defaultWebpagePreferences.preferredContentMode == WKContentModeRecommended) {
-        WKWebpagePreferences *preferences = [configuration.defaultWebpagePreferences copy];
-        preferences.preferredContentMode = WKContentModeMobile;
-        configuration.defaultWebpagePreferences = preferences;
+        configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeMobile;
     }
     WKUserContentController *controller = configuration.userContentController;
     if (objc_getAssociatedObject(controller, &LCWindowScreenWebScriptKey)) return YES;

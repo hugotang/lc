@@ -569,9 +569,10 @@
     XCTAssertEqualObjects(controller.userScripts, (@[compatibility, script]));
     XCTAssertTrue(LCWindowScreenConfigureWebConfiguration(web.configuration));
     XCTAssertEqual(controller.userScripts.count, 2);
-    configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
-    XCTAssertTrue(LCWindowScreenConfigureWebConfiguration(configuration));
-    XCTAssertEqual(configuration.defaultWebpagePreferences.preferredContentMode, WKContentModeDesktop);
+    WKWebViewConfiguration *desktop = [WKWebViewConfiguration new];
+    desktop.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
+    XCTAssertTrue(LCWindowScreenConfigureWebConfiguration(desktop));
+    XCTAssertEqual(desktop.defaultWebpagePreferences.preferredContentMode, WKContentModeDesktop);
     web.navigationDelegate = self;
     [game.rootViewController.view addSubview:web];
     self.webLoaded = [self expectationWithDescription:@"existing guest user script runs after geometry setup"];
