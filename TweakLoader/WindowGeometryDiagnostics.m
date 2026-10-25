@@ -23,7 +23,7 @@ static NSDictionary *LCWindowGeometryDescribeLayer(CALayer *layer) {
 }
 
 NSDictionary *LCWindowGeometryDescribeWindow(UIWindow *window) {
-    NSAssert(NSThread.isMainThread, @"Guest view geometry is read on the main thread");
+    NSCAssert(NSThread.isMainThread, @"Guest view geometry is read on the main thread");
     NSMutableArray *renderLayers = [NSMutableArray array];
     NSMutableArray<CALayer *> *pending = [NSMutableArray arrayWithObject:window.layer];
     NSUInteger visited = 0;
@@ -33,7 +33,8 @@ NSDictionary *LCWindowGeometryDescribeWindow(UIWindow *window) {
         CALayer *layer = pending.lastObject;
         [pending removeLastObject];
         visited++;
-        if ([layer isKindOfClass:CAMetalLayer.class] || [layer isKindOfClass:CAEAGLLayer.class]) {
+        // Inspect an existing legacy layer without linking deprecated GL APIs.
+        if ([layer isKindOfClass:CAMetalLayer.class] || [layer isKindOfClass:NSClassFromString(@"CAEAGLLayer")]) {
             [renderLayers addObject:LCWindowGeometryDescribeLayer(layer)];
         }
         for (CALayer *child in layer.sublayers) {
@@ -50,7 +51,7 @@ NSDictionary *LCWindowGeometryDescribeWindow(UIWindow *window) {
 }
 
 NSDictionary *LCWindowGeometryDiagnostics(void) {
-    NSAssert(NSThread.isMainThread, @"Guest geometry diagnostics run on the main thread");
+    NSCAssert(NSThread.isMainThread, @"Guest geometry diagnostics run on the main thread");
     NSSet<UIScene *> *connected = UIApplication.sharedApplication.connectedScenes;
     UIWindow *game = LCWindowScreenGameWindowForDiagnostics();
     if (!game) {

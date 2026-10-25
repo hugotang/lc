@@ -151,13 +151,13 @@ static void LCWindowScreenRefresh(LCWindowScreenState *state) {
 }
 
 UIWindow *LCWindowScreenGameWindowForDiagnostics(void) {
-    NSAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
+    NSCAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
     LCWindowScreenRefresh(LCWindowScreenCurrentState);
     return LCWindowScreenCurrentState.window;
 }
 
 NSDictionary *LCWindowScreenGeometryForDiagnostics(void) {
-    NSAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
+    NSCAssert(NSThread.isMainThread, @"Window diagnostics run on the main thread");
     LCWindowScreenRefresh(LCWindowScreenCurrentState);
     LCWindowScreenSnapshot snapshot = {CGSizeZero, UIInterfaceOrientationUnknown};
     if (LCWindowScreenCurrentState) snapshot = [LCWindowScreenCurrentState readSnapshot];
