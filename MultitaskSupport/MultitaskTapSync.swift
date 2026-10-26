@@ -144,7 +144,7 @@ struct MultitaskTapSyncWindowActions: View {
 private struct MultitaskTapSyncPanel: View {
     @ObservedObject private var manager = MultitaskTapSyncManager.shared
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("LCTapSyncCompactControls", store: LCUtils.appGroupUserDefault) private var compactControls = false
+    @AppStorage("LCTapSyncCompactControls", store: LCUtils.appGroupUserDefault) private var compactControls = UIDevice.current.userInterfaceIdiom == .phone
     @AppStorage("LCTapSyncShowWindowRoles", store: LCUtils.appGroupUserDefault) private var showWindowRoles = true
     @State private var copyingDiagnostics = false
     @State private var diagnosticsCopied = false

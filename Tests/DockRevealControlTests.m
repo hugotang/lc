@@ -190,6 +190,37 @@
     XCTAssertTrue([self.control accessibilityActivate]);
     XCTAssertEqual(self.reveals, 2u);
 }
+- (void)testSwipeOnlyIgnoresTapsButRetainsInwardRevealAndVoiceOver {
+    self.control.tapToRevealEnabled = NO;
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        NSUInteger before = self.reveals;
+        for (NSUInteger index = 0; index < 4; index++) {
+            [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        }
+        XCTAssertEqual(self.reveals, before);
+        XCTAssertFalse([[self.control valueForKey:@"revealIssued"] boolValue]);
+        CGFloat inward = right.boolValue ? -1 : 1;
+        [self sendPan:CGPointMake(inward * 22, 5) state:UIGestureRecognizerStateChanged];
+        XCTAssertEqual(self.reveals, before + 1);
+        [self.control hide];
+        [self showRight:right.boolValue hideArrow:YES];
+        XCTAssertTrue([self.control accessibilityActivate]);
+        XCTAssertEqual(self.reveals, before + 2);
+        [self.control hide];
+    }
+}
+- (void)testTapRevealPreferenceCanChangeWhileHiddenWithoutRecreatingTheControl {
+    [self showRight:YES hideArrow:YES];
+    XCTAssertTrue(self.control.tapToRevealEnabled);
+    self.control.tapToRevealEnabled = NO;
+    [self showRight:YES hideArrow:YES];
+    [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+    XCTAssertEqual(self.reveals, 0u);
+    self.control.tapToRevealEnabled = YES;
+    [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+    XCTAssertEqual(self.reveals, 1u);
+}
 - (void)testInwardDragsRevealFromEitherSideAndIgnoreOutwardOrVerticalDrags {
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:NO];

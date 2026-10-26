@@ -195,6 +195,7 @@ static UIImage *LCDockRevealTouchSurface(void) {
     self.layer.contents = (__bridge id)LCDockRevealTouchSurface().CGImage;
     self.layer.contentsGravity = kCAGravityResize;
     self.layer.contentsScale = 1;
+    self.tapToRevealEnabled = YES;
     self.hidden = YES;
     self.isAccessibilityElement = YES;
     self.accessibilityTraits = UIAccessibilityTraitButton;
@@ -208,7 +209,7 @@ static UIImage *LCDockRevealTouchSurface(void) {
     self.arrow.contentMode = UIViewContentModeCenter;
     self.arrow.tintColor = UIColor.whiteColor;
     [self.tab addSubview:self.arrow];
-    [self addTarget:self action:@selector(revealDock) forControlEvents:UIControlEventTouchUpInside];
+    [self addTarget:self action:@selector(revealDockFromTap) forControlEvents:UIControlEventTouchUpInside];
     self.tabPan = [[LCDockRevealGesture alloc] initWithTarget:self action:@selector(handleRevealGesture:)];
     self.tabPan.delegate = self;
     // Once a tab drag begins, it must not also activate TouchUpInside if it
@@ -291,6 +292,9 @@ static UIImage *LCDockRevealTouchSurface(void) {
     if (self.hidden || !self.reveal || self.revealIssued) return;
     self.revealIssued = YES;
     self.reveal();
+}
+- (void)revealDockFromTap {
+    if (self.tapToRevealEnabled) [self revealDock];
 }
 - (BOOL)accessibilityActivate {
     if (self.hidden || !self.reveal) return NO;

@@ -1,5 +1,12 @@
 # Device checks for multitasking changes
 
+## Compact controls and hidden Dock (3.8.30)
+
+The user requested smaller Input Sync status presentation on iPhone and an optional swipe-only reveal for the hidden-arrow Dock. Device acceptance of these 3.8.30 changes is pending.
+
+- On iPhone and iPad, enable Icons Only in Input Sync setup. Check active, normal pause, start preparation, follower-return recovery, rotation recovery and a loading-time expiry. The overlay must stay at icon size instead of showing a long reason. Pause/Resume and dragging still work; opening the gear must show the full status and affected window(s). With Icons Only off, a short action title remains but long reasons stay in setup. Check relaunch preserves the choice, an unset preference defaults to icons on iPhone, both buttons remain easy to tap and VoiceOver reads the status. Recheck manual Resume after loading without replaying discarded input.
+- Enable Hide Collapsed Dock and Swipe Only When Arrow Is Hidden. Hide Dock over four running games, tap the former arrow area repeatedly, then use a short inward swipe near it: taps must leave Dock hidden and the swipe must reveal it on both edges. Repeat restore while hidden, both orientations and show/hide cycles. Show the arrow and confirm taps reveal again; hide it again and confirm the saved option takes effect. With the option off, hidden-area taps must still reveal. VoiceOver activation and Reset Dock Positions remain alternatives. Input outside the local target must keep working. The target still consumes local taps; this option does not forward them to the game.
+
 ## Window screen compatibility (3.8.22)
 
 Workspace result recorded on 2026-10-25 for 3.8.23: the user reported that the affected saved-workspace internal-proportion retest passed. This confirms the reported third/fourth-account proportion regression in their four-account setup. Cold/warm variations, other scales and the same-ad/popup sizing/orientation checks were not separately reported.

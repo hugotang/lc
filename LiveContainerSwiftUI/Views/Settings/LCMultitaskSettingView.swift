@@ -26,6 +26,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCMaxOneAppOnStage", store: LCUtils.appGroupUserDefault) var onlyOneAppOnStage = false
     @AppStorage("LCDockWidth", store: LCUtils.appGroupUserDefault) var dockWidth: Double = 80
     @AppStorage("LCHideCollapsedDock", store: LCUtils.appGroupUserDefault) var hideCollapsedDock: Bool = false
+    @AppStorage("LCDockHiddenArrowSwipeOnly", store: LCUtils.appGroupUserDefault) var hiddenArrowSwipeOnly = false
     @AppStorage("LCDockShowAccountLabels", store: LCUtils.appGroupUserDefault) var showAccountLabels = true
     @AppStorage("LCMultitaskOverlayMode", store: LCUtils.appGroupUserDefault) var overlayMode = false
     @AppStorage("LCRedirectURLToHost", store: LCUtils.appGroupUserDefault) var redirectURLToHost = false
@@ -173,6 +174,8 @@ struct LCMultitaskSettingView: View {
                 Toggle(isOn: $hideCollapsedDock) {
                     Text("lc.settings.hideCollapsedDock".loc)
                 }
+                Toggle("lc.dock.swipeToRevealOnly".loc, isOn: $hiddenArrowSwipeOnly)
+                    .disabled(!hideCollapsedDock)
                 Toggle("lc.dock.showAccountLabels".loc, isOn: $showAccountLabels)
                 Button {
                     if #available(iOS 16.0, *) { MultitaskDockManager.shared.resetDockPosition() }

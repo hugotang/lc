@@ -21,6 +21,7 @@ private final class DockGestureFixture: ObservableObject {
     let right: Bool
     let width: CGFloat
     @Published var hideArrow: Bool
+    let hiddenArrowSwipeOnly: Bool
     let webGuests: Bool
     let hideGesture = LCDockDiagnosticHideGesture()
     let revealControl = LCDockDiagnosticRevealControl()
@@ -31,6 +32,7 @@ private final class DockGestureFixture: ObservableObject {
         right = !arguments.contains("--left")
         width = arguments.contains("--narrow") ? 56 : 80
         hideArrow = arguments.contains("--hide-arrow")
+        hiddenArrowSwipeOnly = arguments.contains("--swipe-only")
         webGuests = arguments.contains("--web-guests")
         guestCount = arguments.contains("--restore-four") ? 4 : 1
     }
@@ -67,6 +69,7 @@ private final class DockGestureFixture: ObservableObject {
         let frame = placement.revealFrame(bounds: window.bounds,
             insets: LCDockInsets(top: insets.top, left: insets.left, bottom: insets.bottom, right: insets.right))
         revealControl.accessibilityLabel = "Show Dock from Edge"
+        revealControl.tapToRevealEnabled = !hideArrow || !hiddenArrowSwipeOnly
         revealControl.show(in: window, frame: frame, right: right, hideArrow: hideArrow) { [weak self] in
             DispatchQueue.main.async {
                 self?.reveals += 1
@@ -327,7 +330,7 @@ private struct DockGestureTestRoot: View {
             } else {
                 FixtureGuestsHost(fixture: fixture).ignoresSafeArea()
             }
-            VStack(spacing: 16) {
+            VStack(spacing: UIDevice.current.userInterfaceIdiom == .phone ? 6 : 16) {
                 Text(fixture.hidden ? "hidden" : "visible").accessibilityIdentifier("DockStatus")
                 Text("\(fixture.taps)").accessibilityIdentifier("DockTaps")
                 Text("\(fixture.handleMoves)").accessibilityIdentifier("DockHandleMoves")
@@ -356,6 +359,7 @@ private struct DockGestureTestRoot: View {
                     Button("Toggle Arrow") { fixture.toggleArrow() }.accessibilityIdentifier("ToggleArrow")
                 }
             }
+            .font(UIDevice.current.userInterfaceIdiom == .phone ? .caption : .body)
             .frame(width: 300)
             .frame(maxWidth: .infinity)
             if !fixture.hidden {

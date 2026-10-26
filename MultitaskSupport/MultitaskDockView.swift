@@ -303,9 +303,11 @@ class AppInfoProvider {
         }
         applyNewFrame(newFrame, for: hostingController, animated: animated)
         if isVisible && isDockHidden {
+            let hideArrow = LCUtils.appGroupUserDefault.bool(forKey: "LCHideCollapsedDock")
+            revealControl.tapToRevealEnabled = !hideArrow || !LCUtils.appGroupUserDefault.bool(forKey: "LCDockHiddenArrowSwipeOnly")
             revealControl.accessibilityLabel = "lc.multitask.showDock".loc
             revealControl.show(in: window, frame: placement.revealFrame(bounds: window.bounds, insets: placementInsets),
-                               right: placement.right, hideArrow: LCUtils.appGroupUserDefault.bool(forKey: "LCHideCollapsedDock")) { [weak self] in
+                               right: placement.right, hideArrow: hideArrow) { [weak self] in
                 self?.showDockFromHidden()
             }
         } else {

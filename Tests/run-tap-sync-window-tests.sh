@@ -3,19 +3,27 @@ set -euo pipefail
 
 # A small UIKit test host avoids building the private-API app for the simulator.
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-test_root="$RUNNER_TEMP/tap-sync-window-tests"
+test_root="$RUNNER_TEMP/tap-sync-window-tests${LC_TEST_RUN_SUFFIX:-}"
 mkdir -p "$test_root"
 sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 test_frameworks="$(xcode-select -p)/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks"
 test_libraries="$(xcode-select -p)/Platforms/iPhoneSimulator.platform/Developer/usr/lib"
-simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if "iPad" in d["name"]]; print(devices[0]["udid"])')"
+simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if sys.argv[1] in d["name"]]; print(devices[0]["udid"])' "${LC_TEST_DEVICE_FAMILY:-iPad}")"
 app="$test_root/TapSyncTests.app"
 bundle="$app/PlugIns/TapSyncWindowTests.xctest"
 mkdir -p "$bundle"
 
-python3 - "$app" "$bundle" "$test_libraries" <<'PY'
-import pathlib, plistlib, sys
-app, bundle, libraries = map(pathlib.Path, sys.argv[1:])
+python3 - "$app" "$bundle" "$test_libraries" "$repo_root" <<'PY'
+import json, pathlib, plistlib, sys
+app, bundle, libraries, repo = map(pathlib.Path, sys.argv[1:])
+catalog = json.loads((repo / 'Resources/Localizable.xcstrings').read_text())['strings']
+for locale in ('en', 'zh-Hans', 'zh-Hant'):
+    folder = app / (locale + '.lproj')
+    folder.mkdir(exist_ok=True)
+    strings = {key: entry['localizations'][locale]['stringUnit']['value']
+               for key, entry in catalog.items()
+               if key.startswith('lc.tapSync.') and locale in entry.get('localizations', {})}
+    plistlib.dump(strings, (folder / 'Localizable.strings').open('wb'))
 plistlib.dump({
     'CFBundleIdentifier': 'com.livecontainer.tests.tap-sync-window',
     'CFBundleExecutable': 'TapSyncTests', 'CFBundleName': 'TapSyncTests',
@@ -51,6 +59,8 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     -I "$repo_root/LiveContainer" \
     "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" \
     "$repo_root/MultitaskSupport/TapSyncCoordinator.m" "$repo_root/MultitaskSupport/TapSyncRecovery.m" \
+    "$repo_root/MultitaskSupport/TapSyncControlsView.m" "$repo_root/Tests/TapSyncControlsViewTests.m" \
+    "$repo_root/LiveContainer/Localization.m" \
     "$repo_root/MultitaskSupport/TapSyncSession.m" "$repo_root/MultitaskSupport/TapSyncSelection.m" \
     "$repo_root/MultitaskSupport/WindowWorkspace.m" "$repo_root/Tests/TapSyncCoordinatorTests.m" \
     "$repo_root/TweakLoader/TapSyncClientState.m" "$repo_root/TweakLoader/TapSyncReturnGesture.m" \
@@ -68,8 +78,11 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"
 # Finish SpringBoard's cold boot before XCTest starts timing UI expectations.
-xcrun simctl boot "$simulator_id"
+simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
+if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
 xcrun simctl bootstatus "$simulator_id" -b
+test_options=()
+if [ -n "${LC_TEST_ONLY:-}" ]; then test_options+=("-only-testing:$LC_TEST_ONLY"); fi
 xcodebuild test-without-building -xctestrun "$test_root/TapSyncWindowTests.xctestrun" \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
-    -resultBundlePath "$test_root/results.xcresult"
+    -resultBundlePath "$test_root/results.xcresult" "${test_options[@]}"

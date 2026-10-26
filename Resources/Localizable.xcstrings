@@ -34067,19 +34067,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compact Controls"
+            "value" : "Icons Only"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精简显示"
+            "value" : "仅显示图标"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精簡顯示"
+            "value" : "僅顯示圖示"
           }
         }
       }
@@ -34113,19 +34113,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately. If sync cannot start or is interrupted, the reason stays visible even with Compact Controls on. Open the gear for each affected window's details."
+            "value" : "Tap the main icon to pause or resume. An hourglass means connecting or waiting; a warning means sync needs attention. Open the gear for the full reason and affected windows. Icons Only is the default on iPhone. Drag the controls to an edge; portrait and landscape positions are remembered separately."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。同步无法开始或中断时，即使开启精简显示也会保留原因；点击齿轮可查看各个受影响窗口的详情。"
+            "value" : "短按主图标暂停或继续。沙漏表示正在连接或等待，警告图标表示同步需要处理。点击齿轮查看完整原因和受影响窗口。iPhone 默认仅显示图标。拖动控制可停靠边缘，竖屏和横屏分别记住位置。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。同步無法開始或中斷時，即使開啟精簡顯示也會保留原因；點擊齒輪可查看各個受影響視窗的詳情。"
+            "value" : "短按主圖示暫停或繼續。沙漏表示正在連接或等待，警告圖示表示同步需要處理。點擊齒輪查看完整原因和受影響視窗。iPhone 預設僅顯示圖示。拖動控制可停靠邊緣，直屏和橫屏分別記住位置。"
           }
         }
       }
@@ -38556,19 +38556,42 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Swipe outward below the handle or use the Dock menu to hide it. Tap the edge tab or swipe inward from its edge to show it again. Hide Collapsed Dock hides the arrow; its touch area stays active. Reset Dock Positions also reveals a hidden Dock. Account buttons scroll when space is limited."
+            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Swipe outward below the handle or use the Dock menu to hide it. Tap the edge tab or swipe inward to show it again. Hide Collapsed Dock hides the arrow. Enable Swipe Only When Arrow Is Hidden to ignore taps in its invisible touch area; swipe inward near the original arrow position to reveal it. VoiceOver activation and Reset Dock Positions still reveal a hidden Dock. Account buttons scroll when space is limited."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在把手下方向外滑动或使用 Dock 菜单隐藏，再点按边缘标签或从该侧边缘向内滑动显示。「隐藏折叠 Dock」会隐藏箭头，原位置仍可点按；「重设 Dock 位置」也会恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
+            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在把手下方向外滑动或使用 Dock 菜单隐藏，再点按边缘标签或向内滑动显示。「隐藏折叠 Dock」会隐藏箭头。开启「隐藏箭头时仅滑动唤回」后，隐形触控区忽略点按；从原箭头附近向内滑动显示。VoiceOver 激活和「重设 Dock 位置」仍可恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在把手下方向外滑動或使用 Dock 選單隱藏，再點按邊緣標籤或從該側邊緣向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭，原位置仍可點按；「重設 Dock 位置」也會恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
+            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在把手下方向外滑動或使用 Dock 選單隱藏，再點按邊緣標籤或向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭。開啟「隱藏箭頭時只用滑動喚回」後，隱形觸控區忽略點按；從原箭頭附近向內滑動顯示。VoiceOver 啟用和「重設 Dock 位置」仍可恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
+          }
+        }
+      }
+    },
+    "lc.dock.swipeToRevealOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe Only When Arrow Is Hidden"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏箭头时仅滑动唤回"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏箭頭時只用滑動喚回"
           }
         }
       }

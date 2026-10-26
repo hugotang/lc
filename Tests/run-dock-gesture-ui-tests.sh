@@ -4,7 +4,7 @@ set -euo pipefail
 # Xcode supplies the UI test runner; the test app uses the production recognizer
 # and ordinary SwiftUI controls so touches traverse the actual gesture arena.
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-test_root="$RUNNER_TEMP/dock-gesture-ui-tests"
+test_root="$RUNNER_TEMP/dock-gesture-ui-tests${LC_TEST_RUN_SUFFIX:-}"
 project="$test_root/DockGestures.xcodeproj"
 mkdir -p "$project/xcshareddata/xcschemes"
 
@@ -83,13 +83,15 @@ scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
 (project / 'xcshareddata/xcschemes/DockGestures.xcscheme').write_text(scheme)
 PY
 
-simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if "iPad" in d["name"]]; print(devices[0]["udid"])')"
+simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if sys.argv[1] in d["name"]]; print(devices[0]["udid"])' "${LC_TEST_DEVICE_FAMILY:-iPad}")"
 xcodebuild build-for-testing -project "$project" -scheme DockGestures -configuration Debug \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
     -derivedDataPath "$test_root/DerivedData"
 simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
 if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
 xcrun simctl bootstatus "$simulator_id" -b
+test_options=()
+if [ -n "${LC_TEST_ONLY:-}" ]; then test_options+=("-only-testing:$LC_TEST_ONLY"); fi
 xcodebuild test-without-building -project "$project" -scheme DockGestures -configuration Debug \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
-    -derivedDataPath "$test_root/DerivedData" -resultBundlePath "$test_root/results.xcresult"
+    -derivedDataPath "$test_root/DerivedData" -resultBundlePath "$test_root/results.xcresult" "${test_options[@]}"

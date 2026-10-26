@@ -315,4 +315,37 @@
     XCTAssertEqualObjects(self.app.staticTexts[@"GuestTaps"].label, @"0");
     XCTAssertEqualObjects(self.app.staticTexts[@"GuestDrags"].label, @"0");
 }
+- (void)testSwipeOnlyHiddenArrowIgnoresTapsAndRevealsAboveFourWebGuests {
+    for (NSNumber *right in @[@NO, @YES]) {
+        self.app.launchArguments = @[(right.boolValue ? @"--right" : @"--left"), @"--hide-arrow",
+            @"--swipe-only", @"--restore-four", @"--web-guests"];
+        [self.app launch];
+        XCTAssertTrue([self.app.buttons[@"DockAccount0"] waitForExistenceWithTimeout:5]);
+        XCTNSPredicateExpectation *ready = [[XCTNSPredicateExpectation alloc]
+            initWithPredicate:[NSPredicate predicateWithFormat:@"label == '4'"] object:self.app.staticTexts[@"WebGuestsReady"]];
+        XCTAssertEqual([XCTWaiter waitForExpectations:@[ready] timeout:15], XCTWaiterResultCompleted);
+        [self hideDock];
+        for (NSUInteger index = 0; index < 3; index++) {
+            [self.app.buttons[@"LCDockRevealControl"] tap];
+            [self waitForStatus:@"hidden"];
+        }
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"0");
+        [self.app.buttons[@"RestoreWorkspace"] tap];
+        [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:0 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        [self hideDock];
+        [self.app.buttons[@"ToggleArrow"] tap];
+        [self.app.buttons[@"LCDockRevealControl"] tap];
+        [self waitForStatus:@"visible"];
+        [self hideDock];
+        [self.app.buttons[@"ToggleArrow"] tap];
+        [self.app.buttons[@"LCDockRevealControl"] tap];
+        [self waitForStatus:@"hidden"];
+        [self dragNearTabRight:right.boolValue inwardOffset:0 verticalOffset:40 distance:22 dy:5 velocity:200];
+        [self waitForStatus:@"visible"];
+        XCTAssertEqualObjects(self.app.staticTexts[@"DockReveals"].label, @"3");
+        XCTAssertEqualObjects(self.app.staticTexts[@"GuestTaps"].label, @"0");
+        [self.app terminate];
+    }
+}
 @end

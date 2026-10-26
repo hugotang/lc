@@ -5,6 +5,9 @@ NS_ASSUME_NONNULL_BEGIN
 // The arrow retains its placement inside a larger local host touch target.
 // Near-arrow reveals do not depend on the guest delivering host edge moves.
 @interface LCDockRevealControl : UIControl <UIGestureRecognizerDelegate>
+// Ordinary taps can be disabled without removing the local swipe surface or
+// VoiceOver activation. Defaults to YES; the manager applies the saved option.
+@property(nonatomic) BOOL tapToRevealEnabled;
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
           hideArrow:(BOOL)hideArrow reveal:(void (^)(void))reveal
     NS_SWIFT_NAME(show(in:frame:right:hideArrow:reveal:));
