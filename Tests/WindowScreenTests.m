@@ -751,6 +751,33 @@
     }];
     [self waitForExpectations:@[evaluated] timeout:10];
 }
+- (void)testWebAdRelayoutWhenVisualViewportUpdatesAfterWindowResize {
+    UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
+    WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];
+    web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    web.navigationDelegate = self;
+    [game.rootViewController.view addSubview:web];
+    self.webLoaded = [self expectationWithDescription:@"deterministic visual viewport ad loaded"];
+    [web loadHTMLString:@"<meta name='viewport' content='width=device-width,initial-scale=1'><div id='ad'></div>" baseURL:nil];
+    [self waitForExpectations:@[self.webLoaded] timeout:15];
+    WKUserScript *production = web.configuration.userContentController.userScripts.firstObject;
+    XCTAssertNotNil(production);
+    XCTestExpectation *evaluated = [self expectationWithDescription:@"late viewport update sends bounded main-page relayout"];
+    // Execute the production script against controlled DOM event targets in
+    // the real web process. No test callback manually lays out the ad after the
+    // viewport event: the compatibility script must deliver the window resize.
+    [web callAsyncJavaScript:@"const events=new EventTarget(),v=Object.assign(new EventTarget(),{width:300,height:500,scale:1});const FakeScreen=function(){};const localScreen=new FakeScreen(),fake={visualViewport:v,frames:[]};fake.top=fake;fake.parent=fake;new Function('window','Screen','screen','visualViewport','frames','parent','addEventListener','dispatchEvent',script)(fake,FakeScreen,localScreen,v,fake.frames,fake,events.addEventListener.bind(events),events.dispatchEvent.bind(events));let layouts=0,w=0,h=0;function layout(){layouts++;w=localScreen.width;h=localScreen.height}events.addEventListener('resize',layout);layout();events.dispatchEvent(new Event('resize'));v.width=600;v.height=400;v.dispatchEvent(new Event('resize'));const resized={w,h,layouts};v.dispatchEvent(new Event('resize'));return {resized,afterDuplicate:layouts}"
+        arguments:@{@"script": production.source} inFrame:nil inContentWorld:WKContentWorld.pageWorld
+        completionHandler:^(id result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqualObjects(result[@"resized"][@"w"], @600);
+        XCTAssertEqualObjects(result[@"resized"][@"h"], @400);
+        XCTAssertEqualObjects(result[@"resized"][@"layouts"], @3);
+        XCTAssertEqualObjects(result[@"afterDuplicate"], @3);
+        [evaluated fulfill];
+    }];
+    [self waitForExpectations:@[evaluated] timeout:10];
+}
 - (void)testCrossOriginWebAdFrameKeepsGameScreenDimensionsAfterResize {
     UIWindow *game = [self gameWindowWithSize:CGSizeMake(300, 500)];
     WKWebView *web = [[WKWebView alloc] initWithFrame:game.bounds];

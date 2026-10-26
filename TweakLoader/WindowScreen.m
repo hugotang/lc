@@ -361,7 +361,10 @@ static BOOL LCWindowScreenConfigureWebConfiguration(WKWebViewConfiguration *conf
          "const changed=parentSize.width!==d.width||parentSize.height!==d.height;"
          "parentSize={width:d.width,height:d.height};if(changed)dispatchEvent(new Event('resize'));else broadcast()}"
          "else if(d.type===request){for(let i=0;i<frames.length;i++)if(e.source===frames[i]){send(e.source);break}}});"
-         "addEventListener('resize',broadcast);if(visualViewport)visualViewport.addEventListener('resize',broadcast);"
+         "let announced=size();"
+         "addEventListener('resize',()=>{announced=size();broadcast()});"
+         "if(visualViewport)visualViewport.addEventListener('resize',()=>{const s=size();"
+         "if(s.width!==announced.width||s.height!==announced.height){announced=s;dispatchEvent(new Event('resize'))}else broadcast()});"
          "if(window!==window.top)parent.postMessage({type:request},'*');})();",
         (double)initial.width, (double)initial.height];
     WKUserScript *script = [[WKUserScript alloc] initWithSource:source
