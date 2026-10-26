@@ -81,8 +81,8 @@ codesign --force --sign - "$app"
 simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
 if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
 xcrun simctl bootstatus "$simulator_id" -b
-test_options=()
-if [ -n "${LC_TEST_ONLY:-}" ]; then test_options+=("-only-testing:$LC_TEST_ONLY"); fi
+set --
+if [ -n "${LC_TEST_ONLY:-}" ]; then set -- "-only-testing:$LC_TEST_ONLY"; fi
 xcodebuild test-without-building -xctestrun "$test_root/TapSyncWindowTests.xctestrun" \
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
-    -resultBundlePath "$test_root/results.xcresult" "${test_options[@]}"
+    -resultBundlePath "$test_root/results.xcresult" "$@"
