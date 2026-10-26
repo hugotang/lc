@@ -114,7 +114,17 @@
 #pragma clang diagnostic pop
     self.originalSystemBounds = [UIScreen.mainScreen lc_windowScreen_bounds];
     __block CGRect background;
-    dispatch_sync(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ background = UIScreen.mainScreen.bounds; });
+    // dispatch_sync to a global queue may execute inline on the main thread.
+    // Dispatch asynchronously and wait here so this actually exercises a
+    // background snapshot during the still-active root callback.
+    dispatch_semaphore_t read = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSCAssert(!NSThread.isMainThread, @"The background fixture must use another thread");
+        background = UIScreen.mainScreen.bounds;
+        dispatch_semaphore_signal(read);
+    });
+    NSAssert(dispatch_semaphore_wait(read, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0,
+             @"Background screen reads cannot wait for the main thread");
     self.backgroundDuringTransition = background;
     if (self.duringTransition) self.duringTransition();
     if (self.throwsOnTransition) @throw [NSException exceptionWithName:@"LCWindowScreenTestException" reason:nil userInfo:nil];
