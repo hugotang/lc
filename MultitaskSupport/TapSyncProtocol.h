@@ -5,7 +5,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-enum { LCTapSyncProtocolVersion = 5 };
+enum { LCTapSyncProtocolVersion = 6 };
 
 typedef NS_ENUM(NSInteger, LCTapSyncMode) {
     LCTapSyncModeTapsOnly = 0,
@@ -50,6 +50,7 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
                   reply:(void (^)(LCTapSyncResult))reply;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply;
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply;
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply;
 @end
 
 @protocol LCTapSyncHostProtocol
@@ -88,6 +89,8 @@ static inline NSXPCInterface *LCTapSyncGuestInterface(void) {
               forSelector:@selector(samplePerformanceWithReply:) argumentIndex:0 ofReply:YES];
     [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
               forSelector:@selector(readWindowGeometryWithReply:) argumentIndex:0 ofReply:YES];
+    [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSString.class, NSNumber.class, nil]
+              forSelector:@selector(readInputDiagnosticsForSession:reply:) argumentIndex:0 ofReply:YES];
     return interface;
 }
 

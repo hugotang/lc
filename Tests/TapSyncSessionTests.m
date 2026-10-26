@@ -1,4 +1,5 @@
 #import "../MultitaskSupport/TapSyncSession.h"
+#import "../MultitaskSupport/TapSyncDiagnostics.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -12,6 +13,49 @@ static NSDictionary *touch(uint32_t contact, LCTouchSyncPhase phase, double time
 
 static LCTapSyncResult enqueueTouch(LCTapSyncSession *session, uint64_t sequence, uint32_t contact, LCTouchSyncPhase phase, double time) {
     return [session enqueueTouch:touch(contact, phase, time) fromSource:@"A" session:session.identifier sequence:sequence now:time];
+}
+
+static void testInputFailureDiagnostics(void) {
+    LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeSingleFinger];
+    assert(!session.lastInputFailure);
+    assert([session enqueueTouch:touch(1, LCTouchSyncPhaseBegan, 100) fromSource:@"A" session:session.identifier sequence:1 now:100.8] == LCTapSyncResultExpired);
+    assert([session.lastInputFailure[@"reason"] isEqual:@"inputTooOld"]);
+    assert([session.lastInputFailure[@"stage"] isEqual:@"hostReceive"]);
+    assert(fabs([session.lastInputFailure[@"inputAgeMs"] doubleValue] - 800) < 0.001);
+    assert([session.lastInputFailure[@"expectedSequence"] isEqual:@1]);
+    assert(session.pendingCount == 0 && session.valid);
+    assert([session enqueueTouch:touch(1, LCTouchSyncPhaseBegan, 101) fromSource:@"A" session:session.identifier sequence:2 now:101] == LCTapSyncResultExpired);
+    assert([session.lastInputFailure[@"reason"] isEqual:@"sequenceMismatch"]);
+    assert([session.lastInputFailure[@"receivedSequence"] isEqual:@2]);
+    assert(enqueueTouch(session, 1, 1, LCTouchSyncPhaseBegan, 102) == LCTapSyncResultAccepted);
+    LCTapSyncResult result;
+    assert(![session takeNextAtTime:102.8 result:&result] && result == LCTapSyncResultExpired);
+    assert([session.lastInputFailure[@"stage"] isEqual:@"hostQueue"]);
+    assert([session.lastInputFailure[@"reason"] isEqual:@"inputTooOld"]);
+    assert([session.lastInputFailure[@"sequenceCheck"] isEqual:@"alreadyAccepted"]);
+    assert(!session.lastInputFailure[@"expectedSequence"] && !session.lastInputFailure[@"previousSequence"]);
+    assert(!session.valid && session.pendingCount == 0);
+    NSDictionary *failure = session.lastInputFailure;
+    [session invalidate];
+    assert([session.lastInputFailure isEqual:failure]);
+
+    NSDictionary *future = LCTapSyncInputFailure(tap(100.1), LCTapSyncModeTapsOnly, 1, 0, 100, @"guestReceive");
+    assert([future[@"reason"] isEqual:@"timestampAhead"] && [future[@"inputAgeMs"] doubleValue] < 0);
+    NSDictionary *malformed = LCTapSyncInputFailure(@{}, LCTapSyncModeTapsOnly, 1, 0, 100, @"guestReceive");
+    assert([malformed[@"reason"] isEqual:@"invalidPacket"] && !malformed[@"inputAgeMs"]);
+    NSDictionary *badClock = LCTapSyncInputFailure(tap(100), LCTapSyncModeTapsOnly, 1, 0, NAN, @"hostReceive");
+    assert([badClock[@"reason"] isEqual:@"invalidClock"] && !badClock[@"observedAtUptime"] && !badClock[@"inputAgeMs"]);
+    NSDictionary *exhausted = LCTapSyncInputFailure(tap(100), LCTapSyncModeTapsOnly, 1, UINT64_MAX, 100, @"guestReceive");
+    assert([exhausted[@"reason"] isEqual:@"sequenceExhausted"] && !exhausted[@"expectedSequence"]);
+    NSMutableDictionary *withExtras = future.mutableCopy;
+    withExtras[@"account"] = @"private-account";
+    withExtras[@"x"] = @0.5;
+    withExtras[@"rawPacket"] = tap(100);
+    withExtras[@"inputAgeMs"] = @(INFINITY);
+    NSDictionary *safe = LCTapSyncSanitizedInputFailure(withExtras);
+    assert(safe && !safe[@"x"] && !safe[@"rawPacket"] && !safe[@"account"] && !safe[@"inputAgeMs"]);
+    assert(LCTapSyncSanitizedInputFailure(@{@"reason": @1}) == nil);
+    assert([NSJSONSerialization isValidJSONObject:safe]);
 }
 
 static void testSingleFingerSessions(void) {
@@ -271,6 +315,7 @@ static void testAtomicTwoFingerReturnRetainsMoreThanFourBoundaries(void) {
 
 int main(void) {
     @autoreleasepool {
+        testInputFailureDiagnostics();
         testSingleFingerSessions();
         testTwoFingerSessions();
         testAtomicFirstReturnAndLiveContinuation();

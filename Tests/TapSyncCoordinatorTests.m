@@ -66,6 +66,11 @@
 @property(nonatomic, copy) void (^pendingSourceReply)(LCTapSyncResult);
 @property(nonatomic, copy) void (^pendingReplay)(LCTapSyncResult);
 @property(nonatomic, copy) NSArray<NSDictionary *> *returnPackets;
+@property(nonatomic) BOOL holdDiagnostics;
+@property(nonatomic) NSUInteger diagnosticReads;
+@property(nonatomic, copy) NSString *diagnosticSession;
+@property(nonatomic, copy) NSDictionary *inputFailure;
+@property(nonatomic, copy) void (^pendingDiagnostics)(NSDictionary *);
 @end
 @implementation LCTestSyncPeer
 - (BOOL)isReady { return self.ready; }
@@ -123,6 +128,12 @@
     if (began && self.syncReturnGesture) self.returnRevision = self.revision + 1;
     if (self.didChangePhysicalInput) self.didChangePhysicalInput(self.session, ++self.revision, touching, began,
                                                                NSProcessInfo.processInfo.systemUptime, self.returnRevision);
+}
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply {
+    self.diagnosticReads++;
+    self.diagnosticSession = session;
+    if (self.holdDiagnostics) self.pendingDiagnostics = reply;
+    else reply(self.inputFailure ? @{@"lastInputFailure": self.inputFailure} : @{});
 }
 @end
 
@@ -567,6 +578,71 @@
     XCTAssertFalse(self.sync.active);
     // Only the first command reached any follower. The expired queue was dropped.
     for (NSUInteger i = 1; i < 4; i++) XCTAssertEqual(self.peers[i].replays, 2u);
+    __block NSDictionary *report;
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; }];
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"hostInputFailure"][@"stage"], @"hostQueue");
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"hostInputFailure"][@"reason"], @"inputTooOld");
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"hostInputFailure"][@"sequenceCheck"], @"alreadyAccepted");
+}
+- (void)testInputDiagnosticsFreezeFailureAndDoNotChangeResumedSession {
+    [self.sync start];
+    NSString *failedSession = self.peers[0].session;
+    self.peers[2].holdReplay = YES;
+    self.peers[2].inputFailure = @{@"reason": @"inputTooOld", @"stage": @"guestReceive", @"mode": @"tapsOnly",
+        @"inputAgeMs": @900, @"receivedSequence": @1, @"expectedSequence": @1,
+        @"rawPacket": @"do-not-export", @"account": @"private-account", @"x": @0.5};
+    self.peers[0].didReceiveTap(self.freshTap, failedSession, 1);
+    self.peers[2].pendingReplay(LCTapSyncResultExpired);
+    XCTAssertFalse(self.sync.active);
+    self.peers[2].holdReplay = NO;
+    self.peers[2].pendingReplay = nil;
+    [self.sync start];
+    NSString *resumedSession = self.peers[0].session;
+    XCTAssertNotEqualObjects(resumedSession, failedSession);
+    __block NSDictionary *report;
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; }];
+    XCTAssertTrue(self.sync.active);
+    XCTAssertEqualObjects(self.peers[0].session, resumedSession);
+    XCTAssertEqualObjects(report[@"currentStatus"], @"lc.tapSync.active");
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"status"], @"lc.tapSync.expiredInput");
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"affectedWindows"], (@[@3]));
+    XCTAssertEqualObjects(report[@"guests"][2][@"lastInputFailure"][@"reason"], @"inputTooOld");
+    XCTAssertEqualObjects(report[@"guests"][2][@"windowNumber"], @3);
+    for (LCTestSyncPeer *peer in self.peers) XCTAssertEqualObjects(peer.diagnosticSession, failedSession);
+    NSString *json = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:report options:0 error:nil] encoding:NSUTF8StringEncoding];
+    XCTAssertFalse([json containsString:@"do-not-export"] || [json containsString:@"private-account"] || [json containsString:failedSession]);
+    [self.sync pause];
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; }];
+    XCTAssertEqualObjects(report[@"lastInterruption"][@"status"], @"lc.tapSync.expiredInput");
+    [self.sync selectSource:@"A" targets:@[@"B", @"C", @"D"]];
+    NSUInteger reads = self.peers[2].diagnosticReads;
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; }];
+    XCTAssertNil(report[@"lastInterruption"]);
+    XCTAssertEqual(self.peers[2].diagnosticReads, reads);
+}
+- (void)testInputDiagnosticsTimeoutIsPartialAndLateReplyCannotChangeTheReport {
+    [self.sync start];
+    [self.sync pause];
+    self.peers[2].holdDiagnostics = YES;
+    XCTestExpectation *completed = [self expectationWithDescription:@"bounded diagnostic read"];
+    __block NSDictionary *report;
+    __block NSUInteger callbacks = 0;
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; callbacks++; [completed fulfill]; }];
+    __block NSDictionary *duplicate;
+    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { duplicate = value; }];
+    XCTAssertEqualObjects(duplicate[@"guestReadStatus"], @"alreadyReading");
+    XCTAssertEqual(self.peers[2].diagnosticReads, 1u);
+    [self waitForExpectations:@[completed] timeout:5];
+    XCTAssertEqualObjects(report[@"guestReadStatus"], @"partial");
+    XCTAssertEqualObjects(report[@"guests"][2][@"readStatus"], @"timedOut");
+    [self.sync start];
+    NSString *resumedSession = self.peers[0].session;
+    self.peers[2].pendingDiagnostics(@{@"lastInputFailure": @{@"reason": @"inputTooOld", @"stage": @"guestReceive", @"mode": @"tapsOnly"}});
+    self.peers[2].pendingDiagnostics = nil;
+    XCTAssertEqual(callbacks, 1u);
+    XCTAssertEqualObjects(report[@"guests"][2][@"readStatus"], @"timedOut");
+    XCTAssertTrue(self.sync.active);
+    XCTAssertEqualObjects(self.peers[0].session, resumedSession);
 }
 - (void)testLoadingPreparationCanRecoverAfterOriginalThreeSecondLimit {
     self.peers[3].holdPreparation = YES;

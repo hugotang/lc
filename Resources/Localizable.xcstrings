@@ -34130,6 +34130,30 @@
         }
       }
     },
+    "lc.tapSync.copyDiagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Sync Diagnostics" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制同步诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製同步診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Diagnostics Copied" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已复制诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已複製診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copies the latest pause and input rejection details to help diagnose a problem. Uses window numbers and keeps the report on this device until you share it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制最近一次暂停与输入拒收的详情，帮助诊断问题。报告使用窗口编号，分享前只保留在本机。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製最近一次暫停與輸入拒收的詳情，協助診斷問題。報告使用視窗編號，分享前只保留在本機。" } }
+      }
+    },
     "lc.tapSync.description" : {
       "extractionState" : "manual",
       "localizations" : {

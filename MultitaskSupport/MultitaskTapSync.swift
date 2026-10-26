@@ -146,6 +146,8 @@ private struct MultitaskTapSyncPanel: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("LCTapSyncCompactControls", store: LCUtils.appGroupUserDefault) private var compactControls = false
     @AppStorage("LCTapSyncShowWindowRoles", store: LCUtils.appGroupUserDefault) private var showWindowRoles = true
+    @State private var copyingDiagnostics = false
+    @State private var diagnosticsCopied = false
 
     var body: some View {
         NavigationStack {
@@ -262,6 +264,26 @@ private struct MultitaskTapSyncPanel: View {
                 }
                 Section {
                     MultitaskPerformanceActions()
+                }
+                Section {
+                    Button {
+                        copyingDiagnostics = true
+                        diagnosticsCopied = false
+                        manager.coordinator.readInputDiagnostics { report in
+                            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
+                               let text = String(data: data, encoding: .utf8) {
+                                UIPasteboard.general.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true])
+                                diagnosticsCopied = true
+                            }
+                            copyingDiagnostics = false
+                        }
+                    } label: {
+                        Label((diagnosticsCopied ? "lc.tapSync.diagnosticsCopied" : "lc.tapSync.copyDiagnostics").loc,
+                              systemImage: diagnosticsCopied ? "checkmark" : "doc.on.doc")
+                    }
+                    .disabled(copyingDiagnostics)
+                } footer: {
+                    Text("lc.tapSync.diagnosticsHelp".loc)
                 }
                 Section {
                     DisclosureGroup("lc.tapSync.help".loc) {

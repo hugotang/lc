@@ -45,5 +45,6 @@ API_AVAILABLE(ios(16.0))
 - (void)pauseForWindowChange;
 - (void)pauseForChangeToContainer:(NSString *)container;
 - (void)validateWindows;
+- (void)readInputDiagnosticsWithReply:(void (^)(NSDictionary *))reply NS_SWIFT_NAME(readInputDiagnostics(completion:));
 @end
 NS_ASSUME_NONNULL_END

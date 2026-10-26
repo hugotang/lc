@@ -6,6 +6,7 @@
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) NSUUID *performanceRequest;
 @property(nonatomic) NSUUID *geometryRequest;
+@property(nonatomic) NSUUID *inputDiagnosticsRequest;
 @end
 
 @implementation LCTapSyncPeer
@@ -45,6 +46,7 @@
             peer.connection = nil;
             peer.performanceRequest = nil;
             peer.geometryRequest = nil;
+            peer.inputDiagnosticsRequest = nil;
             peer->_ready = NO;
             peer->_canReplay = NO;
             [previous invalidate];
@@ -177,6 +179,7 @@
     self.connection = nil;
     self.performanceRequest = nil;
     self.geometryRequest = nil;
+    self.inputDiagnosticsRequest = nil;
     _ready = NO;
     _canReplay = NO;
     [connection invalidate];
@@ -215,6 +218,26 @@
     };
     id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
     [proxy samplePerformanceWithReply:finish];
+}
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply {
+    // The caller has one bounded deadline. Keep this gate until the actual reply
+    // or disconnect, so repeated copies cannot queue work behind a stalled guest.
+    if (!self.ready || !self.connection || self.inputDiagnosticsRequest) { reply(nil); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.inputDiagnosticsRequest = request;
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *record) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completed) return;
+            completed = YES;
+            BOOL current = self.connection == connection && self.inputDiagnosticsRequest == request;
+            if (self.inputDiagnosticsRequest == request) self.inputDiagnosticsRequest = nil;
+            reply(current && [record isKindOfClass:NSDictionary.class] ? record : nil);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
+    [proxy readInputDiagnosticsForSession:session reply:finish];
 }
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply {
     // One on-demand request per guest. Timeouts discard late replies; they do

@@ -31,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
                   reply:(void (^)(LCTapSyncResult))reply;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary * _Nullable))reply;
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)invalidate;
 @end
 

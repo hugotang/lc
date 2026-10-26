@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly, getter=isValid) BOOL valid;
 @property(nonatomic, readonly) NSUInteger pendingCount;
 @property(nonatomic, readonly) NSUInteger coalescedMoveCount;
+@property(nonatomic, copy, readonly, nullable) NSDictionary *lastInputFailure;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets mode:(LCTapSyncMode)mode;
 - (LCTapSyncResult)enqueue:(NSDictionary *)tap fromSource:(NSString *)source session:(NSString *)session

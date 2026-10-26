@@ -1,5 +1,6 @@
 #import "TapSyncCoordinator.h"
 #import "TapSyncSession.h"
+#import "TapSyncDiagnostics.h"
 #import "TapSyncSelection.h"
 #import "TapSyncRecovery.h"
 #import "PerformanceMetrics.h"
@@ -48,6 +49,11 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 @property(nonatomic) NSMutableOrderedSet<NSString *> *awaitingReplies;
 @property(nonatomic) LCPerformanceResponseHistory responseHistory;
 @property(nonatomic) NSUInteger measuredPackets, measuredCoalescedMoves, measuredQueuePeak, performanceGeneration;
+@property(nonatomic, copy) NSDictionary *lastInterruptionDiagnostics;
+@property(nonatomic, copy) NSString *diagnosticSession;
+@property(nonatomic, copy) NSArray<NSString *> *diagnosticContainers;
+@property(nonatomic) NSMapTable<NSString *, LCTapSyncPeer *> *diagnosticPeers;
+@property(nonatomic) NSUUID *inputDiagnosticsRequest;
 - (void)physicalInputForContainer:(NSString *)container session:(NSString *)identifier revision:(uint64_t)revision touching:(BOOL)touching began:(BOOL)began timestamp:(NSTimeInterval)timestamp returnRevision:(uint64_t)returnRevision;
 - (void)beginRecovery:(LCTapSyncRecoveryReason)reason containers:(NSArray<NSString *> *)containers;
 - (void)cancelRecoveryStoppingGuests:(BOOL)stop;
@@ -60,6 +66,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 - (BOOL)hostIsForegroundActive;
 - (BOOL)hostHasLostForeground;
 - (void)hostWillResignActive:(nullable NSNotification *)note;
+- (void)recordInterruptionDiagnostics:(LCTapSyncSession *)session status:(NSString *)status containers:(NSArray<NSString *> *)containers;
 @end
 
 @implementation LCTapSyncCoordinator
@@ -198,7 +205,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
 - (BOOL)canReplayForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.canReplay; }
 - (NSDictionary<NSString *, LCTapSyncPeer *> *)performancePeers {
-    NSMutableDictionary *peers = [NSMutableDictionary dictionary];
+    NSMapTable *peers = [NSMapTable strongToWeakObjectsMapTable];
     for (NSString *container in self.scenes.keyEnumerator) {
         AppSceneViewController *scene = [self.scenes objectForKey:container];
         if (scene.isAppRunning && scene.tapSyncPeer) peers[container] = scene.tapSyncPeer;
@@ -265,6 +272,10 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 }
 - (void)selectSource:(NSString *)source targets:(NSArray<NSString *> *)targets {
     [self pause];
+    self.lastInterruptionDiagnostics = nil;
+    self.diagnosticSession = nil;
+    self.diagnosticContainers = nil;
+    self.diagnosticPeers = nil;
     LCTapSyncSelection *selection = [[LCTapSyncSelection alloc] initWithSource:source targets:targets mode:self.mode];
     _sourceContainer = selection.source;
     _targetContainers = selection.targets;
@@ -636,6 +647,13 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     [self stopWithStatus:status containers:containers reasons:@{}];
 }
 - (void)stopWithStatus:(NSString *)status containers:(NSArray<NSString *> *)containers reasons:(NSDictionary<NSString *, NSString *> *)reasons {
+    LCTapSyncSession *interrupted = self.session ?: self.recoverySession;
+    // Opening setup pauses a running group. Preserve the fault being inspected
+    // even if the user has already resumed before opening the diagnostic panel.
+    if (interrupted && (![status isEqualToString:@"lc.tapSync.paused"] || !self.lastInterruptionDiagnostics ||
+        [self.lastInterruptionDiagnostics[@"status"] isEqualToString:@"lc.tapSync.paused"])) {
+        [self recordInterruptionDiagnostics:interrupted status:status containers:containers];
+    }
     [self cancelRecoveryStoppingGuests:YES];
     if (self.resumingSourceSession) {
         [[self.scenes objectForKey:self.sourceContainer].tapSyncPeer stopSession:self.resumingSourceSession];
@@ -671,6 +689,84 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     [self changed];
 }
 - (void)pause { [self stopWithStatus:@"lc.tapSync.paused" containers:@[]]; }
+- (void)recordInterruptionDiagnostics:(LCTapSyncSession *)session status:(NSString *)status containers:(NSArray<NSString *> *)containers {
+    NSArray *members = [@[session.source] arrayByAddingObjectsFromArray:session.targets];
+    NSMutableArray *participants = [NSMutableArray array];
+    NSMutableArray *affected = [NSMutableArray array], *awaiting = [NSMutableArray array];
+    NSMutableDictionary *peers = [NSMutableDictionary dictionary];
+    for (NSString *container in members) {
+        NSNumber *number = @([self windowNumberForContainer:container]);
+        LCTapSyncPeer *peer = [self.scenes objectForKey:container].tapSyncPeer;
+        if (peer) [peers setObject:peer forKey:container];
+        [participants addObject:@{@"windowNumber": number,
+            @"role": [container isEqualToString:session.source] ? @"source" : @"follower",
+            @"connected": @(peer.ready)}];
+        if ([containers containsObject:container]) [affected addObject:number];
+        if ([self.awaitingReplies containsObject:container]) [awaiting addObject:number];
+    }
+    NSMutableDictionary *record = [@{@"status": status, @"observedAtUptime": @(NSProcessInfo.processInfo.systemUptime),
+        @"mode": LCTapSyncDiagnosticMode(session.mode), @"forwardedActions": @(self.forwardedTapCount),
+        @"queueDepth": @(session.pendingCount), @"inFlightDeliverySequence": @(self.inFlightSequence),
+        @"affectedWindows": affected.copy, @"awaitingReplyWindows": awaiting.copy,
+        @"participants": participants.copy} mutableCopy];
+    NSDictionary *failure = LCTapSyncSanitizedInputFailure(session.lastInputFailure);
+    if (failure) record[@"hostInputFailure"] = failure;
+    self.lastInterruptionDiagnostics = record.copy;
+    self.diagnosticSession = session.identifier;
+    self.diagnosticContainers = members;
+    self.diagnosticPeers = peers;
+}
+- (void)readInputDiagnosticsWithReply:(void (^)(NSDictionary *))reply {
+    NSMutableDictionary *report = [@{@"schemaVersion": @1,
+        @"version": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
+        @"systemVersion": UIDevice.currentDevice.systemVersion, @"copiedAtUptime": @(NSProcessInfo.processInfo.systemUptime),
+        @"currentStatus": self.statusKey, @"active": @(self.active), @"starting": @(self.starting), @"recovering": @(self.recovering),
+        @"options": @{@"resumeOnSource": @(self.resumeOnSource), @"syncFirstReturnGesture": @(self.syncReturnGesture),
+            @"resumeAfterRotation": @(self.autoResumeAfterRotation)}} mutableCopy];
+    NSDictionary *interruption = self.lastInterruptionDiagnostics;
+    if (interruption) report[@"lastInterruption"] = interruption;
+    if (self.inputDiagnosticsRequest) { report[@"guestReadStatus"] = @"alreadyReading"; reply(report.copy); return; }
+    if (!interruption || !self.diagnosticSession) { report[@"guestReadStatus"] = @"noInterruption"; reply(report.copy); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.inputDiagnosticsRequest = request;
+    NSString *session = self.diagnosticSession;
+    NSArray *containers = self.diagnosticContainers;
+    NSMapTable *peers = self.diagnosticPeers;
+    NSMutableArray *guests = [NSMutableArray array];
+    for (NSDictionary *participant in interruption[@"participants"]) {
+        NSMutableDictionary *guest = participant.mutableCopy;
+        guest[@"readStatus"] = @"waiting";
+        [guests addObject:guest];
+    }
+    __block NSUInteger remaining = guests.count;
+    void (^finish)(NSString *) = ^(NSString *status) {
+        if (self.inputDiagnosticsRequest != request) return;
+        self.inputDiagnosticsRequest = nil;
+        report[@"guestReadStatus"] = status;
+        NSMutableArray *snapshot = [NSMutableArray array];
+        for (NSMutableDictionary *guest in guests) {
+            if ([guest[@"readStatus"] isEqual:@"waiting"]) guest[@"readStatus"] = @"timedOut";
+            [snapshot addObject:guest.copy];
+        }
+        report[@"guests"] = snapshot.copy;
+        reply(report.copy);
+    };
+    if (!remaining) { finish(@"complete"); return; }
+    // This is an explicit one-shot read, separate from input dispatch and readiness.
+    [containers enumerateObjectsUsingBlock:^(NSString *container, NSUInteger index, BOOL *stop) {
+        LCTapSyncPeer *peer = [peers objectForKey:container];
+        void (^receive)(NSDictionary *) = ^(NSDictionary *sample) {
+            if (self.inputDiagnosticsRequest != request || ![guests[index][@"readStatus"] isEqual:@"waiting"]) return;
+            NSDictionary *failure = LCTapSyncSanitizedInputFailure(sample[@"lastInputFailure"]);
+            guests[index][@"readStatus"] = !sample ? @"unavailable" : failure ? @"received" : @"noMatchingFailure";
+            if (failure) guests[index][@"lastInputFailure"] = failure;
+            if (!--remaining) finish(@"complete");
+        };
+        if (!peer) receive(nil);
+        else [peer readInputDiagnosticsForSession:session reply:receive];
+    }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ finish(@"partial"); });
+}
 - (void)pauseForWindowChange {
     if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[]];
 }

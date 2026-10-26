@@ -4,6 +4,7 @@
 #import <mach/mach_time.h>
 #import "../LiveContainer/utils.h"
 #import "../MultitaskSupport/TapSyncProtocol.h"
+#import "../MultitaskSupport/TapSyncDiagnostics.h"
 #import "../MultitaskSupport/ProcessMetrics.h"
 #import "TapSyncClientState.h"
 #import "TapSyncReturnGesture.h"
@@ -169,6 +170,8 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 @property(nonatomic) LCMultiTouchSyncStream sourceMultiStream, replayMultiStream;
 @property(nonatomic) UIEvent *multiEvent;
 @property(nonatomic) NSUInteger multiReplayGeneration;
+@property(nonatomic, copy) NSDictionary *lastInputFailure;
+@property(nonatomic, copy) NSString *lastInputFailureSession;
 - (void)observeEvent:(UIEvent *)event;
 - (void)interrupt:(LCTapSyncResult)reason;
 - (void)interruptAfterCurrentEvent:(LCTapSyncResult)reason;
@@ -183,6 +186,8 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 - (void)notifyPhysicalInputBegan:(BOOL)began timestamp:(NSTimeInterval)timestamp;
 - (void)submitTapSample:(LCTapSyncSample)sample;
 - (void)captureSourceEvent:(UIEvent *)event;
+- (void)recordExpiredInput:(id)packet sequence:(uint64_t)sequence previousSequence:(uint64_t)previous atTime:(NSTimeInterval)now stage:(NSString *)stage;
+- (NSDictionary *)inputDiagnosticsForSession:(NSString *)session;
 @end
 
 static LCTapSyncClient *tapSyncClient;
@@ -238,6 +243,22 @@ static LCTapSyncClient *tapSyncClient;
 }
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply {
     dispatch_async(dispatch_get_main_queue(), ^{ reply(LCWindowGeometryDiagnostics()); });
+}
+- (void)recordExpiredInput:(id)packet sequence:(uint64_t)sequence previousSequence:(uint64_t)previous atTime:(NSTimeInterval)now stage:(NSString *)stage {
+    self.lastInputFailure = LCTapSyncInputFailure(packet, self.mode, sequence, previous, now, stage);
+    self.lastInputFailureSession = self.session;
+}
+- (NSDictionary *)inputDiagnosticsForSession:(NSString *)session {
+    // Keep one rejection across stop/Resume, but never return another session's failure.
+    NSDictionary *failure = [self.lastInputFailureSession isEqualToString:session] ? self.lastInputFailure : nil;
+    return failure ? @{@"available": @YES, @"lastInputFailure": failure} : @{@"available": @NO};
+}
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) { reply(@{}); return; }
+        reply([self inputDiagnosticsForSession:session]);
+    });
 }
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
          syncReturnGesture:(BOOL)syncReturnGesture
@@ -906,8 +927,10 @@ static LCTapSyncClient *tapSyncClient;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
         if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
         LCTouchSyncSample sample = {0};
+        NSTimeInterval checkedAt = NSProcessInfo.processInfo.systemUptime;
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTouchSyncDecode(packet, &sample) ||
-            !LCTouchSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
+            !LCTouchSyncSampleIsFresh(sample, checkedAt)) {
+            [self recordExpiredInput:packet sequence:sequence previousSequence:self.sequence atTime:checkedAt stage:@"guestReceive"];
             [self finishReplay:LCTapSyncResultExpired]; return;
         }
         LCTouchSyncStream stream = self.replayStream;
@@ -936,7 +959,9 @@ static LCTapSyncClient *tapSyncClient;
             void (^deliver)(void) = ^{
                 if (self.syntheticTouch != touch || ![self.session isEqualToString:session] ||
                     self.sequence != sequence || !self.replayReply) return;
-                if (!LCTouchSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
+                NSTimeInterval deliveredAt = NSProcessInfo.processInfo.systemUptime;
+                if (!LCTouchSyncSampleIsFresh(sample, deliveredAt)) {
+                    [self recordExpiredInput:packet sequence:sequence previousSequence:sequence - 1 atTime:deliveredAt stage:@"guestDelivery"];
                     [self finishReplay:LCTapSyncResultExpired]; return;
                 }
                 if (![self replayWindowIsUnchanged:window]) { [self finishReplay:LCTapSyncResultGeometryChanged]; return; }
@@ -1068,8 +1093,10 @@ static LCTapSyncClient *tapSyncClient;
         if (!self.supported) { [self finishReplay:LCTapSyncResultUnsupported]; return; }
         if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
         LCMultiTouchSyncFrame frame = {0};
+        NSTimeInterval checkedAt = NSProcessInfo.processInfo.systemUptime;
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCMultiTouchSyncDecode(packet, &frame) ||
-            !LCMultiTouchSyncFrameIsFresh(frame, NSProcessInfo.processInfo.systemUptime)) {
+            !LCMultiTouchSyncFrameIsFresh(frame, checkedAt)) {
+            [self recordExpiredInput:packet sequence:sequence previousSequence:self.sequence atTime:checkedAt stage:@"guestReceive"];
             [self finishReplay:LCTapSyncResultExpired]; return;
         }
         LCMultiTouchSyncStream stream = self.replayMultiStream;
@@ -1093,7 +1120,11 @@ static LCTapSyncClient *tapSyncClient;
         void (^deliver)(void) = ^{
             if (self.multiReplayGeneration != generation || ![self.session isEqualToString:session] ||
                 self.sequence != sequence || !self.replayReply) return;
-            if (!LCMultiTouchSyncFrameIsFresh(frame, NSProcessInfo.processInfo.systemUptime)) { [self finishReplay:LCTapSyncResultExpired]; return; }
+            NSTimeInterval deliveredAt = NSProcessInfo.processInfo.systemUptime;
+            if (!LCMultiTouchSyncFrameIsFresh(frame, deliveredAt)) {
+                [self recordExpiredInput:packet sequence:sequence previousSequence:sequence - 1 atTime:deliveredAt stage:@"guestDelivery"];
+                [self finishReplay:LCTapSyncResultExpired]; return;
+            }
             if (![self replayWindowIsUnchanged:window]) { [self finishReplay:LCTapSyncResultGeometryChanged]; return; }
             if (self.keyboardVisible) { [self finishReplay:LCTapSyncResultKeyboardVisible]; return; }
             @try {
@@ -1166,8 +1197,10 @@ static LCTapSyncClient *tapSyncClient;
         if (self.syntheticTouch) { reply(LCTapSyncResultBusy); return; }
         if (self.keyboardVisible) { reply(LCTapSyncResultKeyboardVisible); return; }
         LCTapSyncSample sample = {0};
+        NSTimeInterval checkedAt = NSProcessInfo.processInfo.systemUptime;
         if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTapSyncDecode(tap, &sample) ||
-            !LCTapSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
+            !LCTapSyncSampleIsFresh(sample, checkedAt)) {
+            [self recordExpiredInput:tap sequence:sequence previousSequence:self.sequence atTime:checkedAt stage:@"guestReceive"];
             reply(LCTapSyncResultExpired); return;
         }
         LCTapSyncResult windowResult;
@@ -1194,7 +1227,9 @@ static LCTapSyncClient *tapSyncClient;
             NSTimeInterval hold = MAX(0.03, MIN(sample.duration, 0.12));
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(hold * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 if (self.syntheticTouch != touch || ![self.session isEqualToString:session]) return;
-                if (!LCTapSyncSampleIsFresh(sample, NSProcessInfo.processInfo.systemUptime)) {
+                NSTimeInterval deliveredAt = NSProcessInfo.processInfo.systemUptime;
+                if (!LCTapSyncSampleIsFresh(sample, deliveredAt)) {
+                    [self recordExpiredInput:tap sequence:sequence previousSequence:sequence - 1 atTime:deliveredAt stage:@"guestDelivery"];
                     [self finishReplay:LCTapSyncResultExpired]; return;
                 }
                 if (![self replayWindowIsUnchanged:window]) {

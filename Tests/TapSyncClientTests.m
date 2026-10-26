@@ -2,6 +2,7 @@
 // Compile the production guest in the test bundle without activating its launch
 // constructor (the test defaults provider reports that this is not LiveProcess).
 #import "../TweakLoader/TapSyncClient.m"
+#import "../MultitaskSupport/TapSyncPeer.m"
 #import "TapSyncTestWindow.h"
 
 @interface LCTestInputHost : NSObject
@@ -10,6 +11,83 @@
 @property(nonatomic) NSMutableArray<NSDictionary *> *touches, *frames;
 @property(nonatomic) NSUInteger returns;
 @property(nonatomic) LCTapSyncResult reason;
+@end
+
+@interface LCTestDiagnosticGuest : NSObject
+@property(nonatomic) NSUInteger reads;
+@property(nonatomic, copy) void (^pendingReply)(NSDictionary *);
+@end
+@implementation LCTestDiagnosticGuest
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply {
+    self.reads++;
+    self.pendingReply = reply;
+}
+@end
+
+@interface LCTestDiagnosticConnection : NSObject
+@property(nonatomic) LCTestDiagnosticGuest *guest;
+@end
+@implementation LCTestDiagnosticConnection
+- (id)remoteObjectProxyWithErrorHandler:(void (^)(NSError *))handler { return self.guest; }
+- (void)invalidate {}
+@end
+
+@interface TapSyncPeerDiagnosticTests : XCTestCase
+@end
+@implementation TapSyncPeerDiagnosticTests
+- (void)testRepeatedDiagnosticReadsDoNotQueueBehindAnOutstandingGuestRequest {
+    LCTapSyncPeer *peer = [LCTapSyncPeer new];
+    LCTestDiagnosticConnection *connection = [LCTestDiagnosticConnection new];
+    connection.guest = [LCTestDiagnosticGuest new];
+    peer.connection = (id)connection;
+    [peer setValue:@YES forKey:@"ready"];
+    NSString *session = NSUUID.UUID.UUIDString;
+    XCTestExpectation *received = [self expectationWithDescription:@"first diagnostic reply"];
+    [peer readInputDiagnosticsForSession:session reply:^(NSDictionary *record) {
+        XCTAssertTrue(NSThread.isMainThread);
+        XCTAssertEqualObjects(record[@"available"], @NO);
+        [received fulfill];
+    }];
+    __block BOOL duplicate = NO;
+    [peer readInputDiagnosticsForSession:session reply:^(NSDictionary *record) { duplicate = YES; XCTAssertNil(record); }];
+    XCTAssertTrue(duplicate);
+    XCTAssertEqual(connection.guest.reads, 1u);
+    XCTAssertNotNil(peer.inputDiagnosticsRequest);
+    connection.guest.pendingReply(@{@"available": @NO});
+    connection.guest.pendingReply = nil;
+    [self waitForExpectations:@[received] timeout:2];
+    XCTAssertNil(peer.inputDiagnosticsRequest);
+    [peer readInputDiagnosticsForSession:session reply:^(NSDictionary *record) {}];
+    XCTAssertEqual(connection.guest.reads, 2u);
+    [peer invalidate];
+    connection.guest.pendingReply = nil;
+}
+- (void)testOldConnectionReplyCannotClearAReplacementDiagnosticRequest {
+    LCTapSyncPeer *peer = [LCTapSyncPeer new];
+    LCTestDiagnosticConnection *old = [LCTestDiagnosticConnection new];
+    old.guest = [LCTestDiagnosticGuest new];
+    peer.connection = (id)old;
+    [peer setValue:@YES forKey:@"ready"];
+    NSString *session = NSUUID.UUID.UUIDString;
+    XCTestExpectation *stale = [self expectationWithDescription:@"obsolete reply is unavailable"];
+    [peer readInputDiagnosticsForSession:session reply:^(NSDictionary *record) { XCTAssertNil(record); [stale fulfill]; }];
+    LCTestDiagnosticConnection *replacement = [LCTestDiagnosticConnection new];
+    replacement.guest = [LCTestDiagnosticGuest new];
+    peer.connection = (id)replacement;
+    peer.inputDiagnosticsRequest = nil;
+    XCTestExpectation *fresh = [self expectationWithDescription:@"replacement reply is retained"];
+    [peer readInputDiagnosticsForSession:session reply:^(NSDictionary *record) { XCTAssertNotNil(record); [fresh fulfill]; }];
+    NSUUID *replacementRequest = peer.inputDiagnosticsRequest;
+    old.guest.pendingReply(@{@"available": @NO});
+    old.guest.pendingReply = nil;
+    [self waitForExpectations:@[stale] timeout:2];
+    XCTAssertEqual(peer.inputDiagnosticsRequest, replacementRequest);
+    replacement.guest.pendingReply(@{@"available": @NO});
+    replacement.guest.pendingReply = nil;
+    [self waitForExpectations:@[fresh] timeout:2];
+    XCTAssertNil(peer.inputDiagnosticsRequest);
+    [peer invalidate];
+}
 @end
 @implementation LCTestInputHost
 - (instancetype)init {
@@ -135,6 +213,31 @@
         }];
     });
     [self waitForExpectations:@[replied] timeout:5];
+}
+- (void)testInputRejectionDiagnosticsSurviveStopAndMatchOnlyTheirSession {
+    NSString *session = self.client.session;
+    self.client.mode = LCTapSyncModeSingleFinger;
+    self.client.sequence = 14;
+    NSDictionary *packet = LCTouchSyncEncode((LCTouchSyncSample){0.5, 0.25, 200, 400,
+        NSProcessInfo.processInfo.systemUptime - 1, 1, 1, 1, LCTouchSyncPhaseBegan});
+    [self.client recordExpiredInput:packet sequence:15 previousSequence:14 atTime:NSProcessInfo.processInfo.systemUptime stage:@"guestReceive"];
+    NSDictionary *record = [self.client inputDiagnosticsForSession:session];
+    XCTAssertEqualObjects(record[@"lastInputFailure"][@"reason"], @"inputTooOld");
+    XCTAssertEqualObjects(record[@"lastInputFailure"][@"expectedSequence"], @15);
+    XCTAssertGreaterThan([record[@"lastInputFailure"][@"inputAgeMs"] doubleValue], 750);
+    XCTAssertNil(record[@"lastInputFailure"][@"x"]);
+    self.client.session = nil;
+    [self.client finishReplay:LCTapSyncResultStopped];
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session], record);
+    self.client.session = NSUUID.UUID.UUIDString;
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:self.client.session], (@{@"available": @NO}));
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session], record);
+    XCTAssertEqual(self.client.sequence, 14u);
+    NSDictionary *fresh = LCTouchSyncEncode((LCTouchSyncSample){0.5, 0.25, 200, 400,
+        NSProcessInfo.processInfo.systemUptime, 1, 1, 1, LCTouchSyncPhaseBegan});
+    [self.client recordExpiredInput:fresh sequence:16 previousSequence:14 atTime:NSProcessInfo.processInfo.systemUptime stage:@"guestReceive"];
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:self.client.session][@"lastInputFailure"][@"reason"], @"sequenceMismatch");
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session], (@{@"available": @NO}));
 }
 - (LCTestInputTouch *)touch {
     LCTestInputTouch *touch = [LCTestInputTouch new];
