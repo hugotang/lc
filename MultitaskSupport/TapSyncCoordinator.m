@@ -205,7 +205,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
 - (BOOL)canReplayForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.canReplay; }
 - (NSDictionary<NSString *, LCTapSyncPeer *> *)performancePeers {
-    NSMapTable *peers = [NSMapTable strongToWeakObjectsMapTable];
+    NSMutableDictionary *peers = [NSMutableDictionary dictionary];
     for (NSString *container in self.scenes.keyEnumerator) {
         AppSceneViewController *scene = [self.scenes objectForKey:container];
         if (scene.isAppRunning && scene.tapSyncPeer) peers[container] = scene.tapSyncPeer;
@@ -693,7 +693,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     NSArray *members = [@[session.source] arrayByAddingObjectsFromArray:session.targets];
     NSMutableArray *participants = [NSMutableArray array];
     NSMutableArray *affected = [NSMutableArray array], *awaiting = [NSMutableArray array];
-    NSMutableDictionary *peers = [NSMutableDictionary dictionary];
+    NSMapTable *peers = [NSMapTable strongToWeakObjectsMapTable];
     for (NSString *container in members) {
         NSNumber *number = @([self windowNumberForContainer:container]);
         LCTapSyncPeer *peer = [self.scenes objectForKey:container].tapSyncPeer;
