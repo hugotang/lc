@@ -258,6 +258,14 @@ struct LCAppSettingsView: View {
                 } footer: {
                     Text("lc.appSettings.useWindowScreenSizeDesc".loc)
                 }
+                Section {
+                    Toggle(isOn: $model.uiForceAmbientAudio) {
+                        Text("lc.appSettings.forceAmbientAudio".loc)
+                    }
+                    .disabled(model.uiDontInjectTweakLoader)
+                } footer: {
+                    Text("lc.appSettings.forceAmbientAudioDesc".loc)
+                }
             }
             
             Section {

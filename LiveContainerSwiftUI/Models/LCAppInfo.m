@@ -601,6 +601,15 @@
     [self save];
 }
 
+- (bool)forceAmbientAudio {
+    return [_info[@"LCForceAmbientAudio"] boolValue];
+}
+
+- (void)setForceAmbientAudio:(bool)forceAmbientAudio {
+    _info[@"LCForceAmbientAudio"] = @(forceAmbientAudio);
+    [self save];
+}
+
 - (LCOrientationLock)orientationLock {
     return (LCOrientationLock) [((NSNumber*) _info[@"LCOrientationLock"]) intValue];
 }

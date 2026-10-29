@@ -1,5 +1,11 @@
 # Device checks for multitasking changes
 
+## Ambient audio compatibility (3.8.31)
+
+The user confirmed one-account Monster Strike BGM works, four accounts lose BGM while effects remain, and in-game muting of the other three accounts does not restore music. The Ambient experiment's physical-device result is pending; [the executable findings and scope](../docs/AmbientAudio.md) distinguish the already-Ambient game paths from potentially exclusive SDK paths.
+
+- With the device unmuted, leave BGM/effects audible in one account and muted in the other three. Close all accounts, enable Monster Strike → App Settings → Ambient Audio (Experimental), and restore the same four-account workspace. Check BGM while accounts finish loading and after a stage transition, effects from only the chosen account, follower/source actions and rotation. Open/close an ad and repeat while another music app plays. Close accounts, disable the option, relaunch and compare. The preference must survive LiveContainer relaunch. Native-window/ordinary launches and the option-off case retain their original audio behavior; microphone categories and real interruptions must remain available. Simulator forwarding checks do not establish that the game's BGM actually recovers.
+
 ## Compact controls and hidden Dock (3.8.30)
 
 The user requested smaller Input Sync status presentation on iPhone and an optional swipe-only reveal for the hidden-arrow Dock. Device acceptance of these 3.8.30 changes is pending.

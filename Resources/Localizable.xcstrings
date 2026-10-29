@@ -38664,6 +38664,52 @@
           }
         }
       }
+    },
+    "lc.appSettings.forceAmbientAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient Audio (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音频（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音訊（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.forceAmbientAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep playback audio mixable across this app's multitasking accounts. Close all accounts and reopen them after changing this option. Ambient honours the device's silent switch and allows other music to keep playing. Use the app's own sound settings to mute the other accounts. Recording audio keeps its original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让此应用的多开账号播放音频时允许混音。更改后请关闭所有账号再重新打开。Ambient 遵从设备的静音设置，并允许其他音乐继续播放。请在游戏内的声音设置中静音其他账号。录音保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓此應用的多開帳號播放音訊時允許混音。更改後請關閉所有帳號再重新開啟。Ambient 遵從裝置的靜音設定，並允許其他音樂繼續播放。請在遊戲內的聲音設定中靜音其他帳號。錄音保持原有行為。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
