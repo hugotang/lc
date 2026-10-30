@@ -37,6 +37,7 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 @property bool fixLocalNotification;
 @property bool useWindowScreenSize;
 @property bool forceAmbientAudio;
+@property bool keepBackgroundAudio;
 @property bool doUseLCBundleId;
 @property NSString* selectedLanguage;
 @property NSString* dataUUID;

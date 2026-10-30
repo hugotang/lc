@@ -74,6 +74,12 @@ class LCAppModel: ObservableObject, Hashable {
             appInfo.forceAmbientAudio = uiForceAmbientAudio
         }
     }
+
+    @Published var uiKeepBackgroundAudio : Bool {
+        didSet {
+            appInfo.keepBackgroundAudio = uiKeepBackgroundAudio
+        }
+    }
     
     @Published var uiHideLiveContainer : Bool {
         didSet {
@@ -196,6 +202,7 @@ class LCAppModel: ObservableObject, Hashable {
         self.uiFixLocalNotification = appInfo.fixLocalNotification
         self.uiUseWindowScreenSize = appInfo.useWindowScreenSize
         self.uiForceAmbientAudio = appInfo.forceAmbientAudio
+        self.uiKeepBackgroundAudio = appInfo.keepBackgroundAudio
         self.uiHideLiveContainer = appInfo.hideLiveContainer
         self.uiDontInjectTweakLoader = appInfo.dontInjectTweakLoader
         self.uiTweakLoaderInjectFailed = appInfo.info()["LCTweakLoaderCantInject"] as? Bool ?? false

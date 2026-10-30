@@ -38710,6 +38710,52 @@
           }
         }
       }
+    },
+    "lc.appSettings.keepBackgroundAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Background Music (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音乐（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音樂（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.keepBackgroundAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep music from stopping when this app detects audio from another account. Music may also mix with external music or ads. Close all accounts and reopen them after changing this option. Use the app's own sound settings to mute the other accounts. Recording and real system interruptions keep their original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此应用因检测到其他账号的音频而停止音乐。音乐也可能与外部音乐或广告混播。更改后请关闭所有账号再重新打开。请在游戏内的声音设置中静音其他账号。录音和真正的系统音频中断保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此應用因偵測到其他帳號的音訊而停止音樂。音樂也可能與外部音樂或廣告混播。更改後請關閉所有帳號再重新開啟。請在遊戲內的聲音設定中靜音其他帳號。錄音和真正的系統音訊中斷保持原有行為。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

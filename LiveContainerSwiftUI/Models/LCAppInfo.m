@@ -610,6 +610,15 @@
     [self save];
 }
 
+- (bool)keepBackgroundAudio {
+    return [_info[@"LCKeepBackgroundAudio"] boolValue];
+}
+
+- (void)setKeepBackgroundAudio:(bool)keepBackgroundAudio {
+    _info[@"LCKeepBackgroundAudio"] = @(keepBackgroundAudio);
+    [self save];
+}
+
 - (LCOrientationLock)orientationLock {
     return (LCOrientationLock) [((NSNumber*) _info[@"LCOrientationLock"]) intValue];
 }

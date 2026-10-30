@@ -17,6 +17,7 @@
 #include "../litehook/src/litehook.h"
 #import "Tweaks/Tweaks.h"
 #import "Tweaks/AmbientAudio.h"
+#import "Tweaks/BackgroundAudio.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
@@ -535,6 +536,9 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     if (LCAmbientAudioShouldEnable(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo)) {
         // Install before dyld hides host images and before guest initializers.
         LCAmbientAudioInstall();
+    }
+    if (LCBackgroundAudioShouldEnable(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo)) {
+        LCBackgroundAudioInstall(appBundle.executablePath);
     }
     DyldHooksInit([guestAppInfo[@"hideLiveContainer"] boolValue], hookDlopen, [guestAppInfo[@"spoofSDKVersion"] unsignedIntValue]);
     

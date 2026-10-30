@@ -266,6 +266,14 @@ struct LCAppSettingsView: View {
                 } footer: {
                     Text("lc.appSettings.forceAmbientAudioDesc".loc)
                 }
+                Section {
+                    Toggle(isOn: $model.uiKeepBackgroundAudio) {
+                        Text("lc.appSettings.keepBackgroundAudio".loc)
+                    }
+                    .disabled(model.uiDontInjectTweakLoader)
+                } footer: {
+                    Text("lc.appSettings.keepBackgroundAudioDesc".loc)
+                }
             }
             
             Section {
