@@ -125,6 +125,8 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
         _singleRowInLandscape = LCWorkspaceBoolean(propertyList[@"singleRowInLandscape"], NO);
         _reservePortraitTop = LCWorkspaceBoolean(propertyList[@"reservePortraitTop"], YES);
         _reservePortraitBottom = LCWorkspaceBoolean(propertyList[@"reservePortraitBottom"], NO);
+        _reserveLandscapeTop = LCWorkspaceBoolean(propertyList[@"reserveLandscapeTop"], YES);
+        _reserveLandscapeBottom = LCWorkspaceBoolean(propertyList[@"reserveLandscapeBottom"], NO);
         _tapSyncGroup = LCWorkspaceTapSyncGroup(propertyList[@"tapSync"], _windows);
     }
     return self;
@@ -137,19 +139,30 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
 - (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
           singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
          reservePortraitBottom:(BOOL)reservePortraitBottom {
+    return [self initWithWindows:windows proportions:proportions singleRowInLandscape:singleRowInLandscape
+        reservePortraitTop:reservePortraitTop reservePortraitBottom:reservePortraitBottom
+        reserveLandscapeTop:YES reserveLandscapeBottom:NO];
+}
+- (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
+          singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
+         reservePortraitBottom:(BOOL)reservePortraitBottom reserveLandscapeTop:(BOOL)reserveLandscapeTop
+        reserveLandscapeBottom:(BOOL)reserveLandscapeBottom {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in windows) [entries addObject:window.propertyList];
     return [self initWithPropertyList:@{@"version": @1, @"windows": entries, @"proportions": proportions,
                                        @"singleRowInLandscape": @(singleRowInLandscape),
                                        @"reservePortraitTop": @(reservePortraitTop),
-                                       @"reservePortraitBottom": @(reservePortraitBottom)}];
+                                       @"reservePortraitBottom": @(reservePortraitBottom),
+                                       @"reserveLandscapeTop": @(reserveLandscapeTop),
+                                       @"reserveLandscapeBottom": @(reserveLandscapeBottom)}];
 }
 - (NSDictionary *)propertyList {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in self.windows) [entries addObject:window.propertyList];
     NSMutableDictionary *result = [@{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
              @"singleRowInLandscape": @(self.singleRowInLandscape),
-             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom)} mutableCopy];
+             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom),
+             @"reserveLandscapeTop": @(self.reserveLandscapeTop), @"reserveLandscapeBottom": @(self.reserveLandscapeBottom)} mutableCopy];
     if (self.tapSyncGroup.count) result[@"tapSync"] = self.tapSyncGroup;
     return result.copy;
 }
@@ -297,17 +310,23 @@ static NSString *LCWorkspaceDisplayName(id value) {
     if (!identifier || !existing) return NO;
     LCWindowWorkspace *current = existing.snapshot;
     BOOL singleRow = current.singleRowInLandscape, top = current.reservePortraitTop, bottom = current.reservePortraitBottom;
+    BOOL landscapeTop = current.reserveLandscapeTop, landscapeBottom = current.reserveLandscapeBottom;
     switch (preference) {
         case LCWorkspaceLayoutPreferenceSingleRowInLandscape: singleRow = enabled; break;
         case LCWorkspaceLayoutPreferenceReservePortraitTop: top = enabled; break;
         case LCWorkspaceLayoutPreferenceReservePortraitBottom: bottom = enabled; break;
+        case LCWorkspaceLayoutPreferenceReserveLandscapeTop: landscapeTop = enabled; break;
+        case LCWorkspaceLayoutPreferenceReserveLandscapeBottom: landscapeBottom = enabled; break;
         default: return NO;
     }
-    if (singleRow == current.singleRowInLandscape && top == current.reservePortraitTop && bottom == current.reservePortraitBottom) return YES;
+    if (singleRow == current.singleRowInLandscape && top == current.reservePortraitTop && bottom == current.reservePortraitBottom &&
+        landscapeTop == current.reserveLandscapeTop && landscapeBottom == current.reserveLandscapeBottom) return YES;
     NSMutableDictionary *propertyList = current.propertyList.mutableCopy;
     propertyList[@"singleRowInLandscape"] = @(singleRow);
     propertyList[@"reservePortraitTop"] = @(top);
     propertyList[@"reservePortraitBottom"] = @(bottom);
+    propertyList[@"reserveLandscapeTop"] = @(landscapeTop);
+    propertyList[@"reserveLandscapeBottom"] = @(landscapeBottom);
     LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
     LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
     if (!updated) return NO;

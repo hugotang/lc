@@ -9583,6 +9583,52 @@
         }
       }
     },
+    "lc.appSettings.useWindowScreenSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Window Size as Screen Size (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以窗口尺寸作为屏幕尺寸（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以視窗尺寸作為螢幕尺寸（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.useWindowScreenSizeDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For ads or popups that use the whole device screen instead of this app’s window. Applies to this app’s virtual windows only; off by default. Close and relaunch every running account after changing it. Some ads choose orientation separately and may still need a fix."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于按整个设备屏幕而非当前应用窗口显示的广告或弹出界面。仅用于此应用的虚拟窗口，默认关闭。更改后请关闭并重新启动所有运行中的账号。部分广告会独立选择方向，仍可能需要修复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於按整部裝置螢幕而非目前 App 視窗顯示的廣告或彈出介面。僅用於此 App 的虛擬視窗，預設關閉。更改後請關閉並重新啟動所有執行中的帳號。部分廣告會獨立選擇方向，仍可能需要修正。"
+          }
+        }
+      }
+    },
     "lc.appSettings.useLCBundleId" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -18649,6 +18695,75 @@
         }
       }
     },
+    "lc.multitask.landscapeReservedAreas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landscape Reserved Areas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏预留区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向預留區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeTop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Top Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeBottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Bottom Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方區域"
+          }
+        }
+      }
+    },
     "lc.multitask.portraitReservedAreas" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19822,6 +19937,29 @@
         }
       }
     },
+    "lc.settings.landscapeReservedAreasDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose whether landscape grids leave space above and below content. Turning an area off extends content behind the status bar or home indicator. Left and right keep system safe areas. Save or update a workspace to remember these choices."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择横屏网格是否保留上下方空间。关闭后，内容可延伸至状态栏或主屏幕指示条后方。左右仍保留系统安全区域。保存或更新工作区可记住选择。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇橫向網格是否保留上下方空間。關閉後，內容可延伸至狀態列或主畫面指示條後方。左右仍保留系統安全區域。儲存或更新工作區可記住選擇。"
+          }
+        }
+      }
+    },
     "lc.settings.portraitReservedAreasDesc" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20071,6 +20209,107 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤銷上次交換"
+          }
+        }
+      }
+    },
+    "lc.multitask.copyWindowGeometry": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نسخ تشخيص أبعاد النافذة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnose der Fenstergröße kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Window Size Diagnostics"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar diagnóstico del tamaño de la ventana"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le diagnostic de taille de la fenêtre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia diagnostica delle dimensioni della finestra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウサイズの診断をコピー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "윈도우 크기 진단 복사"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj diagnostykę rozmiaru okna"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar diagnóstico do tamanho da janela"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать диагностику размера окна"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera diagnostik för fönsterstorlek"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pencere boyutu tanılamasını kopyala"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép chẩn đoán kích thước cửa sổ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制窗口尺寸诊断"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製視窗尺寸診斷"
           }
         }
       }
@@ -20444,6 +20683,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最小化視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.restoreAllMinimized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore All Minimized Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原所有最小化窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原所有最小化視窗"
           }
         }
       }
@@ -33661,25 +33923,94 @@
         }
       }
     },
+    "lc.tapSync.autoResumeAfterRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume After Screen Rotation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕旋转后自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "螢幕旋轉後自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic Resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResumeHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Sync the First Returning Gesture includes it after followers are ready. Rotation resumes after all fingers lift and the windows settle. These three options are remembered. After leaving the app or opening system panels, align the screens and tap Resume Sync. Manual Pause, keyboard, dialogs, timeout and disconnection also need Resume. Relaunch stays paused."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后继续。默认第一次手势只在来源生效，所有手指放开后继续。「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势。旋转后等所有手指离开、窗口稳定再继续。这三个选项都会记住。离开 App 或打开系统面板后，请对齐画面并点按「继续同步」。手动暂停、键盘、对话框、超时或断开连接也需手动继续；重新打开 App 保持暂停。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後繼續。預設第一個手勢只在來源生效，所有手指放開後繼續。「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢。旋轉後等所有手指離開、視窗穩定再繼續。這三個選項都會記住。離開 App 或開啟系統面板後，請對齊畫面並點按「繼續同步」。手動暫停、鍵盤、對話框、逾時或中斷連線也需手動繼續；重新開啟 App 保持暫停。"
+          }
+        }
+      }
+    },
     "lc.tapSync.backgroundPaused" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused when LiveContainer left the foreground."
+            "value" : "Paused when LiveContainer left the foreground. Align the screens, then tap Resume Sync."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 离开前台，已暂停同步。"
+            "value" : "LiveContainer 离开前台，已暂停同步。请对齐画面，再点按「继续同步」。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 離開前景，已暫停同步。"
+            "value" : "LiveContainer 離開前景，已暫停同步。請對齊畫面，再點按「繼續同步」。"
           }
         }
       }
@@ -33736,19 +34067,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compact Controls"
+            "value" : "Icons Only"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精简显示"
+            "value" : "仅显示图标"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精簡顯示"
+            "value" : "僅顯示圖示"
           }
         }
       }
@@ -33782,21 +34113,45 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately. If sync cannot start or is interrupted, the reason stays visible even with Compact Controls on. Open the gear for each affected window's details."
+            "value" : "Tap the main icon to pause or resume. An hourglass means connecting or waiting; a warning means sync needs attention. Open the gear for the full reason and affected windows. Icons Only is the default on iPhone. Drag the controls to an edge; portrait and landscape positions are remembered separately."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。同步无法开始或中断时，即使开启精简显示也会保留原因；点击齿轮可查看各个受影响窗口的详情。"
+            "value" : "短按主图标暂停或继续。沙漏表示正在连接或等待，警告图标表示同步需要处理。点击齿轮查看完整原因和受影响窗口。iPhone 默认仅显示图标。拖动控制可停靠边缘，竖屏和横屏分别记住位置。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。同步無法開始或中斷時，即使開啟精簡顯示也會保留原因；點擊齒輪可查看各個受影響視窗的詳情。"
+            "value" : "短按主圖示暫停或繼續。沙漏表示正在連接或等待，警告圖示表示同步需要處理。點擊齒輪查看完整原因和受影響視窗。iPhone 預設僅顯示圖示。拖動控制可停靠邊緣，直屏和橫屏分別記住位置。"
           }
         }
+      }
+    },
+    "lc.tapSync.copyDiagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Sync Diagnostics" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制同步诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製同步診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Diagnostics Copied" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已复制诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已複製診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copies the latest pause and input rejection details to help diagnose a problem. Uses window numbers and keeps the report on this device until you share it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制最近一次暂停与输入拒收的详情，帮助诊断问题。报告使用窗口编号，分享前只保留在本机。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製最近一次暫停與輸入拒收的詳情，協助診斷問題。報告使用視窗編號，分享前只保留在本機。" } }
       }
     },
     "lc.tapSync.description" : {
@@ -33841,6 +34196,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拖動可移動控制項，也可使用輔助使用動作選擇角落。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.expiredInput" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: input arrived too late or out of order and was discarded. Wait for all windows to finish loading, align the screens, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：输入延迟过久或顺序异常，已丢弃。请等所有窗口加载完毕，对齐画面后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：輸入延遲過久或順序異常，已丟棄。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -34650,6 +35028,29 @@
         }
       }
     },
+    "lc.tapSync.resumeOnSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume When Returning to Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源时自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源時自動恢復"
+          }
+        }
+      }
+    },
     "lc.tapSync.saveGroup" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34995,6 +35396,29 @@
         }
       }
     },
+    "lc.tapSync.syncReturnGesture" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync the First Returning Gesture"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回来源的第一次手势"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回來源的第一個手勢"
+          }
+        }
+      }
+    },
     "lc.tapSync.tapsOnlyHelp" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35116,19 +35540,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused: a window did not respond in time. Align the screens before restarting."
+            "value" : "Paused: a window did not acknowledge input within 3 seconds. Wait for all windows to finish loading, align the screens, then resume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暂停：有窗口未及时响应。请对齐画面后再启动。"
+            "value" : "已暂停：有窗口超过 3 秒未确认输入。请等所有窗口加载完毕，对齐画面后再继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暫停：有視窗未及時回應。請對齊畫面後再啟動。"
+            "value" : "已暫停：有視窗超過 3 秒未確認輸入。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -35221,6 +35645,75 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設為同步來源"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForFirstReturn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source to resume and sync that gesture."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源后自动继续，并同步这次手势。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源後自動恢復，並同步這個手勢。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused for rotation. Lift all fingers; sync resumes when the windows settle."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转期间整组已暂停。请抬起所有手指，窗口稳定后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋轉期間整組已暫停。請抬起所有手指，視窗穩定後自動恢復。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source, then lift all fingers to resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源并抬起所有手指后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源並抬起所有手指後自動恢復。"
           }
         }
       }
@@ -37823,6 +38316,443 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 未開啟可用的虛擬視窗。請檢查啟動設定後再試。"
+          }
+        }
+      }
+    },
+    "lc.dock.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號"
+          }
+        }
+      }
+    },
+    "lc.dock.collapse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起 Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收合 Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.globalControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multitask Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多任务控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多工控制"
+          }
+        }
+      }
+    },
+    "lc.dock.drag" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动 Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動 Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.dragHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag this handle to move the Dock. Swipe outward below the handle or use the Dock menu to hide it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动此把手移动 Dock。在把手下方向外滑动或使用 Dock 菜单可隐藏。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖動此把手移動 Dock。在把手下方向外滑動或使用 Dock 選單可隱藏。"
+          }
+        }
+      }
+    },
+    "lc.dock.showAccountLabels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Account Names in Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Dock 显示账号名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Dock 顯示帳號名稱"
+          }
+        }
+      }
+    },
+    "lc.dock.resetPosition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Dock Positions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重设 Dock 位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設 Dock 位置"
+          }
+        }
+      }
+    },
+    "lc.dock.position" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock Position"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock 位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock 位置"
+          }
+        }
+      }
+    },
+    "lc.dock.hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Dock to Edge"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 Dock 隐藏到边缘"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將 Dock 隱藏到邊緣"
+          }
+        }
+      }
+    },
+    "lc.dock.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.settingsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Swipe outward below the handle or use the Dock menu to hide it. Tap the edge tab or swipe inward to show it again. Hide Collapsed Dock hides the arrow. Enable Swipe Only When Arrow Is Hidden to ignore taps in its invisible touch area; swipe inward near the original arrow position to reveal it. VoiceOver activation and Reset Dock Positions still reveal a hidden Dock. Account buttons scroll when space is limited."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在把手下方向外滑动或使用 Dock 菜单隐藏，再点按边缘标签或向内滑动显示。「隐藏折叠 Dock」会隐藏箭头。开启「隐藏箭头时仅滑动唤回」后，隐形触控区忽略点按；从原箭头附近向内滑动显示。VoiceOver 激活和「重设 Dock 位置」仍可恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在把手下方向外滑動或使用 Dock 選單隱藏，再點按邊緣標籤或向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭。開啟「隱藏箭頭時只用滑動喚回」後，隱形觸控區忽略點按；從原箭頭附近向內滑動顯示。VoiceOver 啟用和「重設 Dock 位置」仍可恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
+          }
+        }
+      }
+    },
+    "lc.dock.swipeToRevealOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe Only When Arrow Is Hidden"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏箭头时仅滑动唤回"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏箭頭時只用滑動喚回"
+          }
+        }
+      }
+    },
+    "lc.dock.diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "诊断"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診斷"
+          }
+        }
+      }
+    },
+    "lc.settings.multitaskOverlay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overlay Fullscreen Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全屏控制列覆盖模式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全螢幕控制列覆蓋模式"
+          }
+        }
+      }
+    },
+    "lc.settings.multitaskOverlayDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show the control bar over a fullscreen app without changing its size when the Dock expands or collapses. The controls cover a small part of the app while visible. Applies to fullscreen virtual windows; off by default."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在全屏应用上覆盖显示控制列，展开或收起 Dock 时不会改变应用尺寸。控制列显示时会覆盖应用的一小部分。仅适用于全屏虚拟窗口，默认关闭。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在全螢幕 App 上覆蓋顯示控制列，展開或收合 Dock 時不會改變 App 尺寸。控制列顯示時會覆蓋 App 的一小部分。僅適用於全螢幕虛擬視窗，預設關閉。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.forceAmbientAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient Audio (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音频（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音訊（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.forceAmbientAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep playback audio mixable across this app's multitasking accounts. Close all accounts and reopen them after changing this option. Ambient honours the device's silent switch and allows other music to keep playing. Use the app's own sound settings to mute the other accounts. Recording audio keeps its original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让此应用的多开账号播放音频时允许混音。更改后请关闭所有账号再重新打开。Ambient 遵从设备的静音设置，并允许其他音乐继续播放。请在游戏内的声音设置中静音其他账号。录音保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓此應用的多開帳號播放音訊時允許混音。更改後請關閉所有帳號再重新開啟。Ambient 遵從裝置的靜音設定，並允許其他音樂繼續播放。請在遊戲內的聲音設定中靜音其他帳號。錄音保持原有行為。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.keepBackgroundAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Background Music (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音乐（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音樂（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.keepBackgroundAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep music from stopping when this app detects audio from another account. Music may also mix with external music or ads. Close all accounts and reopen them after changing this option. Use the app's own sound settings to mute the other accounts. Recording and real system interruptions keep their original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此应用因检测到其他账号的音频而停止音乐。音乐也可能与外部音乐或广告混播。更改后请关闭所有账号再重新打开。请在游戏内的声音设置中静音其他账号。录音和真正的系统音频中断保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此應用因偵測到其他帳號的音訊而停止音樂。音樂也可能與外部音樂或廣告混播。更改後請關閉所有帳號再重新開啟。請在遊戲內的聲音設定中靜音其他帳號。錄音和真正的系統音訊中斷保持原有行為。"
           }
         }
       }

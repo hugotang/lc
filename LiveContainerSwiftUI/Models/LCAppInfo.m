@@ -592,6 +592,33 @@
     [self save];
 }
 
+- (bool)useWindowScreenSize {
+    return [_info[@"LCUseWindowScreenSize"] boolValue];
+}
+
+- (void)setUseWindowScreenSize:(bool)useWindowScreenSize {
+    _info[@"LCUseWindowScreenSize"] = @(useWindowScreenSize);
+    [self save];
+}
+
+- (bool)forceAmbientAudio {
+    return [_info[@"LCForceAmbientAudio"] boolValue];
+}
+
+- (void)setForceAmbientAudio:(bool)forceAmbientAudio {
+    _info[@"LCForceAmbientAudio"] = @(forceAmbientAudio);
+    [self save];
+}
+
+- (bool)keepBackgroundAudio {
+    return [_info[@"LCKeepBackgroundAudio"] boolValue];
+}
+
+- (void)setKeepBackgroundAudio:(bool)keepBackgroundAudio {
+    _info[@"LCKeepBackgroundAudio"] = @(keepBackgroundAudio);
+    [self save];
+}
+
 - (LCOrientationLock)orientationLock {
     return (LCOrientationLock) [((NSNumber*) _info[@"LCOrientationLock"]) intValue];
 }

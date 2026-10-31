@@ -14,6 +14,9 @@
 #import "utils.h"
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "TapSyncCoordinator.h"
+#import "WindowContentGeometry.h"
+
+static NSUUID *LCWindowGeometryClipboardRequest;
 
 @interface AppSceneViewController()
 @property int resizeDebounceToken;
@@ -29,12 +32,19 @@
 @property(nonatomic) NSExtension* extension;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @property(nonatomic) BOOL didCompleteInitialization;
+@property(nonatomic, copy) dispatch_block_t launchRequest;
+@property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
+@property(nonatomic) CGSize initialLogicalWindowSize;
 @end
 
 @implementation AppSceneViewController
 
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate {
+    return [self initWithBundleId:bundleId dataUUID:dataUUID delegate:delegate deferLaunch:NO];
+}
+
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate deferLaunch:(BOOL)deferLaunch {
     self = [super initWithNibName:nil bundle:nil];
     self.delegate = delegate;
     self.dataUUID = dataUUID;
@@ -73,6 +83,7 @@
         @"bookmarks": bookmarks,
         @"lcHomePath": NSHomeDirectory(),
     }.mutableCopy;
+    userInfo[@"virtualWindow"] = @(!self.isNativeWindow);
     if (self.tapSyncPeer) userInfo[@"tapSyncEndpoint"] = self.tapSyncPeer.endpoint;
     
     NSString* launchAppUrlScheme = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
@@ -115,24 +126,59 @@
             [weakSelf appTerminationCleanUp];
         });
     }];
-    [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (self.didCompleteInitialization || self.isAppTerminationCleanUpCalled) return;
-            self.pid = identifier ? [self.extension pidForRequestIdentifier:identifier] : 0;
-            if (identifier && self.pid > 0) {
-                self.tapSyncPeer.expectedProcessIdentifier = self.pid;
-                [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
-                self.identifier = identifier;
-                [self completeInitializationWithError:nil];
-                [self setUpAppPresenter];
-            } else {
-                [self completeInitializationWithError:[self startupError]];
-                [self appTerminationCleanUp];
+    void (^beginRequest)(void) = ^{
+        AppSceneViewController *controller = weakSelf;
+        if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+        [controller.extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+                controller.pid = identifier ? [controller.extension pidForRequestIdentifier:identifier] : 0;
+                if (identifier && controller.pid > 0) {
+                    controller.tapSyncPeer.expectedProcessIdentifier = controller.pid;
+                    [MultitaskManager registerMultitaskContainerWithContainer:controller.dataUUID];
+                    controller.identifier = identifier;
+                    [controller completeInitializationWithError:nil];
+                    [controller setUpAppPresenter];
+                } else {
+                    [controller completeInitializationWithError:[controller startupError]];
+                    [controller appTerminationCleanUp];
+                }
+            });
+        }];
+    };
+    bool guestIsShared = false;
+    NSBundle *guestBundle = !self.isNativeWindow ? [LCSharedUtils findBundleWithBundleId:bundleId isSharedAppOut:&guestIsShared] : nil;
+    NSDictionary *guestInfo = guestBundle ? [NSDictionary dictionaryWithContentsOfFile:[guestBundle.bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]] : nil;
+    BOOL reportWindowGeometry = [guestInfo[@"LCUseWindowScreenSize"] boolValue] && ![guestInfo[@"dontInjectTweakLoader"] boolValue];
+    self.launchRequest = ^{
+        AppSceneViewController *controller = weakSelf;
+        if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+        if (reportWindowGeometry) {
+            // The current orientation's laid-out content is also used for the
+            // first scene and later rotation. Divide the saved scale once.
+            CGSize size = LCWindowContentLogicalSize(controller.view.bounds.size, controller.scaleRatio);
+            if (size.width >= 1 && size.height >= 1) {
+                controller.initialLogicalWindowSize = size;
+                userInfo[@"initialWindowWidth"] = @(size.width);
+                userInfo[@"initialWindowHeight"] = @(size.height);
+                item.userInfo = userInfo;
             }
-        });
-    }];
+        }
+        beginRequest();
+    };
+    if (!deferLaunch) {
+        if (reportWindowGeometry) dispatch_async(dispatch_get_main_queue(), ^{ [self startApp]; });
+        else [self startApp];
+    }
     
     return self;
+}
+
+- (void)startApp {
+    NSAssert(NSThread.isMainThread, @"Guest launch geometry is prepared on the main thread");
+    dispatch_block_t request = self.launchRequest;
+    self.launchRequest = nil;
+    if (request) request();
 }
 
 - (NSError *)startupError {
@@ -167,6 +213,13 @@
         settings.level = 1;
         settings.persistenceIdentifier = self.dataUUID;
         settings.statusBarDisabled = !self.isNativeWindow;
+        if (!self.isNativeWindow) {
+            // Initial parameters are delivered before later hosting-view
+            // updates. Supply the laid-out logical size here as well, including
+            // at 100% scale, rather than starting with the physical display.
+            settings.frame = LCWindowContentSceneFrame((CGRect){CGPointZero, self.view.bounds.size},
+                self.scaleRatio, NO, settings.interfaceOrientation);
+        }
         //settings.previewMaximumSize =
         //settings.deviceOrientationEventsEnabled = YES;
         if(!self.usesHostingControllerAPI) {
@@ -192,6 +245,19 @@
         /// !! do NOT use self.hostingController.sceneView here as it breaks keyboard focus on iOS 26 below. I have no idea why this happens even though both return the same object. Maybe sceneView didn't initialize its ViewController properly?
         self.contentView = self.hostingController.sceneViewController.view;
         self.contentView.clipsToBounds = NO;
+        if (!self.isNativeWindow) {
+            __weak typeof(self) weakController = self;
+            self.hostingGeometryUpdate = [[LCWindowHostingGeometryUpdate alloc]
+                initWithView:self.contentView controller:(id<LCWindowHostingGeometryUpdating>)self.hostingController
+                canUpdate:^BOOL {
+                    AppSceneViewController *controller = weakController;
+                    return controller && !controller.shouldIgnoreSceneUpdates &&
+                        !controller.isAppTerminationCleanUpCalled && controller.hostingController != nil;
+                }];
+            // Prepare both logical bounds and saved scale before any initial
+            // scene configuration can deliver geometry to the guest.
+            LCWindowContentApplyHostingSize(self.contentView, self.view.bounds.size, self.scaleRatio);
+        }
         // _scenePresenter was a property in 26, but made only ivar in 27
         self.presenter = [self.contentView valueForKey:@"_scenePresenter"];
         self.sceneID = self.presenter.identifier;
@@ -223,6 +289,10 @@
         
         // Now it's time to get the initial settings from decorated VC
         [self.delegate appSceneVCWillActivateScene:self];
+        if (!self.isNativeWindow) {
+            self.shouldSkipDebounceOnce = YES;
+            [self updateFrameWithSettingsBlock:nil];
+        }
         [self addChildViewController:self.hostingController.sceneViewController];
         
         // For new API, let FBSSceneObserver send host scene events instead of NSExtensionContext
@@ -250,6 +320,7 @@
         
         self.contentView = [[UIView alloc] init];
         [self.contentView addSubview:self.presenter.presentationView];
+        self.contentView.layer.sublayerTransform = CATransform3DMakeScale(self.scaleRatio, self.scaleRatio, 1);
     }
     [self.view addSubview:_contentView];
     
@@ -266,6 +337,7 @@
     }];
     self.contentView.layer.anchorPoint = CGPointMake(0, 0);
     self.contentView.layer.position = CGPointMake(0, 0);
+    [self.hostingGeometryUpdate requestUpdate];
     
     [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
 }
@@ -298,6 +370,10 @@
     }
 }
 - (void)updateFrameWithSettingsBlock:(void (^)(UIMutableApplicationSceneSettings *settings))block {
+    // Before the private scene exists, this is only Auto Layout preparation.
+    // Applying a saved scale here would divide the host guest view itself and
+    // then divide it again when serializing the launch dimensions.
+    if (!self.presenter || self.isAppTerminationCleanUpCalled) return;
     __block int currentDebounceToken = ++_resizeDebounceToken;
     dispatch_block_t queueBlock = ^{
         if(currentDebounceToken != self.resizeDebounceToken) {
@@ -307,16 +383,9 @@
             settings.deviceOrientation = UIDevice.currentDevice.orientation;
             settings.interfaceOrientation = self.view.window.windowScene.interfaceOrientation;
             CGRect frame = self.view.frame;
-            if(!self.usesHostingControllerAPI) {
-                frame.size.width /= self.scaleRatio;
-                frame.size.height /= self.scaleRatio;
-            }
-            if(UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
-                CGSize size = frame.size;
-                frame.size.width = size.height;
-                frame.size.height = size.width;
-            }
-            settings.frame = frame;
+            frame.size = self.view.bounds.size;
+            settings.frame = LCWindowContentSceneFrame(frame, self.scaleRatio,
+                self.usesHostingControllerAPI, settings.interfaceOrientation);
             if(block) {
                 block(settings);
             }
@@ -355,15 +424,67 @@
     }
     
     if (self.contentView) {
-        BOOL isiOS26 = NO;
-        if(@available(iOS 19.0, *)) { if(@available(iOS 27.0, *)) {} else isiOS26 = YES; }
-        // Discard position
-        frame.origin = CGPointZero;
-        self.contentView.frame = frame;
+        if (self.hostingController && !self.isNativeWindow) {
+            LCWindowContentApplyHostingSize(self.contentView, frame.size, self.scaleRatio);
+            [self.hostingGeometryUpdate requestUpdate];
+        } else {
+            frame.origin = CGPointZero;
+            self.contentView.frame = frame;
+        }
     } else {
         // This method can be called while contentView is nil to set up initial frame
         self.view.frame = frame;
     }
+}
+
+- (void)setShouldIgnoreSceneUpdates:(BOOL)shouldIgnoreSceneUpdates {
+    _shouldIgnoreSceneUpdates = shouldIgnoreSceneUpdates;
+    if (shouldIgnoreSceneUpdates) [self.hostingGeometryUpdate cancelPendingUpdate];
+}
+
+- (NSDictionary *)windowGeometryDiagnostics {
+    UIView *host = self.viewIfLoaded;
+    UIWindow *window = host.window;
+    UIApplicationSceneSettings *scene = self.presenter.scene.settings;
+    return @{
+        @"contentBounds": NSStringFromCGRect(host.bounds),
+        @"hostingBounds": NSStringFromCGRect(self.contentView.bounds),
+        @"hostingFrame": NSStringFromCGRect(self.contentView.frame),
+        @"hostingTransform": NSStringFromCGAffineTransform(self.contentView.transform),
+        @"initialLogicalSize": NSStringFromCGSize(self.initialLogicalWindowSize),
+        @"expectedLogicalSize": NSStringFromCGSize(LCWindowContentLogicalSize(host.bounds.size, self.scaleRatio)),
+        @"remoteSceneFrame": NSStringFromCGRect(scene.frame),
+        @"remoteSceneOrientation": @(scene.interfaceOrientation),
+        @"hostWindowBounds": NSStringFromCGRect(window.bounds),
+        @"hostOrientation": @(window.windowScene.interfaceOrientation),
+        @"contentScale": @(self.scaleRatio), @"usesHostingController": @(self.usesHostingControllerAPI),
+        @"geometrySubmissionSupported": @([self.hostingController respondsToSelector:@selector(_updateSceneSettingsFromSettingsProvidersWithFence:)]),
+        @"geometrySubmissions": @(self.hostingGeometryUpdate.committedUpdateCount),
+        @"ignoresSceneUpdates": @(self.shouldIgnoreSceneUpdates),
+        @"timestamp": @(NSProcessInfo.processInfo.systemUptime),
+    };
+}
+- (void)copyWindowGeometryDiagnostics {
+    NSAssert(NSThread.isMainThread, @"Window diagnostics start on the main thread");
+    NSUUID *request = NSUUID.UUID;
+    LCWindowGeometryClipboardRequest = request;
+    NSMutableDictionary *report = [@{
+        @"version": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
+        @"hostAtRequest": [self windowGeometryDiagnostics],
+    } mutableCopy];
+    __weak typeof(self) weakSelf = self;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *guest) {
+        if (LCWindowGeometryClipboardRequest != request) return;
+        LCWindowGeometryClipboardRequest = nil;
+        AppSceneViewController *controller = weakSelf;
+        report[@"hostAtReply"] = controller ? [controller windowGeometryDiagnostics] : @{};
+        report[@"guestStatus"] = guest ? @"received" : @"unavailableOrTimedOut";
+        report[@"guest"] = guest ?: @{};
+        NSData *data = [NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
+        if (data) UIPasteboard.generalPasteboard.string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    };
+    if (self.tapSyncPeer) [self.tapSyncPeer readWindowGeometryWithReply:finish];
+    else finish(nil);
 }
 
 - (BOOL)isAppRunning {
@@ -379,6 +500,8 @@
         return;
     }
     _isAppTerminationCleanUpCalled = true;
+    self.launchRequest = nil;
+    [self.hostingGeometryUpdate invalidate];
     [LCTapSyncCoordinator.shared unregisterScene:self];
     if (!self.didCompleteInitialization) [self completeInitializationWithError:[self startupError]];
     [PiPManager.shared stopPiPForVC:self];

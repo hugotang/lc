@@ -4,6 +4,11 @@
 #import "../LiveContainer/utils.h"
 #import <LocalAuthentication/LocalAuthentication.h>
 #import "Localization.h"
+#import "WindowScreen.h"
+
+@interface LiveProcessHandler : NSObject
++ (NSDictionary *)retrievedAppInfo;
+@end
 
 UIInterfaceOrientation LCOrientationLock = UIInterfaceOrientationUnknown;
 NSMutableArray<NSString*>* LCSupportedUrlSchemes = nil;
@@ -12,6 +17,10 @@ BOOL launchURLProcessed = NO;
 __attribute__((constructor))
 static void UIKitGuestHooksInit() {
     if(!NSUserDefaults.lcGuestAppId) return;
+    Class handler = NSClassFromString(@"LiveProcessHandler");
+    NSDictionary *launchInfo = [handler respondsToSelector:@selector(retrievedAppInfo)] ? [handler retrievedAppInfo] : nil;
+    if (LCWindowScreenShouldEnable(NSUserDefaults.isLiveProcess, NSUserDefaults.lcGuestAppId,
+                                  NSUserDefaults.guestAppInfo, launchInfo)) LCWindowScreenInstall(launchInfo);
     swizzle(UIApplication.class, @selector(_applicationOpenURLAction:payload:origin:), @selector(hook__applicationOpenURLAction:payload:origin:));
     swizzle(UIApplication.class, @selector(_connectUISceneFromFBSScene:transitionContext:), @selector(hook__connectUISceneFromFBSScene:transitionContext:));
     swizzle(UIApplication.class, @selector(openURL:options:completionHandler:), @selector(hook_openURL:options:completionHandler:));

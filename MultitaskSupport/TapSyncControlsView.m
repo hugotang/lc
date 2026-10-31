@@ -50,7 +50,7 @@
 - (void)toggleSync {
     if (self.showsPerformance) { if (self.configure) self.configure(); return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
-    if (sync.active || sync.starting) [sync pause];
+    if (sync.active || sync.starting || sync.recovering) [sync pause];
     else [sync start];
 }
 - (void)openSettings {
@@ -65,37 +65,35 @@
 - (void)refresh {
     if (self.showsPerformance) { [self refreshPerformance]; [self refreshPlacementActions]; return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
-    BOOL compact = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncCompactControls"];
-    BOOL running = sync.active || sync.starting;
+    NSNumber *compactPreference = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCTapSyncCompactControls"];
+    BOOL compact = compactPreference ? compactPreference.boolValue : UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
+    BOOL running = sync.active || sync.starting || sync.recovering;
     BOOL interrupted = sync.hasInterruption;
-    NSString *title = [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
+    NSString *title = sync.recovering ? @"lc.tapSync.paused".loc : [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
         (long)sync.targetContainers.count];
     UIButtonConfiguration *configuration = UIButtonConfiguration.tintedButtonConfiguration;
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
     configuration.baseBackgroundColor = running ? UIColor.systemOrangeColor : interrupted ? UIColor.systemYellowColor : UIColor.systemBlueColor;
     configuration.baseForegroundColor = UIColor.labelColor;
-    configuration.image = [UIImage systemImageNamed:running ? @"pause.fill" : interrupted ? @"exclamationmark.triangle.fill" : @"play.fill"];
+    NSString *symbol = sync.starting || sync.recovering ? @"hourglass" : sync.active ? @"pause.fill" :
+        interrupted ? @"exclamationmark.triangle.fill" : @"play.fill";
+    configuration.image = [UIImage systemImageNamed:symbol withConfiguration:
+        [UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightMedium]];
     configuration.imagePadding = 7;
     configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 12);
-    configuration.title = sync.starting ? @"lc.tapSync.starting".loc : compact ?
-        [NSString stringWithFormat:@"1 → %lu", (unsigned long)sync.targetContainers.count] : title;
+    configuration.title = compact ? nil : sync.starting ? @"lc.tapSync.starting".loc : title;
     NSMutableArray *affected = [NSMutableArray array];
     for (NSString *container in sync.interruptedContainers) {
         [affected addObject:[NSString stringWithFormat:@"#%lu", (unsigned long)[sync windowNumberForContainer:container]]];
     }
     NSString *status = affected.count ? [NSString stringWithFormat:@"%@ · %@", [affected componentsJoinedByString:@", "], sync.statusKey.loc] : sync.statusKey.loc;
-    // Compact controls must not hide a failed start behind a momentary icon change.
-    configuration.subtitle = !running && (!compact || interrupted) ? status : nil;
+    // Keep long reasons in setup and VoiceOver, so an interruption never grows
+    // the floating control across a small game window.
+    configuration.subtitle = nil;
     configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
-    configuration.subtitleLineBreakMode = interrupted ? NSLineBreakByWordWrapping : NSLineBreakByTruncatingTail;
     configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
         NSMutableDictionary *result = attributes.mutableCopy;
         result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-        return result;
-    };
-    configuration.subtitleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
-        NSMutableDictionary *result = attributes.mutableCopy;
-        result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption2];
         return result;
     };
     self.toggleButton.configuration = configuration;
@@ -108,6 +106,7 @@
     settings.baseForegroundColor = UIColor.labelColor;
     self.settingsButton.configuration = settings;
     self.settingsButton.accessibilityLabel = @"lc.tapSync.configure".loc;
+    self.settingsButton.accessibilityValue = interrupted || sync.recovering ? status : nil;
     if (interrupted && ![self.lastAnnouncedInterruption isEqualToString:status]) {
         self.lastAnnouncedInterruption = status;
         if (self.window) UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, status);

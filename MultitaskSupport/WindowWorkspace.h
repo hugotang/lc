@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) BOOL singleRowInLandscape;
 @property(nonatomic, readonly) BOOL reservePortraitTop;
 @property(nonatomic, readonly) BOOL reservePortraitBottom;
+@property(nonatomic, readonly) BOOL reserveLandscapeTop;
+@property(nonatomic, readonly) BOOL reserveLandscapeBottom;
 // Only container identifiers and the input mode are saved; restoring never enables input forwarding.
 @property(nonatomic, copy, readonly) NSDictionary *tapSyncGroup;
 @property(nonatomic, copy, readonly) NSDictionary *propertyList;
@@ -26,6 +28,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
                    singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
                   reservePortraitBottom:(BOOL)reservePortraitBottom;
+- (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
+                   singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
+                  reservePortraitBottom:(BOOL)reservePortraitBottom reserveLandscapeTop:(BOOL)reserveLandscapeTop
+                 reserveLandscapeBottom:(BOOL)reserveLandscapeBottom;
 @end
 
 @interface LCNamedWorkspace : NSObject
@@ -38,6 +44,8 @@ typedef NS_ENUM(NSInteger, LCWorkspaceLayoutPreference) {
     LCWorkspaceLayoutPreferenceSingleRowInLandscape,
     LCWorkspaceLayoutPreferenceReservePortraitTop,
     LCWorkspaceLayoutPreferenceReservePortraitBottom,
+    LCWorkspaceLayoutPreferenceReserveLandscapeTop,
+    LCWorkspaceLayoutPreferenceReserveLandscapeBottom,
 };
 
 // Newest saved first. Renaming and preference edits preserve identity and ordering.

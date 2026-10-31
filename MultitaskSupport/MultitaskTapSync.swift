@@ -75,7 +75,7 @@ import Combine
         guard panelController == nil else { return }
         let host = MultitaskDockManager.shared.windowHostingView
         coordinator.host = host
-        if coordinator.isActive || coordinator.isStarting { coordinator.pause() }
+        if coordinator.isActive || coordinator.isStarting || coordinator.isRecovering { coordinator.pause() }
         guard let window = host.window ?? (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first,
               var presenter = window.rootViewController else { return }
         while let next = presenter.presentedViewController, !next.isBeingDismissed { presenter = next }
@@ -108,7 +108,7 @@ struct MultitaskTapSyncActions: View {
         Button { manager.presentPanel() } label: {
             Label("lc.tapSync.title".loc, systemImage: "hand.tap")
         }
-        if manager.coordinator.isActive || manager.coordinator.isStarting {
+        if manager.coordinator.isActive || manager.coordinator.isStarting || manager.coordinator.isRecovering {
             Button { manager.coordinator.pause() } label: {
                 Label("lc.tapSync.pause".loc, systemImage: "pause.circle")
             }
@@ -144,8 +144,10 @@ struct MultitaskTapSyncWindowActions: View {
 private struct MultitaskTapSyncPanel: View {
     @ObservedObject private var manager = MultitaskTapSyncManager.shared
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("LCTapSyncCompactControls", store: LCUtils.appGroupUserDefault) private var compactControls = false
+    @AppStorage("LCTapSyncCompactControls", store: LCUtils.appGroupUserDefault) private var compactControls = UIDevice.current.userInterfaceIdiom == .phone
     @AppStorage("LCTapSyncShowWindowRoles", store: LCUtils.appGroupUserDefault) private var showWindowRoles = true
+    @State private var copyingDiagnostics = false
+    @State private var diagnosticsCopied = false
 
     var body: some View {
         NavigationStack {
@@ -187,6 +189,19 @@ private struct MultitaskTapSyncPanel: View {
                          ? "lc.tapSync.alignWindows".loc : "lc.tapSync.description".loc)
                 }
                 MultitaskTapSyncModeSection(mode: Binding(get: { manager.coordinator.mode }, set: { manager.coordinator.mode = $0 }))
+                Section {
+                    Toggle("lc.tapSync.resumeOnSource".loc, isOn: Binding(
+                        get: { manager.coordinator.resumeOnSource }, set: { manager.coordinator.resumeOnSource = $0 }))
+                    Toggle("lc.tapSync.syncReturnGesture".loc, isOn: Binding(
+                        get: { manager.coordinator.syncReturnGesture }, set: { manager.coordinator.syncReturnGesture = $0 }))
+                        .disabled(!manager.coordinator.resumeOnSource)
+                    Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
+                        get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
+                } header: {
+                    Text("lc.tapSync.automaticResume".loc)
+                } footer: {
+                    Text("lc.tapSync.automaticResumeHelp".loc)
+                }
                 Section {
                     if manager.windows.isEmpty {
                         Text("lc.tapSync.noWindows".loc).foregroundStyle(.secondary)
@@ -249,6 +264,26 @@ private struct MultitaskTapSyncPanel: View {
                 }
                 Section {
                     MultitaskPerformanceActions()
+                }
+                Section {
+                    Button {
+                        copyingDiagnostics = true
+                        diagnosticsCopied = false
+                        manager.coordinator.readInputDiagnostics { report in
+                            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
+                               let text = String(data: data, encoding: .utf8) {
+                                UIPasteboard.general.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true])
+                                diagnosticsCopied = true
+                            }
+                            copyingDiagnostics = false
+                        }
+                    } label: {
+                        Label((diagnosticsCopied ? "lc.tapSync.diagnosticsCopied" : "lc.tapSync.copyDiagnostics").loc,
+                              systemImage: diagnosticsCopied ? "checkmark" : "doc.on.doc")
+                    }
+                    .disabled(copyingDiagnostics)
+                } footer: {
+                    Text("lc.tapSync.diagnosticsHelp".loc)
                 }
                 Section {
                     DisclosureGroup("lc.tapSync.help".loc) {

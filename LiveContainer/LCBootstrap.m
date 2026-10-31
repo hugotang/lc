@@ -16,9 +16,15 @@
 #include <stdlib.h>
 #include "../litehook/src/litehook.h"
 #import "Tweaks/Tweaks.h"
+#import "Tweaks/AmbientAudio.h"
+#import "Tweaks/BackgroundAudio.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
+@interface LiveProcessHandler : NSObject
++ (NSDictionary *)retrievedAppInfo;
+@end
+
 static int (*appMain)(int, char**, char**);
 NSUserDefaults *lcUserDefaults;
 NSUserDefaults *lcSharedDefaults;
@@ -524,6 +530,16 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);
     
     BOOL hookDlopen = !isSideStore && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
+    Class processHandler = NSClassFromString(@"LiveProcessHandler");
+    NSDictionary *audioLaunchInfo = [processHandler respondsToSelector:@selector(retrievedAppInfo)] ?
+        [processHandler retrievedAppInfo] : nil;
+    if (LCAmbientAudioShouldEnable(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo)) {
+        // Install before dyld hides host images and before guest initializers.
+        LCAmbientAudioInstall();
+    }
+    if (LCBackgroundAudioShouldEnable(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo)) {
+        LCBackgroundAudioInstall(appBundle.executablePath);
+    }
     DyldHooksInit([guestAppInfo[@"hideLiveContainer"] boolValue], hookDlopen, [guestAppInfo[@"spoofSDKVersion"] unsignedIntValue]);
     
     if([guestContainerInfo[@"spoofIdentifierForVendor"] boolValue]) {

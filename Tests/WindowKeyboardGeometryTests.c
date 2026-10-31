@@ -70,9 +70,45 @@ static void testPortraitReservationsWithKeyboard(void) {
     }
 }
 
+static void testLandscapeReservationsWithKeyboard(void) {
+    LCWindowGridRect bounds = {0, 0, 1366, 1024}, safe = {12, 24, 1342, 980};
+    LCWindowGridRect keyboard = {0, 600, 1366, 424};
+    double rows[] = {0.4}, automaticColumns[] = {0.6}, singleRowColumns[] = {0.2, 0.5, 0.8};
+    for (int top = 0; top <= 1; ++top) {
+        for (int bottom = 0; bottom <= 1; ++bottom) {
+            LCWindowGridRect normal = LCWindowGridContentBoundsWithReservedAreas(bounds, safe, false, true, top, bottom);
+            LCWindowGridRect available = LCKeyboardAvailableRect(normal, keyboard);
+            assert(fabs(available.y + available.height - keyboard.y) < 1e-8);
+            assert(available.x == normal.x && available.width == normal.width);
+            assert(sameRect(LCKeyboardAvailableRect(normal, (LCWindowGridRect){0}), normal));
+            for (int singleRow = 0; singleRow <= 1; ++singleRow) {
+                LCWindowGridLayout layout = LCWindowGridLayoutMakeForOrientation(4, normal.width, normal.height, 2, 88, false, singleRow);
+                LCWindowGridLayout resized = layout;
+                resized.height = available.height;
+                const double *columns = singleRow ? singleRowColumns : automaticColumns;
+                const double *rowDividers = singleRow ? NULL : rows;
+                for (size_t i = 0; i < 4; ++i) {
+                    LCWindowGridRect before = LCWindowGridFrameWithDividers(layout, i, rowDividers, columns, NULL);
+                    LCWindowGridRect during = LCWindowGridFrameWithDividers(resized, i, rowDividers, columns, NULL);
+                    assert(before.x == during.x && before.width == during.width);
+                    assert(during.height > 0 && during.height < before.height);
+                    if (i / layout.columns == layout.rows - 1) {
+                        assert(fabs(available.y + during.y + during.height - keyboard.y) < 1e-8);
+                    }
+                    resized.height = LCKeyboardAvailableRect(normal, (LCWindowGridRect){0}).height;
+                    assert(sameRect(before, LCWindowGridFrameWithDividers(resized, i, rowDividers, columns, NULL)));
+                    resized.height = available.height;
+                }
+            }
+            assert(rows[0] == 0.4 && automaticColumns[0] == 0.6 && singleRowColumns[0] == 0.2);
+        }
+    }
+}
+
 int main(void) {
     testLandscapePreferenceWithKeyboard();
     testPortraitReservationsWithKeyboard();
+    testLandscapeReservationsWithKeyboard();
     LCWindowGridRect desktop = {0, 24, 1024, 720};
     LCWindowGridRect keyboard = {0, 500, 1024, 268};
     LCWindowGridRect available = LCKeyboardAvailableRect(desktop, keyboard);
