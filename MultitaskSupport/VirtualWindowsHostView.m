@@ -231,6 +231,9 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
                                                name:LCPerformanceDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(tapSyncStateDidChange:)
                                                name:LCTapSyncDidChangeNotification object:nil];
+    // Settings write through Swift's separate NSUserDefaults instance for the
+    // same App Group suite, and this notification names the instance that
+    // changed. Observing only lcSharedDefaults would miss those edits.
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(defaultsDidChange:)
                                                name:NSUserDefaultsDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationWillResignActive:)
@@ -285,6 +288,24 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
         }
     }
     return windows.copy;
+}
+
+// The synced window whose shorter side is smallest, or zero before layout.
+- (CGSize)smallestTapSyncWindowSize {
+    LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
+    CGSize smallest = CGSizeZero;
+    for (DecoratedAppSceneViewController *window in self.tapSyncWindows) {
+        NSString *container = window.appSceneVC.dataUUID;
+        if (![sync.sourceContainer isEqualToString:container] && ![sync.targetContainers containsObject:container]) continue;
+        CGSize size = window.view.bounds.size;
+        if (size.width <= 0 || size.height <= 0) continue;
+        if (smallest.width <= 0 || MIN(size.width, size.height) < MIN(smallest.width, smallest.height)) smallest = size;
+    }
+    return smallest;
+}
+
+- (BOOL)prefersCompactTapSyncControls {
+    return [LCTapSyncControlsView prefersCompactControlsForSmallestWindowSize:self.smallestTapSyncWindowSize];
 }
 
 - (BOOL)hasRestorableMinimizedWindows {
@@ -396,6 +417,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (void)layoutTapSyncOverlay {
     if (!self.tapSyncOverlay || self.tapSyncOverlay.hidden) return;
     self.tapSyncOverlay.frame = self.bounds;
+    self.tapSyncControls.smallestSyncedWindowSize = self.smallestTapSyncWindowSize;
     [self.tapSyncControls placeInBounds:self.tapSyncOverlay.bounds safeAreaInsets:self.safeAreaInsets];
     for (NSString *container in self.tapSyncRoleLabels) {
         UILabel *label = self.tapSyncRoleLabels[container];

@@ -221,6 +221,44 @@
     [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
     XCTAssertEqual(self.reveals, 1u);
 }
+- (void)testSwipeOnlyTapBrieflyShowsHiddenArrowWithoutRevealing {
+    UIView *tab = [self.control valueForKey:@"tab"];
+    self.control.tapToRevealEnabled = NO;
+    for (NSNumber *right in @[@NO, @YES]) {
+        [self showRight:right.boolValue hideArrow:YES];
+        XCTAssertTrue(tab.hidden);
+        [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        XCTAssertFalse(tab.hidden);
+        XCTAssertFalse(tab.userInteractionEnabled);
+        XCTAssertEqual(self.reveals, 0u);
+        XCTAssertFalse([[self.control valueForKey:@"revealIssued"] boolValue]);
+        // A layout refresh or hide during the hint restores the chosen artwork.
+        [self showRight:right.boolValue hideArrow:YES];
+        XCTAssertTrue(tab.hidden);
+        XCTAssertEqualWithAccuracy(tab.alpha, 0.8, 0.001);
+        [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        [self.control hide];
+        XCTAssertTrue(tab.hidden);
+    }
+    // A visible arrow has nothing to hint and stays unchanged.
+    [self showRight:YES hideArrow:NO];
+    [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+    XCTAssertFalse(tab.hidden);
+    XCTAssertEqualWithAccuracy(tab.alpha, 0.8, 0.001);
+    XCTAssertEqual(self.reveals, 0u);
+}
+- (void)testSwipeHintFadesBackToHiddenArrow {
+    UIView *tab = [self.control valueForKey:@"tab"];
+    self.control.tapToRevealEnabled = NO;
+    [self showRight:NO hideArrow:YES];
+    [self.control sendActionsForControlEvents:UIControlEventTouchUpInside];
+    XCTAssertFalse(tab.hidden);
+    XCTNSPredicateExpectation *hidden = [[XCTNSPredicateExpectation alloc]
+        initWithPredicate:[NSPredicate predicateWithFormat:@"hidden == YES"] object:tab];
+    XCTAssertEqual([XCTWaiter waitForExpectations:@[hidden] timeout:5], XCTWaiterResultCompleted);
+    XCTAssertEqualWithAccuracy(tab.alpha, 0.8, 0.001);
+    XCTAssertEqual(self.reveals, 0u);
+}
 - (void)testInwardDragsRevealFromEitherSideAndIgnoreOutwardOrVerticalDrags {
     for (NSNumber *right in @[@NO, @YES]) {
         [self showRight:right.boolValue hideArrow:NO];

@@ -34113,19 +34113,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the main icon to pause or resume. An hourglass means connecting or waiting; a warning means sync needs attention. Open the gear for the full reason and affected windows. Icons Only is the default on iPhone. Drag the controls to an edge; portrait and landscape positions are remembered separately."
+            "value" : "Tap the main icon to pause or resume. An hourglass means connecting or waiting; a warning means sync needs attention. Open the gear for the full reason and affected windows. Icons Only is the default while a synced window is small, such as on iPhone or with four windows on iPad. Drag the controls to an edge; portrait and landscape positions are remembered separately."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按主图标暂停或继续。沙漏表示正在连接或等待，警告图标表示同步需要处理。点击齿轮查看完整原因和受影响窗口。iPhone 默认仅显示图标。拖动控制可停靠边缘，竖屏和横屏分别记住位置。"
+            "value" : "短按主图标暂停或继续。沙漏表示正在连接或等待，警告图标表示同步需要处理。点击齿轮查看完整原因和受影响窗口。同步窗口较小时（例如 iPhone，或 iPad 同时开四个窗口）默认仅显示图标。拖动控制可停靠边缘，竖屏和横屏分别记住位置。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按主圖示暫停或繼續。沙漏表示正在連接或等待，警告圖示表示同步需要處理。點擊齒輪查看完整原因和受影響視窗。iPhone 預設僅顯示圖示。拖動控制可停靠邊緣，直屏和橫屏分別記住位置。"
+            "value" : "短按主圖示暫停或繼續。沙漏表示正在連接或等待，警告圖示表示同步需要處理。點擊齒輪查看完整原因和受影響視窗。同步視窗較小時（例如 iPhone，或 iPad 同時開四個視窗）預設僅顯示圖示。拖動控制可停靠邊緣，直屏和橫屏分別記住位置。"
           }
         }
       }

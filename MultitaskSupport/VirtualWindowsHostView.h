@@ -21,6 +21,8 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, readonly) BOOL isChoosingGridSwap;
 @property(nonatomic, readonly) BOOL canUndoGridSwap;
 @property(nonatomic, copy, readonly) NSArray<DecoratedAppSceneViewController *> *tapSyncWindows;
+// The Icons Only default for the current synced windows, before a saved choice.
+@property(nonatomic, readonly) BOOL prefersCompactTapSyncControls;
 - (void)arrangeWindowsInGrid;
 - (NSUInteger)restoreAllMinimizedWindows;
 - (void)setNeedsGridLayout;

@@ -6,6 +6,7 @@
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
 #import "TapSyncTestWindow.h"
+#include <math.h>
 
 // The UIKit host supplies real localized strings, without the app's bundle
 // redirect or its performance sampler. Neither test double is packaged.
@@ -45,6 +46,8 @@
     [self.sync pause];
     [self.sync selectSource:nil targets:@[]];
     [NSUserDefaults.lcSharedDefaults removeObjectForKey:@"LCTapSyncCompactControls"];
+    [NSUserDefaults.lcSharedDefaults removeObjectForKey:@"LCTapSyncControlsPortraitPosition"];
+    [NSUserDefaults.lcSharedDefaults removeObjectForKey:@"LCTapSyncControlsLandscapePosition"];
     self.controls = nil;
     self.sync = nil;
     [super tearDown];
@@ -56,16 +59,75 @@
     [self.controls placeInBounds:CGRectMake(0, 0, 320, 568) safeAreaInsets:UIEdgeInsetsZero];
     [self.controls layoutIfNeeded];
 }
-- (void)testPhoneDefaultUsesIconsAndSavedChoiceTakesPrecedence {
-    [self layoutInPhoneBounds];
+- (void)testSmallSyncedWindowsDefaultToIconsAndSavedChoiceTakesPrecedence {
+    // iPhone windows, four iPad windows in either orientation, then two iPad windows.
+    const CGSize compact[] = {{402, 437}, {874, 201}, {683, 512}, {512, 683}, {599, 1000}};
+    const CGSize text[] = {{683, 1024}, {1024, 683}, {600, 900}};
+    for (size_t index = 0; index < sizeof(compact) / sizeof(compact[0]); index++) {
+        XCTAssertTrue([LCTapSyncControlsView prefersCompactControlsForSmallestWindowSize:compact[index]]);
+        self.controls.smallestSyncedWindowSize = compact[index];
+        [self layoutInPhoneBounds];
+        XCTAssertEqual(self.toggleButton.configuration.title.length, 0u);
+    }
+    for (size_t index = 0; index < sizeof(text) / sizeof(text[0]); index++) {
+        XCTAssertFalse([LCTapSyncControlsView prefersCompactControlsForSmallestWindowSize:text[index]]);
+        self.controls.smallestSyncedWindowSize = text[index];
+        [self layoutInPhoneBounds];
+        XCTAssertGreaterThan(self.toggleButton.configuration.title.length, 0u);
+    }
+    // Before the windows are laid out, the device decides.
     BOOL phone = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
-    XCTAssertEqual(self.toggleButton.configuration.title.length == 0, phone);
+    for (NSValue *unknown in @[[NSValue valueWithCGSize:CGSizeZero], [NSValue valueWithCGSize:CGSizeMake(NAN, 500)]]) {
+        XCTAssertEqual([LCTapSyncControlsView prefersCompactControlsForSmallestWindowSize:unknown.CGSizeValue], phone);
+    }
+    // A saved choice wins in both directions, and the size updates the live controls.
     [NSUserDefaults.lcSharedDefaults setBool:YES forKey:@"LCTapSyncCompactControls"];
+    self.controls.smallestSyncedWindowSize = text[0];
     [self layoutInPhoneBounds];
     XCTAssertEqual(self.toggleButton.configuration.title.length, 0u);
     [NSUserDefaults.lcSharedDefaults setBool:NO forKey:@"LCTapSyncCompactControls"];
+    self.controls.smallestSyncedWindowSize = compact[0];
     [self layoutInPhoneBounds];
     XCTAssertGreaterThan(self.toggleButton.configuration.title.length, 0u);
+}
+- (void)testHostShapeSelectsSavedPosition {
+    NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
+    UIAccessibilityCustomAction *bottomRight = self.toggleButton.accessibilityCustomActions[3];
+    // Split View and Stage Manager can give a portrait-shaped host in a
+    // landscape scene. The shape decides, as it does for the grid and Dock.
+    [self.controls placeInBounds:CGRectMake(0, 0, 507, 1024) safeAreaInsets:UIEdgeInsetsZero];
+    XCTAssertTrue(bottomRight.actionHandler(bottomRight));
+    XCTAssertNotNil([defaults dictionaryForKey:@"LCTapSyncControlsPortraitPosition"]);
+    XCTAssertNil([defaults dictionaryForKey:@"LCTapSyncControlsLandscapePosition"]);
+    [defaults removeObjectForKey:@"LCTapSyncControlsPortraitPosition"];
+    [self.controls placeInBounds:CGRectMake(0, 0, 1366, 512) safeAreaInsets:UIEdgeInsetsZero];
+    bottomRight = self.toggleButton.accessibilityCustomActions[3];
+    XCTAssertTrue(bottomRight.actionHandler(bottomRight));
+    XCTAssertNotNil([defaults dictionaryForKey:@"LCTapSyncControlsLandscapePosition"]);
+    XCTAssertNil([defaults dictionaryForKey:@"LCTapSyncControlsPortraitPosition"]);
+}
+- (void)testIconsOfferLargeContentAndPointerDescriptions {
+    [NSUserDefaults.lcSharedDefaults setBool:YES forKey:@"LCTapSyncCompactControls"];
+    [self layoutInPhoneBounds];
+    BOOL hasInteraction = NO;
+    for (id<UIInteraction> interaction in self.controls.interactions) {
+        hasInteraction |= [interaction isKindOfClass:UILargeContentViewerInteraction.class];
+    }
+    XCTAssertTrue(hasInteraction);
+    for (UIButton *button in @[self.toggleButton, self.settingsButton]) {
+        XCTAssertTrue(button.showsLargeContentViewer);
+        XCTAssertGreaterThan(button.largeContentTitle.length, 0u);
+        XCTAssertNotNil(button.largeContentImage);
+        XCTAssertGreaterThan(button.toolTip.length, 0u);
+    }
+    XCTAssertEqualObjects(self.settingsButton.largeContentTitle, @"lc.tapSync.configure".loc);
+    [self.sync setValue:@"lc.tapSync.expiredInput" forKey:@"statusKey"];
+    [self.sync setValue:@[@"C"] forKey:@"interruptedContainers"];
+    [self layoutInPhoneBounds];
+    XCTAssertTrue([self.toggleButton.toolTip containsString:@"lc.tapSync.expiredInput".loc]);
+    XCTAssertTrue([self.settingsButton.toolTip containsString:@"#2"]);
+    // The enlarged title is the action, not the long reason.
+    XCTAssertFalse([self.toggleButton.largeContentTitle containsString:@"lc.tapSync.expiredInput".loc]);
 }
 - (void)testLongFailureKeepsIconControlsSmallAndDetailsAccessible {
     [NSUserDefaults.lcSharedDefaults setBool:YES forKey:@"LCTapSyncCompactControls"];

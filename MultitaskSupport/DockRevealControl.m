@@ -37,6 +37,9 @@ static UIImage *LCDockRevealTouchSurface(void) {
 @property(nonatomic, copy) void (^reveal)(void);
 @property(nonatomic) BOOL right;
 @property(nonatomic) BOOL revealIssued;
+@property(nonatomic) BOOL hidesArrow;
+// Invalidates an in-flight tap hint when the control is shown again or hidden.
+@property(nonatomic) NSUInteger hintGeneration;
 @end
 
 @interface LCDockHideGesture ()
@@ -250,8 +253,8 @@ static UIImage *LCDockRevealTouchSurface(void) {
     self.userInteractionEnabled = YES;
     self.tabPan.enabled = YES;
     // Hide only the artwork. The native touch target stays active.
-    self.tab.hidden = hideArrow;
-    self.tab.alpha = 0.8;
+    self.hidesArrow = hideArrow;
+    [self cancelSwipeHint];
     self.arrow.image = [UIImage systemImageNamed:right ? @"chevron.left" : @"chevron.right"
                              withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13
                                                                                                   weight:UIImageSymbolWeightBold]];
@@ -278,6 +281,7 @@ static UIImage *LCDockRevealTouchSurface(void) {
     self.arrow.frame = self.tab.bounds;
 }
 - (void)hide {
+    [self cancelSwipeHint];
     self.hidden = YES;
     self.reveal = nil;
     self.tabPan.enabled = NO;
@@ -295,6 +299,38 @@ static UIImage *LCDockRevealTouchSurface(void) {
 }
 - (void)revealDockFromTap {
     if (self.tapToRevealEnabled) [self revealDock];
+    else [self showSwipeHint];
+}
+// Swipe-only taps are still consumed, not forwarded to the game. Briefly show
+// the hidden arrow, with a light tap on devices with haptics, so the touch
+// does not silently vanish. The hint never reveals Dock.
+- (void)showSwipeHint {
+    if (self.hidden || !self.reveal || self.revealIssued || !self.hidesArrow) return;
+    NSUInteger generation = ++self.hintGeneration;
+    [self.tab.layer removeAllAnimations];
+    if (self.tab.hidden) {
+        self.tab.alpha = 0;
+        self.tab.hidden = NO;
+    }
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+    // Cross-fades remain appropriate with Reduce Motion; nothing moves.
+    UIViewAnimationOptions options = UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction;
+    [UIView animateWithDuration:0.15 delay:0 options:options animations:^{
+        self.tab.alpha = 0.8;
+    } completion:^(BOOL finished) {
+        if (generation != self.hintGeneration) return;
+        [UIView animateWithDuration:0.35 delay:0.9 options:options animations:^{
+            self.tab.alpha = 0;
+        } completion:^(BOOL done) {
+            if (generation == self.hintGeneration) [self cancelSwipeHint];
+        }];
+    }];
+}
+- (void)cancelSwipeHint {
+    self.hintGeneration += 1;
+    [self.tab.layer removeAllAnimations];
+    self.tab.hidden = self.hidesArrow;
+    self.tab.alpha = 0.8;
 }
 - (BOOL)accessibilityActivate {
     if (self.hidden || !self.reveal) return NO;

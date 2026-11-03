@@ -7,6 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface LCDockRevealControl : UIControl <UIGestureRecognizerDelegate>
 // Ordinary taps can be disabled without removing the local swipe surface or
 // VoiceOver activation. Defaults to YES; the manager applies the saved option.
+// When disabled with a hidden arrow, a tap briefly shows the arrow instead.
 @property(nonatomic) BOOL tapToRevealEnabled;
 - (void)showInWindow:(UIWindow *)window frame:(CGRect)frame right:(BOOL)right
           hideArrow:(BOOL)hideArrow reveal:(void (^)(void))reveal
