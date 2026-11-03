@@ -54,14 +54,13 @@
         @"4:1:4:0": @{@"rows": @[], @"columns": @[@0.22, @0.48, @0.75], @"lastRowColumns": @[@0.22, @0.48, @0.75]},
     };
     return [[LCWindowWorkspace alloc] initWithWindows:entries proportions:proportions
-        singleRowInLandscape:singleRow reservePortraitTop:(choices & 1) != 0 reservePortraitBottom:(choices & 2) != 0
-        reserveLandscapeTop:(choices & 4) != 0 reserveLandscapeBottom:(choices & 8) != 0];
+        layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:singleRow
+            reservedAreas:(LCWindowGridReservedAreas){(choices & 1) != 0, (choices & 2) != 0, (choices & 4) != 0, (choices & 8) != 0}]];
 }
 - (CGRect)tileForWorkspace:(LCWindowWorkspace *)workspace slot:(NSUInteger)slot portrait:(BOOL)portrait {
     CGSize size = portrait ? CGSizeMake(1024, 1366) : CGSizeMake(1366, 1024);
     LCWindowGridRect content = LCWindowGridContentBoundsWithReservedAreas((LCWindowGridRect){0, 0, size.width, size.height},
-        (LCWindowGridRect){0, 24, size.width, size.height - 44}, workspace.reservePortraitTop, workspace.reservePortraitBottom,
-        workspace.reserveLandscapeTop, workspace.reserveLandscapeBottom);
+        (LCWindowGridRect){0, 24, size.width, size.height - 44}, workspace.layoutOptions.reservedAreas);
     LCWindowGridLayout grid = LCWindowGridLayoutMakeForOrientation(4, content.width, content.height,
         LCWindowGridSpacing, LCWindowGridMinimumHeight, portrait, workspace.singleRowInLandscape);
     NSString *key = [NSString stringWithFormat:@"4:%zu:%zu:%d", grid.rows, grid.columns, portrait];

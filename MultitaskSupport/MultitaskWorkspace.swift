@@ -1,5 +1,14 @@
 import SwiftUI
 
+extension AppStorage where Value == Bool {
+    /// A live grid layout preference, using the key and default shared with
+    /// the host view and saved workspaces.
+    init(layout preference: LCWorkspaceLayoutPreference) {
+        self.init(wrappedValue: LCGridLayoutOptions.defaultValue(for: preference),
+                  LCGridLayoutOptions.userDefaultsKey(for: preference), store: LCUtils.appGroupUserDefault)
+    }
+}
+
 @available(iOS 16.0, *)
 @MainActor
 final class MultitaskWorkspaceManager: ObservableObject {
@@ -207,9 +216,7 @@ final class MultitaskWorkspaceManager: ObservableObject {
         }
         if !launchEntries.isEmpty,
            let launchWorkspace = LCWindowWorkspace(windows: launchEntries, proportions: workspace.proportions,
-                singleRowInLandscape: workspace.singleRowInLandscape, reservePortraitTop: workspace.reservePortraitTop,
-                reservePortraitBottom: workspace.reservePortraitBottom, reserveLandscapeTop: workspace.reserveLandscapeTop,
-                reserveLandscapeBottom: workspace.reserveLandscapeBottom) {
+                                                   layoutOptions: workspace.layoutOptions) {
             host.prepareWorkspaceForLaunch(launchWorkspace)
         }
         defer { host.finishWorkspaceLaunch() }
@@ -604,9 +611,9 @@ private struct MultitaskWorkspaceDetailView: View {
         return nil
     }
 
-    private func preference(_ preference: LCWorkspaceLayoutPreference, _ keyPath: KeyPath<LCWindowWorkspace, Bool>) -> Binding<Bool> {
+    private func preference(_ preference: LCWorkspaceLayoutPreference) -> Binding<Bool> {
         Binding {
-            workspace?.snapshot[keyPath: keyPath] ?? false
+            workspace?.snapshot.layoutOptions.value(for: preference) ?? false
         } set: { value in
             manager.setLayoutPreference(preference, enabled: value, for: identifier)
         }
@@ -627,7 +634,7 @@ private struct MultitaskWorkspaceDetailView: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     Section {
-                        Picker("lc.multitask.landscapeLayout".loc, selection: preference(.singleRowInLandscape, \.singleRowInLandscape)) {
+                        Picker("lc.multitask.landscapeLayout".loc, selection: preference(.singleRowInLandscape)) {
                             Text("lc.multitask.landscapeLayout.automatic".loc).tag(false)
                             Text("lc.multitask.landscapeLayout.singleRow".loc).tag(true)
                         }
@@ -635,16 +642,16 @@ private struct MultitaskWorkspaceDetailView: View {
                         Text("lc.workspace.savedLayout".loc)
                     }
                     Section {
-                        Toggle("lc.multitask.reservePortraitTop".loc, isOn: preference(.reservePortraitTop, \.reservePortraitTop))
-                        Toggle("lc.multitask.reservePortraitBottom".loc, isOn: preference(.reservePortraitBottom, \.reservePortraitBottom))
+                        Toggle("lc.multitask.reservePortraitTop".loc, isOn: preference(.reservePortraitTop))
+                        Toggle("lc.multitask.reservePortraitBottom".loc, isOn: preference(.reservePortraitBottom))
                     } header: {
                         Text("lc.multitask.portraitReservedAreas".loc)
                     } footer: {
                         Text("lc.workspace.layoutAutosave".loc)
                     }
                     Section {
-                        Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: preference(.reserveLandscapeTop, \.reserveLandscapeTop))
-                        Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: preference(.reserveLandscapeBottom, \.reserveLandscapeBottom))
+                        Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: preference(.reserveLandscapeTop))
+                        Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: preference(.reserveLandscapeBottom))
                     } header: {
                         Text("lc.multitask.landscapeReservedAreas".loc)
                     } footer: {

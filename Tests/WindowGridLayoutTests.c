@@ -221,7 +221,9 @@ static void testPortraitReservedAreas(void) {
     };
     for (int top = 0; top <= 1; ++top) {
         for (int bottom = 0; bottom <= 1; ++bottom) {
-            LCWindowGridRect content = LCWindowGridContentBoundsWithPortraitPreferences(bounds, safe, top, bottom);
+            // Landscape keeps its defaults, so only the portrait choices vary here.
+            const LCWindowGridReservedAreas portraitChoices = {top, bottom, true, false};
+            LCWindowGridRect content = LCWindowGridContentBoundsWithReservedAreas(bounds, safe, portraitChoices);
             LCWindowGridRect target = expected[top * 2 + bottom];
             assertClose(content.x, target.x);
             assertClose(content.y, target.y);
@@ -242,7 +244,7 @@ static void testPortraitReservedAreas(void) {
             // It must retain portrait rows and its portrait divider storage key.
             LCWindowGridRect square = {12, 24, 600, 640};
             LCWindowGridRect squareSafe = {22, 86, 580, 544};
-            content = LCWindowGridContentBoundsWithPortraitPreferences(square, squareSafe, top, bottom);
+            content = LCWindowGridContentBoundsWithReservedAreas(square, squareSafe, portraitChoices);
             assertClose(content.x, 22);
             assertClose(content.width, 580);
             assertClose(content.y, top ? 86 : 24);
@@ -252,15 +254,15 @@ static void testPortraitReservedAreas(void) {
             assert(portrait.rows == 3 && portrait.columns == 2);
 
             // Portrait choices never change the landscape top/side exclusions or bottom coverage.
-            content = LCWindowGridContentBoundsWithPortraitPreferences((LCWindowGridRect){12, 24, 874, 402},
-                (LCWindowGridRect){74, 44, 812, 362}, top, bottom);
+            content = LCWindowGridContentBoundsWithReservedAreas((LCWindowGridRect){12, 24, 874, 402},
+                (LCWindowGridRect){74, 44, 812, 362}, portraitChoices);
             assertClose(content.x, 74);
             assertClose(content.y, 44);
             assertClose(content.width, 812);
             assertClose(content.height, 382);
 
             // No system insets means all four choices produce the same full drawing area.
-            content = LCWindowGridContentBoundsWithPortraitPreferences(bounds, bounds, top, bottom);
+            content = LCWindowGridContentBoundsWithReservedAreas(bounds, bounds, portraitChoices);
             assertClose(content.y, 0);
             assertClose(content.height, 874);
         }
@@ -283,7 +285,7 @@ static void testIndependentReservedAreas(void) {
                 for (int landscapeTop = 0; landscapeTop <= 1; ++landscapeTop) {
                     for (int landscapeBottom = 0; landscapeBottom <= 1; ++landscapeBottom) {
                         LCWindowGridRect content = LCWindowGridContentBoundsWithReservedAreas(bounds[s], safe[s],
-                            portraitTop, portraitBottom, landscapeTop, landscapeBottom);
+                            (LCWindowGridReservedAreas){portraitTop, portraitBottom, landscapeTop, landscapeBottom});
                         bool top = portrait ? portraitTop : landscapeTop;
                         bool bottom = portrait ? portraitBottom : landscapeBottom;
                         assertClose(content.x, safe[s].x);
@@ -309,19 +311,34 @@ static void testIndependentReservedAreas(void) {
             }
         }
         LCWindowGridRect legacy = LCWindowGridContentBounds(bounds[s], safe[s]);
-        LCWindowGridRect defaults = LCWindowGridContentBoundsWithReservedAreas(bounds[s], safe[s], true, false, true, false);
+        LCWindowGridRect defaults = LCWindowGridContentBoundsWithReservedAreas(bounds[s], safe[s],
+            (LCWindowGridReservedAreas){true, false, true, false});
         assertClose(legacy.x, defaults.x);
         assertClose(legacy.y, defaults.y);
         assertClose(legacy.width, defaults.width);
         assertClose(legacy.height, defaults.height);
     }
     LCWindowGridRect clipped = LCWindowGridContentBoundsWithReservedAreas(bounds[1],
-        (LCWindowGridRect){-20, -20, 1000, 1000}, false, false, true, true);
+        (LCWindowGridRect){-20, -20, 1000, 1000}, (LCWindowGridReservedAreas){false, false, true, true});
     assertClose(clipped.x, 12);
     assertClose(clipped.y, 24);
     assertClose(clipped.width, 874);
     assertClose(clipped.height, 402);
-    assertClose(LCWindowGridContentBoundsWithReservedAreas(bounds[0], (LCWindowGridRect){0}, true, true, true, true).width, 0);
+    assertClose(LCWindowGridContentBoundsWithReservedAreas(bounds[0], (LCWindowGridRect){0},
+        (LCWindowGridReservedAreas){true, true, true, true}).width, 0);
+}
+
+static void testReservedAreaDefaultsAndEquality(void) {
+    // Older saves and absent preferences rely on this exact default.
+    const LCWindowGridReservedAreas original = {true, false, true, false};
+    assert(LCWindowGridReservedAreasEqual(LCWindowGridReservedAreasDefault(), original));
+    for (unsigned bits = 0; bits < 16; ++bits) {
+        LCWindowGridReservedAreas a = {(bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0, (bits & 8) != 0};
+        for (unsigned other = 0; other < 16; ++other) {
+            LCWindowGridReservedAreas b = {(other & 1) != 0, (other & 2) != 0, (other & 4) != 0, (other & 8) != 0};
+            assert(LCWindowGridReservedAreasEqual(a, b) == (bits == other));
+        }
+    }
 }
 
 static void testAdjustablePair(void) {
@@ -507,6 +524,7 @@ int main(void) {
     testGridContentBounds();
     testPortraitReservedAreas();
     testIndependentReservedAreas();
+    testReservedAreaDefaultsAndEquality();
     testInvalidInput();
     testAdjustablePair();
     testAlignedFourAndThree();

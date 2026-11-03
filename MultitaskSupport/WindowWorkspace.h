@@ -1,6 +1,37 @@
 #import <Foundation/Foundation.h>
+#import "WindowGridLayout.h"
 
 NS_ASSUME_NONNULL_BEGIN
+
+typedef NS_ENUM(NSInteger, LCWorkspaceLayoutPreference) {
+    LCWorkspaceLayoutPreferenceSingleRowInLandscape,
+    LCWorkspaceLayoutPreferenceReservePortraitTop,
+    LCWorkspaceLayoutPreferenceReservePortraitBottom,
+    LCWorkspaceLayoutPreferenceReserveLandscapeTop,
+    LCWorkspaceLayoutPreferenceReserveLandscapeBottom,
+};
+
+// Grid layout choices shared by the live host, Settings, the Dock and saved
+// workspaces. Keys and defaults are defined only here and in
+// LCWindowGridReservedAreasDefault(); absent or invalid stored values take the
+// defaults, which reproduce the original layout.
+@interface LCGridLayoutOptions : NSObject
+@property(nonatomic, readonly) BOOL singleRowInLandscape;
+@property(nonatomic, readonly) LCWindowGridReservedAreas reservedAreas;
+@property(class, nonatomic, readonly) LCGridLayoutOptions *defaultOptions;
++ (NSString *)userDefaultsKeyForPreference:(LCWorkspaceLayoutPreference)preference NS_SWIFT_NAME(userDefaultsKey(for:));
++ (BOOL)defaultValueForPreference:(LCWorkspaceLayoutPreference)preference NS_SWIFT_NAME(defaultValue(for:));
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithSingleRowInLandscape:(BOOL)singleRowInLandscape
+                               reservedAreas:(LCWindowGridReservedAreas)reservedAreas NS_DESIGNATED_INITIALIZER;
+// Reads the live preferences.
+- (instancetype)initWithUserDefaults:(NSUserDefaults *)defaults;
+- (void)writeToUserDefaults:(NSUserDefaults *)defaults;
+- (BOOL)valueForPreference:(LCWorkspaceLayoutPreference)preference NS_SWIFT_NAME(value(for:));
+// Nil for an unknown preference.
+- (nullable LCGridLayoutOptions *)optionsBySettingPreference:(LCWorkspaceLayoutPreference)preference enabled:(BOOL)enabled
+    NS_SWIFT_NAME(setting(_:enabled:));
+@end
 
 @interface LCWorkspaceWindow : NSObject
 @property(nonatomic, copy, readonly) NSString *bundleName;
@@ -14,6 +45,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface LCWindowWorkspace : NSObject
 @property(nonatomic, copy, readonly) NSArray<LCWorkspaceWindow *> *windows;
 @property(nonatomic, copy, readonly) NSDictionary<NSString *, NSDictionary<NSString *, NSArray<NSNumber *> *> *> *proportions;
+@property(nonatomic, strong, readonly) LCGridLayoutOptions *layoutOptions;
+// Read-only shorthands for layoutOptions.
 @property(nonatomic, readonly) BOOL singleRowInLandscape;
 @property(nonatomic, readonly) BOOL reservePortraitTop;
 @property(nonatomic, readonly) BOOL reservePortraitBottom;
@@ -24,14 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, readonly) NSDictionary *propertyList;
 - (nullable instancetype)initWithPropertyList:(nullable id)propertyList;
 - (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
-                   singleRowInLandscape:(BOOL)singleRowInLandscape;
-- (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
-                   singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
-                  reservePortraitBottom:(BOOL)reservePortraitBottom;
-- (nullable instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
-                   singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
-                  reservePortraitBottom:(BOOL)reservePortraitBottom reserveLandscapeTop:(BOOL)reserveLandscapeTop
-                 reserveLandscapeBottom:(BOOL)reserveLandscapeBottom;
+                          layoutOptions:(LCGridLayoutOptions *)layoutOptions;
 @end
 
 @interface LCNamedWorkspace : NSObject
@@ -39,14 +65,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, readonly) NSString *name;
 @property(nonatomic, strong, readonly) LCWindowWorkspace *snapshot;
 @end
-
-typedef NS_ENUM(NSInteger, LCWorkspaceLayoutPreference) {
-    LCWorkspaceLayoutPreferenceSingleRowInLandscape,
-    LCWorkspaceLayoutPreferenceReservePortraitTop,
-    LCWorkspaceLayoutPreferenceReservePortraitBottom,
-    LCWorkspaceLayoutPreferenceReserveLandscapeTop,
-    LCWorkspaceLayoutPreferenceReserveLandscapeBottom,
-};
 
 // Newest saved first. Renaming and preference edits preserve identity and ordering.
 @interface LCWorkspaceLibrary : NSObject

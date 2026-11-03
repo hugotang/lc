@@ -266,15 +266,14 @@
         [views addObject:[UIView new]];
     }
     LCWindowWorkspace *saved = [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{}
-        singleRowInLandscape:singleRow reservePortraitTop:NO reservePortraitBottom:YES
-        reserveLandscapeTop:top reserveLandscapeBottom:bottom];
+        layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:singleRow
+            reservedAreas:(LCWindowGridReservedAreas){false, true, top, bottom}]];
     LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithPropertyList:saved.propertyList];
     LCWorkspaceLaunchLayout *plan = [[LCWorkspaceLaunchLayout alloc] initWithWorkspace:workspace];
     UIView *host = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 1366, 1024)];
     [LCTapSyncTestHostWindow().rootViewController.view addSubview:host];
     LCWindowGridRect content = LCWindowGridContentBoundsWithReservedAreas((LCWindowGridRect){0, 0, 1366, 1024},
-        (LCWindowGridRect){0, 24, 1366, 980}, workspace.reservePortraitTop, workspace.reservePortraitBottom,
-        workspace.reserveLandscapeTop, workspace.reserveLandscapeBottom);
+        (LCWindowGridRect){0, 24, 1366, 980}, workspace.layoutOptions.reservedAreas);
     LCWindowGridLayout grid = LCWindowGridLayoutMakeForOrientation(4, content.width, content.height, 2, 88,
                                                                  false, workspace.singleRowInLandscape);
     CGFloat expectedContentHeight = 1024 - (top ? 24 : 0) - (bottom ? 20 : 0);

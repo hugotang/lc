@@ -25,8 +25,9 @@ static LCWindowWorkspace *workspace(void) {
         [entries addObject:[[LCWorkspaceWindow alloc] initWithBundleName:@"game.app"
             dataUUID:[NSString stringWithFormat:@"account-%lu", (unsigned long)index] scale:scales[index]]];
     }
-    return [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{} singleRowInLandscape:YES
-        reservePortraitTop:YES reservePortraitBottom:NO reserveLandscapeTop:NO reserveLandscapeBottom:YES];
+    return [[LCWindowWorkspace alloc] initWithWindows:entries proportions:@{}
+        layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:YES
+            reservedAreas:(LCWindowGridReservedAreas){true, false, false, true}]];
 }
 
 static NSArray *slots(LCWorkspaceLaunchLayout *plan, NSArray *views) {
@@ -96,7 +97,7 @@ static void testNewRestorePlanHasNoPreviousReservations(void) {
     LCWorkspaceLaunchLayout *old = [[LCWorkspaceLaunchLayout alloc] initWithWorkspace:snapshot];
     assert(slots(old, @[]).count == 4);
     LCWindowWorkspace *partial = [[LCWindowWorkspace alloc] initWithWindows:@[snapshot.windows[2]] proportions:@{}
-                                                   singleRowInLandscape:NO];
+                                                          layoutOptions:LCGridLayoutOptions.defaultOptions];
     LCWorkspaceLaunchLayout *next = [[LCWorkspaceLaunchLayout alloc] initWithWorkspace:partial];
     id restored = window(@"game.app", @"account-2");
     NSArray *placed = slots(next, @[restored]);

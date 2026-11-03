@@ -19,14 +19,30 @@ typedef struct {
     double width, height, spacing;
 } LCWindowGridLayout;
 
-// These preferences change the grid's drawing area, not the safe areas sent to
-// guests. Use the host's full bounds to identify portrait before applying insets.
-// Left/right always follow system safe areas; top/bottom are independent for
-// each host orientation. Defaults preserve top space and extend beneath bottom.
+// Which top/bottom safe areas the grid keeps clear in each host orientation.
+// These change the grid's drawing area, not the safe areas sent to guests.
+// Left/right always follow system safe areas.
+typedef struct {
+    bool portraitTop, portraitBottom, landscapeTop, landscapeBottom;
+} LCWindowGridReservedAreas;
+
+// The only definition of the default: keep the status bar and Dynamic Island
+// clear and extend content beneath the home indicator, in both orientations.
+// Older saves without these choices also restore this layout.
+static inline LCWindowGridReservedAreas LCWindowGridReservedAreasDefault(void) {
+    return (LCWindowGridReservedAreas){.portraitTop = true, .portraitBottom = false,
+                                       .landscapeTop = true, .landscapeBottom = false};
+}
+
+static inline bool LCWindowGridReservedAreasEqual(LCWindowGridReservedAreas a, LCWindowGridReservedAreas b) {
+    return a.portraitTop == b.portraitTop && a.portraitBottom == b.portraitBottom &&
+        a.landscapeTop == b.landscapeTop && a.landscapeBottom == b.landscapeBottom;
+}
+
+// Use the host's full bounds to identify portrait before applying insets.
 static inline LCWindowGridRect LCWindowGridContentBoundsWithReservedAreas(LCWindowGridRect bounds,
                                                         LCWindowGridRect safeBounds,
-                                                        bool reservePortraitTop, bool reservePortraitBottom,
-                                                        bool reserveLandscapeTop, bool reserveLandscapeBottom) {
+                                                        LCWindowGridReservedAreas reserved) {
     if (!isfinite(bounds.x) || !isfinite(bounds.y) || !isfinite(bounds.width) || !isfinite(bounds.height) ||
         !isfinite(safeBounds.x) || !isfinite(safeBounds.y) || !isfinite(safeBounds.width) ||
         !isfinite(safeBounds.height) || bounds.width <= 0 || bounds.height <= 0 ||
@@ -34,22 +50,16 @@ static inline LCWindowGridRect LCWindowGridContentBoundsWithReservedAreas(LCWind
     double left = fmax(bounds.x, safeBounds.x);
     double right = fmin(bounds.x + bounds.width, safeBounds.x + safeBounds.width);
     bool portrait = bounds.height >= bounds.width;
-    bool reserveTop = portrait ? reservePortraitTop : reserveLandscapeTop;
-    bool reserveBottom = portrait ? reservePortraitBottom : reserveLandscapeBottom;
+    bool reserveTop = portrait ? reserved.portraitTop : reserved.landscapeTop;
+    bool reserveBottom = portrait ? reserved.portraitBottom : reserved.landscapeBottom;
     double top = reserveTop ? fmax(bounds.y, safeBounds.y) : bounds.y;
     double bottom = reserveBottom ?
         fmin(bounds.y + bounds.height, safeBounds.y + safeBounds.height) : bounds.y + bounds.height;
     return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bottom - top)};
 }
 
-static inline LCWindowGridRect LCWindowGridContentBoundsWithPortraitPreferences(LCWindowGridRect bounds,
-                                                        LCWindowGridRect safeBounds,
-                                                        bool reservePortraitTop, bool reservePortraitBottom) {
-    return LCWindowGridContentBoundsWithReservedAreas(bounds, safeBounds, reservePortraitTop, reservePortraitBottom, true, false);
-}
-
 static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds, LCWindowGridRect safeBounds) {
-    return LCWindowGridContentBoundsWithPortraitPreferences(bounds, safeBounds, true, false);
+    return LCWindowGridContentBoundsWithReservedAreas(bounds, safeBounds, LCWindowGridReservedAreasDefault());
 }
 
 // Orientation comes from the full host, so reserved areas and keyboards cannot

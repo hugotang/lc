@@ -12,11 +12,11 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
-    @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) var singleRowInLandscape = false
-    @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) var reservePortraitTop = true
-    @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) var reservePortraitBottom = false
-    @AppStorage("LCGridReserveLandscapeTop", store: LCUtils.appGroupUserDefault) var reserveLandscapeTop = true
-    @AppStorage("LCGridReserveLandscapeBottom", store: LCUtils.appGroupUserDefault) var reserveLandscapeBottom = false
+    @AppStorage(layout: .singleRowInLandscape) var singleRowInLandscape: Bool
+    @AppStorage(layout: .reservePortraitTop) var reservePortraitTop: Bool
+    @AppStorage(layout: .reservePortraitBottom) var reservePortraitBottom: Bool
+    @AppStorage(layout: .reserveLandscapeTop) var reserveLandscapeTop: Bool
+    @AppStorage(layout: .reserveLandscapeBottom) var reserveLandscapeBottom: Bool
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false

@@ -920,11 +920,11 @@ private struct DockGlobalActions: View {
 @available(iOS 16.0, *)
 private struct DockGridActions: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
-    @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) private var singleRowInLandscape = false
-    @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) private var reservePortraitTop = true
-    @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) private var reservePortraitBottom = false
-    @AppStorage("LCGridReserveLandscapeTop", store: LCUtils.appGroupUserDefault) private var reserveLandscapeTop = true
-    @AppStorage("LCGridReserveLandscapeBottom", store: LCUtils.appGroupUserDefault) private var reserveLandscapeBottom = false
+    @AppStorage(layout: .singleRowInLandscape) private var singleRowInLandscape: Bool
+    @AppStorage(layout: .reservePortraitTop) private var reservePortraitTop: Bool
+    @AppStorage(layout: .reservePortraitBottom) private var reservePortraitBottom: Bool
+    @AppStorage(layout: .reserveLandscapeTop) private var reserveLandscapeTop: Bool
+    @AppStorage(layout: .reserveLandscapeBottom) private var reserveLandscapeBottom: Bool
 
     var body: some View {
         Button {

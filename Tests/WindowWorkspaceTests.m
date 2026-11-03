@@ -20,8 +20,10 @@ static void testLandscapePreference(void) {
     NSDictionary *singleRow = @{@"rows": @[], @"columns": @[@0.2, @0.5, @0.8], @"lastRowColumns": @[@0.2, @0.5, @0.8]};
     NSDictionary *proportions = @{@"4:2:2:1": portrait, @"4:2:2:0": landscape, @"4:1:4:0": singleRow};
     for (NSNumber *enabled in @[@NO, @YES]) {
+        LCGridLayoutOptions *options = [[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:enabled.boolValue
+                                                                                 reservedAreas:LCWindowGridReservedAreasDefault()];
         LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
-                                                            singleRowInLandscape:enabled.boolValue];
+                                                                    layoutOptions:options];
         assert(workspace.singleRowInLandscape == enabled.boolValue);
         assert(workspace.reservePortraitTop && !workspace.reservePortraitBottom);
         assert(workspace.reserveLandscapeTop && !workspace.reserveLandscapeBottom);
@@ -55,7 +57,8 @@ static void testPortraitReservations(void) {
     for (NSNumber *top in @[@NO, @YES]) {
         for (NSNumber *bottom in @[@NO, @YES]) {
             LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:@[entry] proportions:@{}
-                singleRowInLandscape:YES reservePortraitTop:top.boolValue reservePortraitBottom:bottom.boolValue];
+                layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:YES
+            reservedAreas:(LCWindowGridReservedAreas){top.boolValue, bottom.boolValue, true, false}]];
             assert(workspace && workspace.reservePortraitTop == top.boolValue && workspace.reservePortraitBottom == bottom.boolValue);
             assert(workspace.reserveLandscapeTop && !workspace.reserveLandscapeBottom);
             NSError *error = nil;
@@ -96,8 +99,8 @@ static void testIndependentReservedAreas(void) {
         BOOL portraitTop = (choices & 1) != 0, portraitBottom = (choices & 2) != 0;
         BOOL landscapeTop = (choices & 4) != 0, landscapeBottom = (choices & 8) != 0;
         LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
-            singleRowInLandscape:YES reservePortraitTop:portraitTop reservePortraitBottom:portraitBottom
-            reserveLandscapeTop:landscapeTop reserveLandscapeBottom:landscapeBottom];
+            layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:YES
+            reservedAreas:(LCWindowGridReservedAreas){portraitTop, portraitBottom, landscapeTop, landscapeBottom}]];
         assert(workspace);
         NSMutableDictionary *plist = workspace.propertyList.mutableCopy;
         plist[@"tapSync"] = group;
@@ -186,8 +189,62 @@ static void testTapSyncGroup(void) {
     assert(decode(@[window(@"A")], @{}).tapSyncGroup.count == 0);
 }
 
+static void testGridLayoutOptions(void) {
+    const LCWorkspaceLayoutPreference all[] = {
+        LCWorkspaceLayoutPreferenceSingleRowInLandscape, LCWorkspaceLayoutPreferenceReservePortraitTop,
+        LCWorkspaceLayoutPreferenceReservePortraitBottom, LCWorkspaceLayoutPreferenceReserveLandscapeTop,
+        LCWorkspaceLayoutPreferenceReserveLandscapeBottom,
+    };
+    NSArray<NSString *> *keys = @[@"LCGridSingleRowInLandscape", @"LCGridReservePortraitTop", @"LCGridReservePortraitBottom",
+                                  @"LCGridReserveLandscapeTop", @"LCGridReserveLandscapeBottom"];
+    const BOOL defaults[] = {NO, YES, NO, YES, NO};
+    LCGridLayoutOptions *original = LCGridLayoutOptions.defaultOptions;
+    for (size_t index = 0; index < 5; index++) {
+        // Existing installs keep their saved values only if these keys never change.
+        assert([[LCGridLayoutOptions userDefaultsKeyForPreference:all[index]] isEqualToString:keys[index]]);
+        assert([LCGridLayoutOptions defaultValueForPreference:all[index]] == defaults[index]);
+        assert([original valueForPreference:all[index]] == defaults[index]);
+    }
+    assert([original isEqual:LCGridLayoutOptions.defaultOptions] && original.hash == LCGridLayoutOptions.defaultOptions.hash);
+    assert(![original optionsBySettingPreference:(LCWorkspaceLayoutPreference)99 enabled:YES]);
+    assert([original valueForPreference:(LCWorkspaceLayoutPreference)99] == NO);
+
+    NSString *suite = @"com.livecontainer.tests.grid-layout-options";
+    NSUserDefaults *store = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [store removePersistentDomainForName:suite];
+    assert([[[LCGridLayoutOptions alloc] initWithUserDefaults:store] isEqual:original]);
+    for (unsigned int choices = 0; choices < 32; ++choices) {
+        LCGridLayoutOptions *options = original;
+        for (size_t index = 0; index < 5; index++) {
+            options = [options optionsBySettingPreference:all[index] enabled:(choices & (1u << index)) != 0];
+            assert(options);
+        }
+        for (size_t index = 0; index < 5; index++) {
+            assert([options valueForPreference:all[index]] == ((choices & (1u << index)) != 0));
+        }
+        assert([options isEqual:original] == (choices == ((1u << 1) | (1u << 3))));
+        [options writeToUserDefaults:store];
+        for (size_t index = 0; index < 5; index++) {
+            assert([store boolForKey:keys[index]] == ((choices & (1u << index)) != 0));
+        }
+        LCGridLayoutOptions *read = [[LCGridLayoutOptions alloc] initWithUserDefaults:store];
+        assert([read isEqual:options] && read.hash == options.hash);
+        // Saved workspaces carry the same choices without touching live preferences.
+        LCWorkspaceWindow *entry = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"A" scale:1];
+        LCWindowWorkspace *workspace = [[LCWindowWorkspace alloc] initWithWindows:@[entry] proportions:@{} layoutOptions:options];
+        assert([[[LCWindowWorkspace alloc] initWithPropertyList:workspace.propertyList].layoutOptions isEqual:options]);
+    }
+    // A missing live key falls back to its own default and leaves the others alone.
+    [store setBool:NO forKey:@"LCGridReservePortraitTop"];
+    [store removeObjectForKey:@"LCGridReserveLandscapeTop"];
+    LCGridLayoutOptions *partial = [[LCGridLayoutOptions alloc] initWithUserDefaults:store];
+    assert(!partial.reservedAreas.portraitTop && partial.reservedAreas.landscapeTop);
+    [store removePersistentDomainForName:suite];
+}
+
 int main(void) {
     @autoreleasepool {
+        testGridLayoutOptions();
         testLandscapePreference();
         testPortraitReservations();
         testIndependentReservedAreas();

@@ -43,7 +43,8 @@ static void testPortraitReservationsWithKeyboard(void) {
     double rows[] = {0.4}, columns[] = {0.6};
     for (int top = 0; top <= 1; ++top) {
         for (int bottom = 0; bottom <= 1; ++bottom) {
-            LCWindowGridRect normal = LCWindowGridContentBoundsWithPortraitPreferences(bounds, safe, top, bottom);
+            LCWindowGridRect normal = LCWindowGridContentBoundsWithReservedAreas(bounds, safe,
+                (LCWindowGridReservedAreas){top, bottom, true, false});
             LCWindowGridRect available = LCKeyboardAvailableRect(normal, keyboard);
             assert(available.width > available.height);
             LCWindowGridLayout layout = LCWindowGridLayoutMakeForOrientation(4, normal.width, normal.height, 2, 88,
@@ -76,7 +77,8 @@ static void testLandscapeReservationsWithKeyboard(void) {
     double rows[] = {0.4}, automaticColumns[] = {0.6}, singleRowColumns[] = {0.2, 0.5, 0.8};
     for (int top = 0; top <= 1; ++top) {
         for (int bottom = 0; bottom <= 1; ++bottom) {
-            LCWindowGridRect normal = LCWindowGridContentBoundsWithReservedAreas(bounds, safe, false, true, top, bottom);
+            LCWindowGridRect normal = LCWindowGridContentBoundsWithReservedAreas(bounds, safe,
+                (LCWindowGridReservedAreas){false, true, top, bottom});
             LCWindowGridRect available = LCKeyboardAvailableRect(normal, keyboard);
             assert(fabs(available.y + available.height - keyboard.y) < 1e-8);
             assert(available.x == normal.x && available.width == normal.width);

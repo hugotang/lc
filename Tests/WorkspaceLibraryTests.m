@@ -6,7 +6,9 @@
 static LCWindowWorkspace *snapshot(NSString *container, BOOL singleRow) {
     LCWorkspaceWindow *window = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:container scale:1.25];
     NSDictionary *grid = @{@"rows": @[], @"columns": @[], @"lastRowColumns": @[]};
-    return [[LCWindowWorkspace alloc] initWithWindows:@[window] proportions:@{@"1:1:1:0": grid} singleRowInLandscape:singleRow];
+    LCGridLayoutOptions *options = [[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:singleRow
+                                                                             reservedAreas:LCWindowGridReservedAreasDefault()];
+    return [[LCWindowWorkspace alloc] initWithWindows:@[window] proportions:@{@"1:1:1:0": grid} layoutOptions:options];
 }
 
 static LCWorkspaceLibrary *openLibrary(NSUserDefaults *defaults) {
@@ -41,7 +43,8 @@ static void testMigrationAndNamedLinks(NSUserDefaults *defaults) {
 
     LCWindowWorkspace *musicSnapshot = snapshot(@"B", NO);
     musicSnapshot = [[LCWindowWorkspace alloc] initWithWindows:musicSnapshot.windows proportions:musicSnapshot.proportions
-        singleRowInLandscape:NO reservePortraitTop:NO reservePortraitBottom:YES reserveLandscapeTop:NO reserveLandscapeBottom:YES];
+        layoutOptions:[[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:NO
+            reservedAreas:(LCWindowGridReservedAreas){false, true, false, true}]];
     LCNamedWorkspace *music = [library saveWorkspace:musicSnapshot name:@"Music" replacingIdentifier:nil];
     assert(music && library.workspaces.count == 2);
     assert(![music.identifier isEqualToString:originalID]);
@@ -94,7 +97,7 @@ static void testSavedLayoutEditing(NSUserDefaults *defaults) {
     ];
     NSDictionary *proportions = @{@"2:2:1:1": @{@"rows": @[@0.4], @"columns": @[], @"lastRowColumns": @[]}};
     LCWindowWorkspace *original = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
-        singleRowInLandscape:NO reservePortraitTop:YES reservePortraitBottom:NO];
+        layoutOptions:LCGridLayoutOptions.defaultOptions];
     LCNamedWorkspace *entry = [library saveWorkspace:original name:@"Editable" replacingIdentifier:nil];
     LCNamedWorkspace *other = [library saveWorkspace:snapshot(@"Z", YES) name:@"Other" replacingIdentifier:nil];
     NSURL *link = LCWorkspaceRestoreURLForIdentifier(@"livecontainer", entry.identifier);
@@ -234,7 +237,8 @@ static void testUnreadableDataIsPreserved(NSUserDefaults *defaults) {
 static void testTapSyncGroupPreserved(NSUserDefaults *defaults) {
     LCWorkspaceWindow *first = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"First" scale:1];
     LCWorkspaceWindow *second = [[LCWorkspaceWindow alloc] initWithBundleName:@"Game.app" dataUUID:@"Second" scale:1];
-    LCWindowWorkspace *base = [[LCWindowWorkspace alloc] initWithWindows:@[first, second] proportions:@{} singleRowInLandscape:YES];
+    LCWindowWorkspace *base = [[LCWindowWorkspace alloc] initWithWindows:@[first, second] proportions:@{}
+        layoutOptions:[LCGridLayoutOptions.defaultOptions optionsBySettingPreference:LCWorkspaceLayoutPreferenceSingleRowInLandscape enabled:YES]];
     NSMutableDictionary *plist = base.propertyList.mutableCopy;
     NSDictionary *group = @{@"source": @"Second", @"targets": @[@"First"]};
     plist[@"tapSync"] = group;

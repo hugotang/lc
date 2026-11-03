@@ -178,9 +178,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic) CGRect lastArrangementBounds;
 @property(nonatomic) BOOL lastArrangementPortrait;
 @property(nonatomic) BOOL wasAutomaticallyTiling;
-@property(nonatomic) BOOL wasSingleRowInLandscape;
-@property(nonatomic) BOOL wasReservingPortraitTop, wasReservingPortraitBottom;
-@property(nonatomic) BOOL wasReservingLandscapeTop, wasReservingLandscapeBottom;
+// The live grid preferences that the current arrangement reflects.
+@property(nonatomic, strong) LCGridLayoutOptions *appliedLayoutOptions;
 @property(nonatomic) BOOL wasHidingGridWindowBars;
 @property(nonatomic, readwrite) BOOL hasVisibleGridWindows;
 @property(nonatomic) BOOL isArrangingWindows;
@@ -206,9 +205,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 @property(nonatomic) BOOL wasKeyboardAvoidanceEnabled;
 @property(nonatomic, strong) NSMapTable<UIView *, LCKeyboardWindowFrame *> *keyboardOriginalFrames;
 @property(nonatomic, readonly) BOOL keyboardAvoidanceEnabled, isAvoidingKeyboard, allVisibleWindowsAreInGrid;
-@property(nonatomic, readonly) BOOL singleRowInLandscape;
-@property(nonatomic, readonly) BOOL reservePortraitTop, reservePortraitBottom;
-@property(nonatomic, readonly) BOOL reserveLandscapeTop, reserveLandscapeBottom;
+@property(nonatomic, readonly) LCGridLayoutOptions *layoutOptions;
 @property(nonatomic, readonly) CGRect unobscuredGridBounds, gridAvailableBounds;
 - (void)arrangeVisibleWindowsInGrid:(BOOL)force animated:(BOOL)animated updateSceneImmediately:(BOOL)immediate;
 @end
@@ -223,11 +220,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     self.savedGridProportions = [NSMutableDictionary dictionary];
     self.lastArrangementBounds = CGRectNull;
     self.wasAutomaticallyTiling = self.automaticallyTilesWindows;
-    self.wasSingleRowInLandscape = self.singleRowInLandscape;
-    self.wasReservingPortraitTop = self.reservePortraitTop;
-    self.wasReservingPortraitBottom = self.reservePortraitBottom;
-    self.wasReservingLandscapeTop = self.reserveLandscapeTop;
-    self.wasReservingLandscapeBottom = self.reserveLandscapeBottom;
+    self.appliedLayoutOptions = self.layoutOptions;
     self.wasHidingGridWindowBars = self.shouldHideGridWindowBars;
     self.keyboardScreenFrame = CGRectNull;
     self.keyboardOriginalFrames = [NSMapTable weakToStrongObjectsMapTable];
@@ -257,31 +250,13 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCAutoTileMultitaskWindows"];
 }
 
-- (BOOL)singleRowInLandscape {
-    return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGridSingleRowInLandscape"];
+- (LCGridLayoutOptions *)layoutOptions {
+    return [[LCGridLayoutOptions alloc] initWithUserDefaults:NSUserDefaults.lcSharedDefaults];
 }
 
 - (BOOL)maintainsGridLayout {
     // Manually arranged grids must also follow rotation and safe-area changes.
     return self.workspaceLaunchLayout != nil || self.automaticallyTilesWindows || self.allVisibleWindowsAreInGrid;
-}
-
-- (BOOL)reservePortraitTop {
-    NSNumber *value = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCGridReservePortraitTop"];
-    return value ? value.boolValue : YES;
-}
-
-- (BOOL)reservePortraitBottom {
-    return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGridReservePortraitBottom"];
-}
-
-- (BOOL)reserveLandscapeTop {
-    NSNumber *value = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCGridReserveLandscapeTop"];
-    return value ? value.boolValue : YES;
-}
-
-- (BOOL)reserveLandscapeBottom {
-    return [NSUserDefaults.lcSharedDefaults boolForKey:@"LCGridReserveLandscapeBottom"];
 }
 
 - (BOOL)shouldHideGridWindowBars {
@@ -446,8 +421,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (CGRect)unobscuredGridBounds {
     CGRect safeBounds = UIEdgeInsetsInsetRect(self.bounds, self.safeAreaInsets);
     return LCCGKeyboardRect(LCWindowGridContentBoundsWithReservedAreas(LCKeyboardRect(self.bounds),
-        LCKeyboardRect(safeBounds), self.reservePortraitTop, self.reservePortraitBottom,
-        self.reserveLandscapeTop, self.reserveLandscapeBottom));
+        LCKeyboardRect(safeBounds), self.layoutOptions.reservedAreas));
 }
 
 - (CGRect)boundsByAvoidingKeyboard:(CGRect)bounds {
@@ -538,12 +512,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.tapSyncOverlay) [self tapSyncStateDidChange:nil];
         BOOL enabled = self.automaticallyTilesWindows;
-        BOOL singleRow = self.singleRowInLandscape;
-        BOOL reserveTop = self.reservePortraitTop, reserveBottom = self.reservePortraitBottom;
-        BOOL landscapeTop = self.reserveLandscapeTop, landscapeBottom = self.reserveLandscapeBottom;
-        BOOL layoutChanged = singleRow != self.wasSingleRowInLandscape ||
-            reserveTop != self.wasReservingPortraitTop || reserveBottom != self.wasReservingPortraitBottom ||
-            landscapeTop != self.wasReservingLandscapeTop || landscapeBottom != self.wasReservingLandscapeBottom;
+        LCGridLayoutOptions *layoutOptions = self.layoutOptions;
+        BOOL layoutChanged = ![layoutOptions isEqual:self.appliedLayoutOptions];
         BOOL rearrangeGrid = layoutChanged && self.allVisibleWindowsAreInGrid;
         BOOL hideBars = self.shouldHideGridWindowBars;
         BOOL keyboardEnabled = self.keyboardAvoidanceEnabled;
@@ -553,11 +523,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
             keyboardEnabled != self.wasKeyboardAvoidanceEnabled || layoutChanged) {
             self.wasKeyboardAvoidanceEnabled = keyboardEnabled;
             self.wasAutomaticallyTiling = enabled;
-            self.wasSingleRowInLandscape = singleRow;
-            self.wasReservingPortraitTop = reserveTop;
-            self.wasReservingPortraitBottom = reserveBottom;
-            self.wasReservingLandscapeTop = landscapeTop;
-            self.wasReservingLandscapeBottom = landscapeBottom;
+            self.appliedLayoutOptions = layoutOptions;
             self.wasHidingGridWindowBars = hideBars;
             for (UIView *view in self.windowOrder.windows) {
                 DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
@@ -683,9 +649,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     NSMutableDictionary *proportions = [NSMutableDictionary dictionary];
     for (NSString *key in self.savedGridProportions) proportions[key] = self.savedGridProportions[key].propertyList;
     LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithWindows:windows proportions:proportions
-                               singleRowInLandscape:self.singleRowInLandscape reservePortraitTop:self.reservePortraitTop
-                              reservePortraitBottom:self.reservePortraitBottom reserveLandscapeTop:self.reserveLandscapeTop
-                             reserveLandscapeBottom:self.reserveLandscapeBottom];
+                                                               layoutOptions:self.layoutOptions];
     if (!snapshot) return nil;
     NSMutableDictionary *propertyList = snapshot.propertyList.mutableCopy;
     propertyList[@"tapSync"] = LCTapSyncCoordinator.shared.selectionPropertyList;
@@ -693,16 +657,8 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 }
 
 - (void)applyWorkspaceLayoutPreferences:(LCWindowWorkspace *)workspace {
-    [NSUserDefaults.lcSharedDefaults setBool:workspace.singleRowInLandscape forKey:@"LCGridSingleRowInLandscape"];
-    [NSUserDefaults.lcSharedDefaults setBool:workspace.reservePortraitTop forKey:@"LCGridReservePortraitTop"];
-    [NSUserDefaults.lcSharedDefaults setBool:workspace.reservePortraitBottom forKey:@"LCGridReservePortraitBottom"];
-    [NSUserDefaults.lcSharedDefaults setBool:workspace.reserveLandscapeTop forKey:@"LCGridReserveLandscapeTop"];
-    [NSUserDefaults.lcSharedDefaults setBool:workspace.reserveLandscapeBottom forKey:@"LCGridReserveLandscapeBottom"];
-    self.wasSingleRowInLandscape = workspace.singleRowInLandscape;
-    self.wasReservingPortraitTop = workspace.reservePortraitTop;
-    self.wasReservingPortraitBottom = workspace.reservePortraitBottom;
-    self.wasReservingLandscapeTop = workspace.reserveLandscapeTop;
-    self.wasReservingLandscapeBottom = workspace.reserveLandscapeBottom;
+    [workspace.layoutOptions writeToUserDefaults:NSUserDefaults.lcSharedDefaults];
+    self.appliedLayoutOptions = workspace.layoutOptions;
     for (NSString *key in workspace.proportions) {
         self.savedGridProportions[key] = [[LCGridProportions alloc] initWithPropertyList:workspace.proportions[key]];
     }
@@ -817,7 +773,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     self.lastArrangedWindows = visibleWindows.copy;
     self.gridSlotIndices = slotIndices.copy;
     LCWindowGridLayout layout = LCWindowGridLayoutMakeForOrientation(slots.count, normalBounds.size.width,
-        normalBounds.size.height, LCWindowGridSpacing, LCWindowGridMinimumHeight, portrait, self.singleRowInLandscape);
+        normalBounds.size.height, LCWindowGridSpacing, LCWindowGridMinimumHeight, portrait, self.layoutOptions.singleRowInLandscape);
     layout.width = availableBounds.size.width;
     layout.height = availableBounds.size.height;
     self.gridLayout = layout;

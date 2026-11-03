@@ -16,6 +16,9 @@
 @end
 
 @implementation LCTapSyncControlsView
++ (BOOL)compactControlsByDefault {
+    return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
+}
 - (instancetype)initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame])) {
         self.layer.cornerRadius = 22;
@@ -66,7 +69,7 @@
     if (self.showsPerformance) { [self refreshPerformance]; [self refreshPlacementActions]; return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
     NSNumber *compactPreference = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCTapSyncCompactControls"];
-    BOOL compact = compactPreference ? compactPreference.boolValue : UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
+    BOOL compact = compactPreference ? compactPreference.boolValue : LCTapSyncControlsView.compactControlsByDefault;
     BOOL running = sync.active || sync.starting || sync.recovering;
     BOOL interrupted = sync.hasInterruption;
     NSString *title = sync.recovering ? @"lc.tapSync.paused".loc : [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
