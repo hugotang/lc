@@ -40,6 +40,7 @@ static UIImage *LCDockRevealTouchSurface(void) {
 @property(nonatomic) BOOL hidesArrow;
 // Invalidates an in-flight tap hint when the control is shown again or hidden.
 @property(nonatomic) NSUInteger hintGeneration;
+@property(nonatomic) UIImpactFeedbackGenerator *hintFeedback;
 @end
 
 @interface LCDockHideGesture ()
@@ -312,7 +313,9 @@ static UIImage *LCDockRevealTouchSurface(void) {
         self.tab.alpha = 0;
         self.tab.hidden = NO;
     }
-    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+    // Reuse one generator rather than creating a haptic engine client per tap.
+    if (!self.hintFeedback) self.hintFeedback = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+    [self.hintFeedback impactOccurred];
     // Cross-fades remain appropriate with Reduce Motion; nothing moves.
     UIViewAnimationOptions options = UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction;
     [UIView animateWithDuration:0.15 delay:0 options:options animations:^{

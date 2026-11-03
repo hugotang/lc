@@ -124,8 +124,6 @@
     self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
     self.toggleButton.largeContentTitle = actionTitle;
     self.toggleButton.largeContentImage = configuration.image;
-    // Pointer users see the action, and the reason while sync needs attention.
-    self.toggleButton.toolTip = interrupted || sync.recovering ? [NSString stringWithFormat:@"%@\n%@", actionTitle, status] : actionTitle;
     UIButtonConfiguration *settings = UIButtonConfiguration.plainButtonConfiguration;
     settings.image = [UIImage systemImageNamed:@"gearshape" withConfiguration:
         [UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightMedium]];
@@ -135,8 +133,6 @@
     self.settingsButton.accessibilityValue = interrupted || sync.recovering ? status : nil;
     self.settingsButton.largeContentTitle = self.settingsButton.accessibilityLabel;
     self.settingsButton.largeContentImage = settings.image;
-    self.settingsButton.toolTip = interrupted || sync.recovering ?
-        [NSString stringWithFormat:@"%@\n%@", self.settingsButton.accessibilityLabel, status] : self.settingsButton.accessibilityLabel;
     if (interrupted && ![self.lastAnnouncedInterruption isEqualToString:status]) {
         self.lastAnnouncedInterruption = status;
         if (self.window) UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, status);
@@ -190,7 +186,6 @@
     self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
     self.toggleButton.largeContentTitle = self.toggleButton.accessibilityValue;
     self.toggleButton.largeContentImage = nil;
-    self.toggleButton.toolTip = self.toggleButton.accessibilityValue;
     UIButtonConfiguration *close = UIButtonConfiguration.plainButtonConfiguration;
     close.image = [UIImage systemImageNamed:@"xmark.circle" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20]];
     close.baseForegroundColor = UIColor.secondaryLabelColor;
@@ -198,7 +193,6 @@
     self.settingsButton.accessibilityLabel = @"lc.performance.stop".loc;
     self.settingsButton.largeContentTitle = self.settingsButton.accessibilityLabel;
     self.settingsButton.largeContentImage = close.image;
-    self.settingsButton.toolTip = self.settingsButton.accessibilityLabel;
 }
 - (void)layoutSubviews {
     [super layoutSubviews];

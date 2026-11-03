@@ -106,7 +106,7 @@
     XCTAssertNotNil([defaults dictionaryForKey:@"LCTapSyncControlsLandscapePosition"]);
     XCTAssertNil([defaults dictionaryForKey:@"LCTapSyncControlsPortraitPosition"]);
 }
-- (void)testIconsOfferLargeContentAndPointerDescriptions {
+- (void)testIconsOfferLargeContentViewer {
     [NSUserDefaults.lcSharedDefaults setBool:YES forKey:@"LCTapSyncCompactControls"];
     [self layoutInPhoneBounds];
     BOOL hasInteraction = NO;
@@ -118,14 +118,11 @@
         XCTAssertTrue(button.showsLargeContentViewer);
         XCTAssertGreaterThan(button.largeContentTitle.length, 0u);
         XCTAssertNotNil(button.largeContentImage);
-        XCTAssertGreaterThan(button.toolTip.length, 0u);
     }
     XCTAssertEqualObjects(self.settingsButton.largeContentTitle, @"lc.tapSync.configure".loc);
     [self.sync setValue:@"lc.tapSync.expiredInput" forKey:@"statusKey"];
     [self.sync setValue:@[@"C"] forKey:@"interruptedContainers"];
     [self layoutInPhoneBounds];
-    XCTAssertTrue([self.toggleButton.toolTip containsString:@"lc.tapSync.expiredInput".loc]);
-    XCTAssertTrue([self.settingsButton.toolTip containsString:@"#2"]);
     // The enlarged title is the action, not the long reason.
     XCTAssertFalse([self.toggleButton.largeContentTitle containsString:@"lc.tapSync.expiredInput".loc]);
 }

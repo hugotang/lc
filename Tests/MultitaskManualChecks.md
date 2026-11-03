@@ -2,10 +2,10 @@
 
 ## Floating control defaults and swipe-only feedback (3.8.33)
 
-The user approved size-based Icons Only, host-shape position selection, Large Content Viewer/pointer descriptions and a swipe-only tap hint after a best-practice review. No device result has been reported yet.
+The user approved size-based Icons Only, host-shape position selection, Large Content Viewer and a swipe-only tap hint after a best-practice review. No device result has been reported yet.
 
 - The size-based default only applies while Icons Only has never been toggled; a choice saved in an earlier version keeps applying. Do not reinstall to clear it, which would remove app data. On a configuration without a saved choice, on iPad with two synced side-by-side windows the overlay should show text; with four synced windows it should show icons, updating after rotation or resize. On iPhone it should show icons. A saved choice in either direction must still win. Use Stage Manager or Split View with a portrait-shaped LiveContainer window in landscape, move the controls, rotate, and confirm portrait/landscape positions follow the window shape.
-- Set an accessibility text size, long-press each Input Sync icon and check the enlarged name; drag immediately and confirm dragging still moves the controls. With a trackpad or mouse, hover both icons, including after an interruption.
+- Set an accessibility text size, long-press each Input Sync icon and check the enlarged name; drag immediately and confirm dragging still moves the controls.
 - Enable Hide Collapsed Dock and Swipe Only When Arrow Is Hidden over four running games. Tap the hidden arrow area: the arrow should fade in briefly and disappear, Dock must stay hidden and the game must not receive the tap. iPhone should give a light haptic. Swipe inward during and after the hint to reveal Dock. Repeated taps, rotation and Dock reveal during the hint must not leave the arrow visible.
 
 ## Keep Background Music (3.8.32)
