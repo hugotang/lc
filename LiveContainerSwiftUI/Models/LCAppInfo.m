@@ -600,6 +600,17 @@
     return LCAppAspectRatioFromInfo(_info);
 }
 
+- (NSDictionary *)customLocation {
+    return LCAppLocationSettings(_info[LCAppLocationKey]);
+}
+
+- (void)setCustomLocation:(NSDictionary *)settings {
+    NSDictionary *valid = LCAppLocationSettings(settings);
+    if (valid.count) _info[LCAppLocationKey] = valid;
+    else [_info removeObjectForKey:LCAppLocationKey];
+    [self save];
+}
+
 - (void)setWindowAspectRatio:(CGSize)ratio {
     if (CGSizeEqualToSize(ratio, CGSizeZero)) [_info removeObjectForKey:LCAppWindowAspectRatioKey];
     else if (LCAppAspectRatioIsValid(ratio)) _info[LCAppWindowAspectRatioKey] = @[@(ratio.width), @(ratio.height)];

@@ -18,6 +18,7 @@
 #import "Tweaks/Tweaks.h"
 #import "Tweaks/AmbientAudio.h"
 #import "Tweaks/BackgroundAudio.h"
+#import "Tweaks/CustomLocation.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
@@ -530,6 +531,9 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);
     
     BOOL hookDlopen = !isSideStore && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
+    if (LCAppLocationShouldEnable(lcGuestAppId, isSideStore, guestAppInfo)) {
+        LCCustomLocationInstall(guestAppInfo[LCAppLocationKey]);
+    }
     Class processHandler = NSClassFromString(@"LiveProcessHandler");
     NSDictionary *audioLaunchInfo = [processHandler respondsToSelector:@selector(retrievedAppInfo)] ?
         [processHandler retrievedAppInfo] : nil;

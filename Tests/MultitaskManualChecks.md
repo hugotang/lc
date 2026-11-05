@@ -1,5 +1,12 @@
 # Device checks for multitasking changes
 
+## Custom location (3.8.36)
+
+- Open an app's Settings → Custom Location. Confirm the default is Off. Enable without a saved point, then cancel: it must stay Off. Search an address, choose among similarly named results, long-press/drag a pin and select the map center. Verify the displayed coordinates match the pin; map panning alone must not silently replace it. Cancel and confirm the previous point/state survives.
+- Enter positive/negative coordinates, `(0, 0)`, boundaries ±90/±180, decimal commas, and pasted coordinates in each field. Reject blank, nonnumeric and out-of-range values. Confirm the iPhone keyboard permits a minus sign. Save, disable, reenable and relaunch LC: keep the saved point and intended switch. Repeat with VoiceOver, large text, landscape, iPad Split View and a failed/offline address search; direct coordinate input remains available.
+- With a location-aware test app, allow/deny location access and change authorization in Settings. Test one-shot, continuous, positive distance filter and significant-change subscriptions; compare delegate results and the last-location property. No location may arrive without authorization, and stopped requests must not fire later. Core Location simulation metadata is intentionally retained. The host map must not request or show real device location.
+- Repeat ordinary launch, a single virtual window, two accounts and native iPad windows. Each app's accounts use its saved point; other apps keep their own settings. Disable and restart all accounts to restore ordinary location. A running account keeps its captured point until restarted. Test background/foreground and a client creating its location manager on a run-loop thread. Webpage location, newer async APIs, regions, visits, heading and background wakeups are outside first-version coverage; see [CustomLocation.md](../docs/CustomLocation.md).
+
 ## Per-app aspect ratio and Interface Mode removal (3.8.35)
 
 Corrected 3.8.34 device result on 2026-11-05: Puzzle & Dragons 23.6.0 displays correctly with **Automatic + Custom 11:16 in virtual multitasking** while the iPad host is in landscape. **Forced iPad still overflows at the fixed ratio.** Use Window Size as Screen Size was already enabled in the failing configuration. The prior iPad + 11:16 success statement was incorrect. Exact window dimensions, Automatic's actual idioms and full edge-touch/orb-drag/menu/ad/rotation checks remain unreported. See [the IDA investigation](../docs/PuzzleDragonsWindowSizing.md).

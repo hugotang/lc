@@ -73,6 +73,10 @@ class LCAppModel: ObservableObject, Hashable {
         didSet { appInfo.windowAspectRatio = uiWindowAspectRatio }
     }
 
+    @Published var uiCustomLocation: [AnyHashable: Any] {
+        didSet { appInfo.customLocation = uiCustomLocation }
+    }
+
     @Published var uiForceAmbientAudio : Bool {
         didSet {
             appInfo.forceAmbientAudio = uiForceAmbientAudio
@@ -206,6 +210,7 @@ class LCAppModel: ObservableObject, Hashable {
         self.uiFixLocalNotification = appInfo.fixLocalNotification
         self.uiUseWindowScreenSize = appInfo.useWindowScreenSize
         self.uiWindowAspectRatio = appInfo.windowAspectRatio
+        self.uiCustomLocation = appInfo.customLocation
         self.uiForceAmbientAudio = appInfo.forceAmbientAudio
         self.uiKeepBackgroundAudio = appInfo.keepBackgroundAudio
         self.uiHideLiveContainer = appInfo.hideLiveContainer

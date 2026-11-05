@@ -216,13 +216,46 @@ jobs:
           path: ${{ runner.temp }}/dock-gesture-ui-tests*
           if-no-files-found: ignore
 
+  test_location_picker:
+    name: Test custom location picker on iPhone and iPad
+    runs-on: macos-latest
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+      - uses: actions/checkout@v6
+      - name: Test location picker on iPhone
+        env:
+          LC_TEST_DEVICE_FAMILY: iPhone
+          LC_TEST_RUN_SUFFIX: -iphone
+        run: bash Tests/run-location-picker-ui-tests.sh
+      - name: Test location picker on iPad
+        run: bash Tests/run-location-picker-ui-tests.sh
+      - name: Export location picker screenshots
+        if: always()
+        run: |
+          for folder in "$RUNNER_TEMP"/location-picker-ui-tests*; do
+            if [ -d "$folder/results.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$folder/results.xcresult" --output-path "$folder/attachments"
+            fi
+          done
+      - name: Upload location picker diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: location-picker-tests
+          path: |
+            ${{ runner.temp }}/location-picker-ui-tests*/attachments
+            ${{ runner.temp }}/location-picker-ui-tests*/results.xcresult
+          if-no-files-found: ignore
+
   release__nightly:
     name: Nightly Release
     permissions:
       contents: write
     if: github.event_name == 'workflow_dispatch' && inputs.release__nightly
     runs-on: ubuntu-latest
-    needs: [build, test_input_windows, test_dock_gestures]
+    needs: [build, test_input_windows, test_dock_gestures, test_location_picker]
     concurrency:
       group: release__nightly
       cancel-in-progress: true

@@ -240,6 +240,19 @@ struct LCAppSettingsView: View {
                 }
             }
             
+            Section {
+                NavigationLink {
+                    LCAppLocationSettingsView(model: model)
+                } label: {
+                    HStack {
+                        Label("lc.location.title".loc, systemImage: "mappin.and.ellipse")
+                        Spacer()
+                        Text((model.uiCustomLocation["enabled"] as? Bool == true ? "lc.location.on" : "lc.location.off").loc)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             if #available(iOS 16.0, *) {
                 Section {
                     Picker(selection: $model.uiIsMultitaskModeSpecificed) {
