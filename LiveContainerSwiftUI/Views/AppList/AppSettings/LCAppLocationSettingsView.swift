@@ -29,6 +29,12 @@ struct LCAppLocationSettingsView: View {
     @ObservedObject var model: LCAppModel
     @State private var editing = false
     @State private var enableAfterSelection = false
+    @State private var requestedEnabled: Bool
+
+    init(model: LCAppModel) {
+        self.model = model
+        _requestedEnabled = State(initialValue: model.uiCustomLocation["enabled"] as? Bool == true)
+    }
 
     private var point: LCLocationPoint? { LCLocationPoint(model.uiCustomLocation) }
     private var enabled: Bool { model.uiCustomLocation["enabled"] as? Bool == true }
@@ -37,10 +43,11 @@ struct LCAppLocationSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("lc.location.enable".loc, isOn: Binding(get: { enabled }, set: { value in
+                Toggle("lc.location.enable".loc, isOn: $requestedEnabled)
+                .onChange(of: requestedEnabled) { value in
                     if let point { model.uiCustomLocation = point.settings(enabled: value) }
                     else if value { enableAfterSelection = true; editing = true }
-                }))
+                }
                 .disabled(unavailable)
                 .accessibilityIdentifier("location.enabled")
             } footer: {
@@ -70,7 +77,7 @@ struct LCAppLocationSettingsView: View {
             }
         }
         .navigationTitle("lc.location.title".loc)
-        .sheet(isPresented: $editing) {
+        .sheet(isPresented: $editing, onDismiss: { requestedEnabled = enabled }) {
             LCLocationPickerView(initial: point) { newPoint in
                 model.uiCustomLocation = newPoint.settings(enabled: enabled || enableAfterSelection)
             }
