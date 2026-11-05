@@ -52,7 +52,7 @@ static BOOL LCLocationAuthorized(CLLocationManager *manager) {
     NSMethodSignature *signature = [super methodSignatureForSelector:selector];
     if (signature) return signature;
     struct objc_method_description method = protocol_getMethodDescription(@protocol(CLLocationManagerDelegate), selector, NO, YES);
-    return method.types ? [NSMethodSignature signatureWithObjCTypes:method.types] : [self.target methodSignatureForSelector:selector];
+    return method.types ? [NSMethodSignature signatureWithObjCTypes:method.types] : [(id)self.target methodSignatureForSelector:selector];
 }
 - (void)forwardInvocation:(NSInvocation *)invocation {
     id target = self.target;

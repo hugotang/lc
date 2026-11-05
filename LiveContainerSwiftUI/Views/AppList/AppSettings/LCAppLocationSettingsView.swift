@@ -121,6 +121,7 @@ final class LCLocationSearch: ObservableObject {
 
 private struct LCLocationPickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var search = LCLocationSearch()
     @State private var point: LCLocationPoint?
     @State private var cameraPoint: LCLocationPoint?
@@ -206,18 +207,10 @@ private struct LCLocationPickerView: View {
                     } else {
                         Text("lc.location.mapHint".loc).font(.callout).foregroundStyle(.secondary)
                     }
-                    HStack {
-                        Button { centerSelection += 1 } label: {
-                            Label("lc.location.useCenter".loc, systemImage: "plus.viewfinder")
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("location.center")
-                        Spacer(minLength: 4)
-                        Button { enteringCoordinates = true } label: {
-                            Label("lc.location.coordinates".loc, systemImage: "number")
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("location.coordinates")
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(alignment: .leading) { selectionButtons }
+                    } else {
+                        HStack { selectionButtons }
                     }
                     Button {
                         if let point { save(point); dismiss() }
@@ -242,6 +235,17 @@ private struct LCLocationPickerView: View {
             .onDisappear { search.cancel() }
         }
         .navigationViewStyle(.stack)
+    }
+
+    @ViewBuilder private var selectionButtons: some View {
+        Button { centerSelection += 1 } label: {
+            Label("lc.location.useCenter".loc, systemImage: "plus.viewfinder")
+        }
+        .buttonStyle(.bordered).accessibilityIdentifier("location.center")
+        Button { enteringCoordinates = true } label: {
+            Label("lc.location.coordinates".loc, systemImage: "number")
+        }
+        .buttonStyle(.bordered).accessibilityIdentifier("location.coordinates")
     }
 }
 
@@ -301,7 +305,7 @@ private struct LCLocationCoordinateEditor: View {
             // numbersAndPunctuation includes minus signs on iPhone.
             TextField(title.loc, text: text).keyboardType(.numbersAndPunctuation)
                 .accessibilityIdentifier(title)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .textInputAutocapitalization(.never).disableAutocorrection(true)
         }
     }
 }
@@ -331,7 +335,8 @@ private struct LCLocationMap: UIViewRepresentable {
     func updateUIView(_ map: MKMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
-        if let point {
+        if let point, coordinator.selectedPoint != point {
+            coordinator.selectedPoint = point
             coordinator.pin.coordinate = point.coordinate
             coordinator.pin.title = point.name.isEmpty ? "lc.location.selected".loc : point.name
             if map.annotations.isEmpty { map.addAnnotation(coordinator.pin) }
@@ -356,6 +361,7 @@ private struct LCLocationMap: UIViewRepresentable {
         let pin = MKPointAnnotation()
         var cameraRevision = -1
         var centerSelection = 0
+        var selectedPoint: LCLocationPoint?
         init(_ parent: LCLocationMap) { self.parent = parent }
         func pick(_ coordinate: CLLocationCoordinate2D) {
             guard LCAppLocationCoordinateIsValid(coordinate) else { return }
