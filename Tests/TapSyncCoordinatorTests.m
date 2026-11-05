@@ -3,7 +3,6 @@
 #import "../MultitaskSupport/TapSyncSession.h"
 #import "../MultitaskSupport/TapSyncRecovery.h"
 #import "../LiveContainer/utils.h"
-#import "../LiveContainer/LCAppDisplaySettings.h"
 #import "TapSyncTestWindow.h"
 
 // Supply an isolated defaults suite when compiling the production coordinator in
@@ -140,7 +139,6 @@
 
 @interface LCTestSyncGuest : NSObject
 @property(nonatomic, copy) NSString *dataUUID, *bundleId;
-@property(nonatomic) LCAppInterfaceMode interfaceMode;
 @property(nonatomic) UIView *view;
 @property(nonatomic) LCTestSyncPeer *tapSyncPeer;
 @end
@@ -249,54 +247,6 @@
     XCTestExpectation *delay = [self expectationWithDescription:@"pending recovery check"];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 450 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ [delay fulfill]; });
     [self waitForExpectations:@[delay] timeout:2];
-}
-- (void)testEqualSizedAccountsRequireMatchingCapturedInterfaceModes {
-    NSArray<NSNumber *> *modes = @[@(LCAppInterfaceModeAutomatic), @(LCAppInterfaceModePhone), @(LCAppInterfaceModePad)];
-    for (NSNumber *sourceMode in modes) {
-        for (LCTestSyncWindow *window in self.host.tapSyncWindows) window.appSceneVC.interfaceMode = sourceMode.integerValue;
-        NSArray *matchingGeometry = self.sync.currentGeometry;
-        XCTAssertNotNil(matchingGeometry);
-        for (NSNumber *followerMode in modes) {
-            if ([sourceMode isEqual:followerMode]) continue;
-            self.host.tapSyncWindows[2].appSceneVC.interfaceMode = followerMode.integerValue;
-            NSString *problem;
-            XCTAssertNil([self.sync currentGeometryWithProblem:&problem]);
-            XCTAssertEqualObjects(problem, @"C");
-            XCTAssertFalse(self.sync.canStart);
-            NSUInteger prepares = self.peers[2].prepares;
-            [self.sync start];
-            XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
-            XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.alignWindows");
-            XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"C"]));
-            XCTAssertEqual(self.peers[2].prepares, prepares);
-        }
-        self.host.tapSyncWindows[2].appSceneVC.interfaceMode = sourceMode.integerValue;
-        XCTAssertEqualObjects(self.sync.currentGeometry, matchingGeometry);
-        XCTAssertTrue(self.sync.canStart);
-        [self.sync start];
-        XCTAssertTrue(self.sync.active);
-        [self.sync pause];
-    }
-}
-- (void)testInterfaceModeChangeStopsReplayUntilAllAccountsMatch {
-    [self.sync start];
-    XCTAssertTrue(self.sync.active);
-    NSString *previous = self.peers[0].session;
-    self.host.tapSyncWindows[2].appSceneVC.interfaceMode = LCAppInterfaceModePhone;
-    self.peers[0].didReceiveTap(self.freshTap, previous, 1);
-    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.layoutChanged");
-    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"C"]));
-    XCTAssertFalse(self.sync.canStart);
-    for (LCTestSyncPeer *peer in self.peers) { XCTAssertNil(peer.session); XCTAssertEqual(peer.replays, 0u); }
-    for (LCTestSyncWindow *window in self.host.tapSyncWindows) window.appSceneVC.interfaceMode = LCAppInterfaceModePhone;
-    XCTAssertTrue(self.sync.canStart);
-    [self.sync start];
-    XCTAssertTrue(self.sync.active);
-    self.peers[0].didReceiveTap(self.freshTap, previous, 2);
-    for (LCTestSyncPeer *peer in self.peers) XCTAssertEqual(peer.replays, 0u);
-    self.peers[0].didReceiveTap(self.freshTap, self.peers[0].session, 1);
-    for (NSUInteger i = 1; i < self.peers.count; i++) XCTAssertEqual(self.peers[i].replays, 1u);
 }
 - (void)testFollowerPausesEveryAccountAndSourceResumesFreshSession {
     self.sync.resumeOnSource = YES;

@@ -9606,52 +9606,6 @@
         }
       }
     },
-    "lc.appSettings.interfaceMode" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Interface Mode (Experimental)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "界面模式（实验性）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "介面模式（實驗性）"
-          }
-        }
-      }
-    },
-    "lc.appSettings.interfaceMode.help" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reports iPhone or iPad to this app. The app must include a compatible interface; some layouts and resources may still follow the physical device."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "让此应用识别为 iPhone 或 iPad。应用须具备相应界面；部分布局和资源仍可能依照实际设备。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "讓此 App 識別為 iPhone 或 iPad。App 須具備對應介面；部分版面和資源仍可能依照實際裝置。"
-          }
-        }
-      }
-    },
     "lc.appSettings.aspectRatio" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9819,19 +9773,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Applies to all accounts of this app in virtual multitasking windows. Close and reopen all its accounts after changing these settings. Requires TweakLoader injection."
+            "value" : "Applies only to virtual multitasking windows, including a single app window. Ordinary launches and native windows use their normal layout. Close and reopen all accounts after changing the ratio. Requires TweakLoader injection."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "适用于此应用在虚拟多任务窗口中的所有账号。更改后请关闭并重新启动所有账号。需要启用 TweakLoader 注入。"
+            "value" : "仅适用于虚拟多任务窗口，只有一个 App 窗口时也可使用。普通启动和原生窗口使用原有布局。更改比例后请关闭并重新启动所有账号。需要启用 TweakLoader 注入。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "適用於此 App 在虛擬多工視窗中的所有帳號。更改後請關閉並重新啟動所有帳號。需要啟用 TweakLoader 注入。"
+            "value" : "僅適用於虛擬多工視窗，只有一個 App 視窗時也可使用。普通啟動和原生視窗使用原有版面。更改比例後請關閉並重新啟動所有帳號。需要啟用 TweakLoader 注入。"
           }
         }
       }
@@ -34159,19 +34113,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show the selected windows side by side with matching aspect ratios and interface modes, then wait for their input connections. After changing Interface Mode, close and reopen every account of that app."
+            "value" : "Show the selected windows side by side with matching aspect ratios and wait for their input connections."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请并排显示选定窗口，保持相近的长宽比例和相同的界面模式，并等待输入连接完成。更改界面模式后，请关闭并重新打开该 App 的所有账号。"
+            "value" : "请并排显示选定窗口，保持相近的长宽比例，并等待输入连接完成。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請並排顯示選定視窗，保持相近的長寬比例和相同的介面模式，並等待輸入連線完成。更改介面模式後，請關閉並重新開啟該 App 的所有帳號。"
+            "value" : "請並排顯示選定視窗，保持相近的長寬比例，並等待輸入連線完成。"
           }
         }
       }

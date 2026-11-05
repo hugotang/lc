@@ -154,7 +154,7 @@
 - (void)testFixedRatiosFitAndStayCenteredAcrossChromeAndHostSizes {
     NSArray *ratios = @[[NSValue valueWithCGSize:CGSizeMake(9, 16)], [NSValue valueWithCGSize:CGSizeMake(16, 9)],
                         [NSValue valueWithCGSize:CGSizeMake(3, 4)], [NSValue valueWithCGSize:CGSizeMake(4, 3)],
-                        [NSValue valueWithCGSize:CGSizeMake(9, 19.5)]];
+                        [NSValue valueWithCGSize:CGSizeMake(9, 19.5)], [NSValue valueWithCGSize:CGSizeMake(11, 16)]];
     for (NSValue *ratio in ratios) {
         self.chrome.aspectRatio = ratio.CGSizeValue;
         for (NSValue *size in @[[NSValue valueWithCGSize:CGSizeMake(400, 600)],

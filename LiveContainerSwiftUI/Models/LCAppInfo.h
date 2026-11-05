@@ -37,7 +37,6 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 @property bool fixFilePickerNew;
 @property bool fixLocalNotification;
 @property bool useWindowScreenSize;
-@property LCAppInterfaceMode interfaceMode;
 @property CGSize windowAspectRatio;
 @property bool forceAmbientAudio;
 @property bool keepBackgroundAudio;

@@ -69,10 +69,6 @@ class LCAppModel: ObservableObject, Hashable {
         }
     }
 
-    @Published var uiInterfaceMode: LCAppInterfaceMode {
-        didSet { appInfo.interfaceMode = uiInterfaceMode }
-    }
-
     @Published var uiWindowAspectRatio: CGSize {
         didSet { appInfo.windowAspectRatio = uiWindowAspectRatio }
     }
@@ -209,7 +205,6 @@ class LCAppModel: ObservableObject, Hashable {
         self.uiFixFilePickerNew = appInfo.fixFilePickerNew
         self.uiFixLocalNotification = appInfo.fixLocalNotification
         self.uiUseWindowScreenSize = appInfo.useWindowScreenSize
-        self.uiInterfaceMode = appInfo.interfaceMode
         self.uiWindowAspectRatio = appInfo.windowAspectRatio
         self.uiForceAmbientAudio = appInfo.forceAmbientAudio
         self.uiKeepBackgroundAudio = appInfo.keepBackgroundAudio

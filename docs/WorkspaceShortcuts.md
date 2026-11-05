@@ -64,9 +64,10 @@ the host cannot make an arbitrary game discard that private state.
 
 Starting in 3.8.34, an app can opt into a fixed content ratio under its own
 **Display & Layout** settings. A workspace restore uses that current app preference
-inside each reserved slot, including before launch; it does not add display-mode
+inside each reserved slot, including before launch; it does not add ratio
 fields to the saved workspace. Close running accounts before restoring to apply
-a changed ratio or iPhone/iPad mode. See [per-app display settings](AppDisplaySettings.md).
+a changed ratio. Version 3.8.35 removes the experimental iPhone/iPad override;
+saved mode choices are ignored. See [per-app display settings](AppDisplaySettings.md).
 
 Your previous single save is automatically imported as **Original Workspace**.
 Existing links without a workspace selection continue to restore whichever

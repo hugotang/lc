@@ -596,17 +596,6 @@
     return [_info[@"LCUseWindowScreenSize"] boolValue];
 }
 
-- (LCAppInterfaceMode)interfaceMode {
-    return LCAppInterfaceModeFromInfo(_info);
-}
-
-- (void)setInterfaceMode:(LCAppInterfaceMode)mode {
-    if (mode == LCAppInterfaceModeAutomatic) [_info removeObjectForKey:LCAppInterfaceModeKey];
-    else if (mode == LCAppInterfaceModePhone || mode == LCAppInterfaceModePad) _info[LCAppInterfaceModeKey] = @(mode);
-    else return;
-    [self save];
-}
-
 - (CGSize)windowAspectRatio {
     return LCAppAspectRatioFromInfo(_info);
 }

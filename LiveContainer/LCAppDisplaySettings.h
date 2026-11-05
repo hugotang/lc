@@ -4,23 +4,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-typedef NS_ENUM(NSInteger, LCAppInterfaceMode) {
-    LCAppInterfaceModeAutomatic = 0,
-    LCAppInterfaceModePhone = 1,
-    LCAppInterfaceModePad = 2,
-};
-
-static NSString * const LCAppInterfaceModeKey = @"LCAppInterfaceMode";
 static NSString * const LCAppWindowAspectRatioKey = @"LCAppWindowAspectRatio";
-
-static inline LCAppInterfaceMode LCAppInterfaceModeFromInfo(NSDictionary *info) {
-    id value = info[LCAppInterfaceModeKey];
-    if ([value isKindOfClass:NSNumber.class]) {
-        if ([value isEqual:@(LCAppInterfaceModePhone)]) return LCAppInterfaceModePhone;
-        if ([value isEqual:@(LCAppInterfaceModePad)]) return LCAppInterfaceModePad;
-    }
-    return LCAppInterfaceModeAutomatic;
-}
 
 // Width:height, without orientation-dependent swapping. Zero means fill.
 // Bound both components and the quotient to avoid degenerate layout constraints.
@@ -51,8 +35,8 @@ static inline NSDictionary *LCAppDisplaySettingsForLaunch(NSDictionary *appInfo,
 
 static inline NSDictionary *LCAppDisplaySettingsSnapshot(NSDictionary *info) {
     CGSize ratio = LCAppAspectRatioFromInfo(info);
-    return @{LCAppInterfaceModeKey: @(LCAppInterfaceModeFromInfo(info)),
-             LCAppWindowAspectRatioKey: @[@(ratio.width), @(ratio.height)],
+    // Ignore retired Interface Mode values from older app preferences.
+    return @{LCAppWindowAspectRatioKey: @[@(ratio.width), @(ratio.height)],
              @"LCUseWindowScreenSize": @([info[@"LCUseWindowScreenSize"] isEqual:@YES])};
 }
 

@@ -37,7 +37,6 @@ static NSUUID *LCWindowGeometryClipboardRequest;
 @property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
 @property(nonatomic) CGSize initialLogicalWindowSize;
 @property(nonatomic, readwrite) CGSize windowAspectRatio;
-@property(nonatomic, readwrite) LCAppInterfaceMode interfaceMode;
 @end
 
 @implementation AppSceneViewController
@@ -155,7 +154,6 @@ static NSUUID *LCWindowGeometryClipboardRequest;
     NSDictionary *displaySettings = LCAppDisplaySettingsSnapshot(guestInfo ?: @{});
     if (!self.isNativeWindow && ![guestInfo[@"dontInjectTweakLoader"] boolValue]) {
         self.windowAspectRatio = LCAppAspectRatioFromInfo(displaySettings);
-        self.interfaceMode = LCAppInterfaceModeFromInfo(displaySettings);
     }
     userInfo[@"appDisplaySettings"] = displaySettings;
     item.userInfo = userInfo;
@@ -463,7 +461,6 @@ static NSUUID *LCWindowGeometryClipboardRequest;
         @"hostingTransform": NSStringFromCGAffineTransform(self.contentView.transform),
         @"initialLogicalSize": NSStringFromCGSize(self.initialLogicalWindowSize),
         @"windowAspectRatio": NSStringFromCGSize(self.windowAspectRatio),
-        @"interfaceMode": @(self.interfaceMode),
         @"expectedLogicalSize": NSStringFromCGSize(LCWindowContentLogicalSize(host.bounds.size, self.scaleRatio)),
         @"remoteSceneFrame": NSStringFromCGRect(scene.frame),
         @"remoteSceneOrientation": @(scene.interfaceOrientation),

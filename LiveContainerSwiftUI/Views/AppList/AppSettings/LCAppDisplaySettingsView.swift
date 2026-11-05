@@ -48,16 +48,6 @@ struct LCAppDisplaySettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("lc.appSettings.interfaceMode".loc, selection: $model.uiInterfaceMode) {
-                    Text("lc.common.auto".loc).tag(LCAppInterfaceMode.automatic)
-                    Text("iPhone").tag(LCAppInterfaceMode.phone)
-                    Text("iPad").tag(LCAppInterfaceMode.pad)
-                }
-                .disabled(model.uiDontInjectTweakLoader)
-            } footer: {
-                Text("lc.appSettings.interfaceMode.help".loc)
-            }
-            Section {
                 Picker("lc.appSettings.aspectRatio".loc, selection: ratioChoice) {
                     ForEach(AppAspectRatioChoice.allCases) { choice in
                         Text(choice.title).tag(choice)
