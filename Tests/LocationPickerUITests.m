@@ -12,6 +12,13 @@
     XCTAssertTrue([self.app.switches[@"location.enabled"] waitForExistenceWithTimeout:15]);
 }
 - (void)tearDown { [self.app terminate]; [super tearDown]; }
+- (void)toggleLocation {
+    XCUIElement *row = self.app.switches[@"location.enabled"];
+    // SwiftUI exposes both the whole row and the trailing UISwitch. Its row
+    // center is blank space; tap the actual switch without screen coordinates.
+    XCUIElement *control = row.switches.firstMatch;
+    [(control.exists ? control : row) tap];
+}
 - (void)openCoordinates {
     XCTAssertTrue([self.app.buttons[@"location.coordinates"] waitForExistenceWithTimeout:10]);
     [self.app.buttons[@"location.coordinates"] tap];
@@ -35,12 +42,12 @@
 }
 - (void)testEnableCancelAndZeroCoordinateCommit {
     XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"0");
-    [self.app.switches[@"location.enabled"] tap];
+    [self toggleLocation];
     XCTAssertTrue([self.app.buttons[@"location.cancel"] waitForExistenceWithTimeout:10]);
     XCTAssertFalse(self.app.buttons[@"location.save"].enabled);
     [self.app.buttons[@"location.cancel"] tap];
     XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"0");
-    [self.app.switches[@"location.enabled"] tap];
+    [self toggleLocation];
     [self openCoordinates];
     [self enter:@"0" field:@"lc.location.latitude"]; [self enter:@"0" field:@"lc.location.longitude"];
     XCTAssertTrue(self.app.buttons[@"location.showOnMap"].enabled);
@@ -50,7 +57,7 @@
     [self attachScreenshot];
     [self.app.buttons[@"location.save"] tap];
     XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"1");
-    [self.app.switches[@"location.enabled"] tap];
+    [self toggleLocation];
     XCTAssertTrue([self.app.staticTexts[@"0.000000, 0.000000"] exists]);
 }
 - (void)testNegativeCoordinateValidationAndCancelPreservesSavedPoint {
