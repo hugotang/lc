@@ -34159,19 +34159,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show the selected windows side by side with matching aspect ratios and wait for their input connections."
+            "value" : "Show the selected windows side by side with matching aspect ratios and interface modes, then wait for their input connections. After changing Interface Mode, close and reopen every account of that app."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请并排显示选定窗口，保持相近的长宽比例，并等待输入连接完成。"
+            "value" : "请并排显示选定窗口，保持相近的长宽比例和相同的界面模式，并等待输入连接完成。更改界面模式后，请关闭并重新打开该 App 的所有账号。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請並排顯示選定視窗，保持相近的長寬比例，並等待輸入連線完成。"
+            "value" : "請並排顯示選定視窗，保持相近的長寬比例和相同的介面模式，並等待輸入連線完成。更改介面模式後，請關閉並重新開啟該 App 的所有帳號。"
           }
         }
       }

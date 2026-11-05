@@ -322,13 +322,20 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     NSArray<DecoratedAppSceneViewController *> *visible = self.host.tapSyncWindows;
     NSString *bundle;
     CGSize sourceSize = CGSizeZero;
+    LCAppInterfaceMode sourceInterfaceMode = LCAppInterfaceModeAutomatic;
     for (NSString *container in participants) {
         if (problem) *problem = container;
         DecoratedAppSceneViewController *window = [self.host windowForContainer:container];
         if (!window || ![visible containsObject:window] || !window.appSceneVC.tapSyncPeer.ready ||
             !CGAffineTransformIsIdentity(window.view.transform) || window.view.alpha < 0.999) return nil;
-        if (!bundle) { bundle = window.appSceneVC.bundleId; sourceSize = window.appSceneVC.view.bounds.size; }
-        else if (![bundle isEqualToString:window.appSceneVC.bundleId] || !window.appSceneVC.tapSyncPeer.canReplay) return nil;
+        if (!bundle) {
+            bundle = window.appSceneVC.bundleId;
+            sourceSize = window.appSceneVC.view.bounds.size;
+            sourceInterfaceMode = window.appSceneVC.interfaceMode;
+        } else if (![bundle isEqualToString:window.appSceneVC.bundleId] || !window.appSceneVC.tapSyncPeer.canReplay ||
+                   window.appSceneVC.interfaceMode != sourceInterfaceMode) return nil;
+        // Use each running account's captured choice. Equal bounds alone do not
+        // guarantee matching layouts after only some accounts adopt a new mode.
         CGRect frame = [window.view convertRect:window.view.bounds toView:self.host];
         if (!CGRectContainsRect(CGRectInset(self.host.bounds, -1, -1), frame)) return nil;
         // Every participant must remain visible. Overlapping guest windows are ambiguous to operate together.
@@ -342,7 +349,8 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         if (!LCTapSyncCanMap(shape, size.width, size.height, 1)) return nil;
         [geometry addObject:@[container, [NSValue valueWithCGRect:frame],
             [NSValue valueWithCGRect:window.appSceneVC.view.bounds],
-            [NSValue valueWithUIEdgeInsets:window.appSceneVC.view.safeAreaInsets], @(window.scaleRatio)]];
+            [NSValue valueWithUIEdgeInsets:window.appSceneVC.view.safeAreaInsets], @(window.scaleRatio),
+            @(window.appSceneVC.interfaceMode)]];
     }
     if (problem) *problem = nil;
     return geometry.copy;
@@ -959,7 +967,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     NSMutableArray *presentation = [NSMutableArray array];
     for (DecoratedAppSceneViewController *window in self.host.tapSyncWindows) {
         [presentation addObject:@[window.appSceneVC.dataUUID, [NSValue valueWithCGRect:window.view.frame],
-            [NSValue valueWithCGRect:window.appSceneVC.view.bounds], @(window.scaleRatio)]];
+            [NSValue valueWithCGRect:window.appSceneVC.view.bounds], @(window.scaleRatio), @(window.appSceneVC.interfaceMode)]];
     }
     if (![self.lastWindowPresentation isEqual:presentation]) {
         self.lastWindowPresentation = presentation.copy;

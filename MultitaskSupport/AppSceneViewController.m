@@ -37,7 +37,7 @@ static NSUUID *LCWindowGeometryClipboardRequest;
 @property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
 @property(nonatomic) CGSize initialLogicalWindowSize;
 @property(nonatomic, readwrite) CGSize windowAspectRatio;
-@property(nonatomic) LCAppInterfaceMode interfaceMode;
+@property(nonatomic, readwrite) LCAppInterfaceMode interfaceMode;
 @end
 
 @implementation AppSceneViewController
