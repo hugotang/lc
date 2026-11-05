@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import "LCUtils.h"
+#import "../../LiveContainer/LCAppDisplaySettings.h"
 
 typedef NS_ENUM(NSInteger, LCOrientationLock){
     Disabled = 0,
@@ -36,6 +37,8 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 @property bool fixFilePickerNew;
 @property bool fixLocalNotification;
 @property bool useWindowScreenSize;
+@property LCAppInterfaceMode interfaceMode;
+@property CGSize windowAspectRatio;
 @property bool forceAmbientAudio;
 @property bool keepBackgroundAudio;
 @property bool doUseLCBundleId;

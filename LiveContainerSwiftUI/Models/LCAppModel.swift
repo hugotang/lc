@@ -69,6 +69,14 @@ class LCAppModel: ObservableObject, Hashable {
         }
     }
 
+    @Published var uiInterfaceMode: LCAppInterfaceMode {
+        didSet { appInfo.interfaceMode = uiInterfaceMode }
+    }
+
+    @Published var uiWindowAspectRatio: CGSize {
+        didSet { appInfo.windowAspectRatio = uiWindowAspectRatio }
+    }
+
     @Published var uiForceAmbientAudio : Bool {
         didSet {
             appInfo.forceAmbientAudio = uiForceAmbientAudio
@@ -201,6 +209,8 @@ class LCAppModel: ObservableObject, Hashable {
         self.uiFixFilePickerNew = appInfo.fixFilePickerNew
         self.uiFixLocalNotification = appInfo.fixLocalNotification
         self.uiUseWindowScreenSize = appInfo.useWindowScreenSize
+        self.uiInterfaceMode = appInfo.interfaceMode
+        self.uiWindowAspectRatio = appInfo.windowAspectRatio
         self.uiForceAmbientAudio = appInfo.forceAmbientAudio
         self.uiKeepBackgroundAudio = appInfo.keepBackgroundAudio
         self.uiHideLiveContainer = appInfo.hideLiveContainer

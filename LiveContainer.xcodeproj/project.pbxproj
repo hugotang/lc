@@ -162,6 +162,7 @@
 		172CA8562D9D721700CF6989 /* LCSharedUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCSharedUtils.h; sourceTree = "<group>"; };
 		172CA8572D9D721700CF6989 /* LCSharedUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCSharedUtils.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000001 /* LCAppLanguage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppLanguage.h; sourceTree = "<group>"; };
+		CA4A6E3F30A0000300000001 /* LCAppDisplaySettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppDisplaySettings.h; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000002 /* LCAppLanguage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCAppLanguage.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCWorkspaceLaunch.h; sourceTree = "<group>"; };
 		172CA8582D9D721700CF6989 /* Localization.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Localization.h; sourceTree = "<group>"; };
@@ -471,6 +472,7 @@
 				172CA8562D9D721700CF6989 /* LCSharedUtils.h */,
 				172CA8572D9D721700CF6989 /* LCSharedUtils.m */,
 				CA4A6E3F30A0000100000001 /* LCAppLanguage.h */,
+				CA4A6E3F30A0000300000001 /* LCAppDisplaySettings.h */,
 				CA4A6E3F30A0000100000002 /* LCAppLanguage.m */,
 				CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */,
 				172CA8582D9D721700CF6989 /* Localization.h */,

@@ -596,6 +596,28 @@
     return [_info[@"LCUseWindowScreenSize"] boolValue];
 }
 
+- (LCAppInterfaceMode)interfaceMode {
+    return LCAppInterfaceModeFromInfo(_info);
+}
+
+- (void)setInterfaceMode:(LCAppInterfaceMode)mode {
+    if (mode == LCAppInterfaceModeAutomatic) [_info removeObjectForKey:LCAppInterfaceModeKey];
+    else if (mode == LCAppInterfaceModePhone || mode == LCAppInterfaceModePad) _info[LCAppInterfaceModeKey] = @(mode);
+    else return;
+    [self save];
+}
+
+- (CGSize)windowAspectRatio {
+    return LCAppAspectRatioFromInfo(_info);
+}
+
+- (void)setWindowAspectRatio:(CGSize)ratio {
+    if (CGSizeEqualToSize(ratio, CGSizeZero)) [_info removeObjectForKey:LCAppWindowAspectRatioKey];
+    else if (LCAppAspectRatioIsValid(ratio)) _info[LCAppWindowAspectRatioKey] = @[@(ratio.width), @(ratio.height)];
+    else return;
+    [self save];
+}
+
 - (void)setUseWindowScreenSize:(bool)useWindowScreenSize {
     _info[@"LCUseWindowScreenSize"] = @(useWindowScreenSize);
     [self save];

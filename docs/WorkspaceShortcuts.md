@@ -62,6 +62,12 @@ force a portrait startup size or lock the game to a fixed aspect ratio. Games th
 cache their initial renderer layout may still need to be closed and relaunched;
 the host cannot make an arbitrary game discard that private state.
 
+Starting in 3.8.34, an app can opt into a fixed content ratio under its own
+**Display & Layout** settings. A workspace restore uses that current app preference
+inside each reserved slot, including before launch; it does not add display-mode
+fields to the saved workspace. Close running accounts before restoring to apply
+a changed ratio or iPhone/iPad mode. See [per-app display settings](AppDisplaySettings.md).
+
 Your previous single save is automatically imported as **Original Workspace**.
 Existing links without a workspace selection continue to restore whichever
 workspace was most recently saved or updated:

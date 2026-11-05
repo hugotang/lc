@@ -4,6 +4,7 @@
 #import "../MultitaskSupport/WindowChromeLayout.h"
 #import "../MultitaskSupport/WorkspaceLaunchLayout.h"
 #import "../MultitaskSupport/WindowGridLayout.h"
+#import "../MultitaskSupport/TapSyncGeometry.h"
 #import "TapSyncTestWindow.h"
 #include <math.h>
 
@@ -474,5 +475,51 @@
     XCTAssertEqual(controller.submissions, 3U);
     XCTAssertTrue(CGSizeEqualToSize(controller.submittedSize, CGSizeMake(600, 1000)));
     XCTAssertTrue(CGSizeEqualToSize(hosting.frame.size, CGSizeMake(300, 500)));
+}
+- (void)testFixedCanvasLaunchResizeAndScaledInputShareTheSameContentBounds {
+    UIStackView *container = [UIStackView new];
+    container.axis = UILayoutConstraintAxisVertical;
+    UIView *placeholder = [UIView new];
+    placeholder.userInteractionEnabled = NO;
+    [container addArrangedSubview:placeholder];
+    UIView *guest = [UIView new], *hosting = [UIView new];
+    [container insertSubview:guest atIndex:0];
+    [guest addSubview:hosting];
+    [self.host addSubview:container];
+    UINavigationBar *bar = [UINavigationBar new];
+    LCWindowChromeLayout *chrome = [LCWindowChromeLayout new];
+    chrome.aspectRatio = CGSizeMake(9, 16);
+    NSArray *tiles = @[[NSValue valueWithCGRect:CGRectMake(20, 40, 683, 512)],
+                       [NSValue valueWithCGRect:CGRectMake(20, 40, 297, 834)],
+                       [NSValue valueWithCGRect:CGRectMake(20, 40, 416, 596)]];
+    for (NSValue *tile in tiles) {
+        container.frame = tile.CGRectValue;
+        [chrome applyToContainer:container guest:guest bar:bar bottom:NO hidden:YES overlay:NO];
+        [container layoutIfNeeded];
+        for (NSNumber *scale in @[@0.5, @1, @2]) {
+            // Launch metadata and modern/legacy scene parameters start from the
+            // fitted guest, never the larger grid slot or letterbox margins.
+            CGSize launch = LCWindowContentLogicalSize(guest.bounds.size, scale.doubleValue);
+            for (NSNumber *orientation in @[@1, @3]) {
+                [self applySceneForGuest:guest hosting:hosting scale:scale.doubleValue orientation:orientation.integerValue];
+                [self assertHosting:hosting matchesGuest:guest scale:scale.doubleValue];
+                XCTAssertTrue(CGSizeEqualToSize(hosting.bounds.size, launch));
+                CGRect legacy = LCWindowContentSceneFrame((CGRect){CGPointZero, guest.bounds.size}, scale.doubleValue,
+                                                          NO, orientation.integerValue);
+                CGSize legacySize = UIInterfaceOrientationIsLandscape(orientation.integerValue) ?
+                    CGSizeMake(legacy.size.height, legacy.size.width) : legacy.size;
+                XCTAssertTrue(CGSizeEqualToSize(legacySize, launch));
+                CGPoint logical = CGPointMake(launch.width * 0.3, launch.height * 0.7);
+                CGPoint displayed = [hosting convertPoint:logical toView:self.host];
+                CGPoint returned = [hosting convertPoint:displayed fromView:self.host];
+                XCTAssertEqualWithAccuracy(returned.x / launch.width, 0.3, 0.0001);
+                XCTAssertEqualWithAccuracy(returned.y / launch.height, 0.7, 0.0001);
+                LCTapSyncSample sample = {0.3, 0.7, launch.width, launch.height, 1, 0.1, (int)orientation.intValue, 1};
+                XCTAssertTrue(LCTapSyncCanMap(sample, 225, 400, orientation.intValue));
+                XCTAssertFalse(LCTapSyncCanMap(sample, 400, 400, orientation.intValue));
+            }
+        }
+    }
+    [container removeFromSuperview];
 }
 @end

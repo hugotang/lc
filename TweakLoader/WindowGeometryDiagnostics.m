@@ -103,6 +103,8 @@ NSDictionary *LCWindowGeometryDiagnostics(void) {
         if (scenes.count >= 8) break;
     }
     return @{@"timestamp": @(NSProcessInfo.processInfo.systemUptime),
+        @"deviceIdiom": @(UIDevice.currentDevice.userInterfaceIdiom),
+        @"gameTraitIdiom": @(game ? game.traitCollection.userInterfaceIdiom : UIUserInterfaceIdiomUnspecified),
         @"screenCompatibility": LCWindowScreenGeometryForDiagnostics(), @"scenes": scenes,
         @"game": game ? LCWindowGeometryDescribeWindow(game) : @{},
         @"gameSelected": @(game != nil)};

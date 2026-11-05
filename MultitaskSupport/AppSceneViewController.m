@@ -15,6 +15,7 @@
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "TapSyncCoordinator.h"
 #import "WindowContentGeometry.h"
+#import "../LiveContainer/LCAppDisplaySettings.h"
 
 static NSUUID *LCWindowGeometryClipboardRequest;
 
@@ -35,6 +36,8 @@ static NSUUID *LCWindowGeometryClipboardRequest;
 @property(nonatomic, copy) dispatch_block_t launchRequest;
 @property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
 @property(nonatomic) CGSize initialLogicalWindowSize;
+@property(nonatomic, readwrite) CGSize windowAspectRatio;
+@property(nonatomic) LCAppInterfaceMode interfaceMode;
 @end
 
 @implementation AppSceneViewController
@@ -149,7 +152,14 @@ static NSUUID *LCWindowGeometryClipboardRequest;
     bool guestIsShared = false;
     NSBundle *guestBundle = !self.isNativeWindow ? [LCSharedUtils findBundleWithBundleId:bundleId isSharedAppOut:&guestIsShared] : nil;
     NSDictionary *guestInfo = guestBundle ? [NSDictionary dictionaryWithContentsOfFile:[guestBundle.bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]] : nil;
-    BOOL reportWindowGeometry = [guestInfo[@"LCUseWindowScreenSize"] boolValue] && ![guestInfo[@"dontInjectTweakLoader"] boolValue];
+    NSDictionary *displaySettings = LCAppDisplaySettingsSnapshot(guestInfo ?: @{});
+    if (!self.isNativeWindow && ![guestInfo[@"dontInjectTweakLoader"] boolValue]) {
+        self.windowAspectRatio = LCAppAspectRatioFromInfo(displaySettings);
+        self.interfaceMode = LCAppInterfaceModeFromInfo(displaySettings);
+    }
+    userInfo[@"appDisplaySettings"] = displaySettings;
+    item.userInfo = userInfo;
+    BOOL reportWindowGeometry = LCAppDisplayUsesWindowScreenSize(displaySettings) && ![guestInfo[@"dontInjectTweakLoader"] boolValue];
     self.launchRequest = ^{
         AppSceneViewController *controller = weakSelf;
         if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
@@ -452,6 +462,8 @@ static NSUUID *LCWindowGeometryClipboardRequest;
         @"hostingFrame": NSStringFromCGRect(self.contentView.frame),
         @"hostingTransform": NSStringFromCGAffineTransform(self.contentView.transform),
         @"initialLogicalSize": NSStringFromCGSize(self.initialLogicalWindowSize),
+        @"windowAspectRatio": NSStringFromCGSize(self.windowAspectRatio),
+        @"interfaceMode": @(self.interfaceMode),
         @"expectedLogicalSize": NSStringFromCGSize(LCWindowContentLogicalSize(host.bounds.size, self.scaleRatio)),
         @"remoteSceneFrame": NSStringFromCGRect(scene.frame),
         @"remoteSceneOrientation": @(scene.interfaceOrientation),

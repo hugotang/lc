@@ -18,6 +18,7 @@
 #import "Tweaks/Tweaks.h"
 #import "Tweaks/AmbientAudio.h"
 #import "Tweaks/BackgroundAudio.h"
+#import "Tweaks/InterfaceMode.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
@@ -533,6 +534,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     Class processHandler = NSClassFromString(@"LiveProcessHandler");
     NSDictionary *audioLaunchInfo = [processHandler respondsToSelector:@selector(retrievedAppInfo)] ?
         [processHandler retrievedAppInfo] : nil;
+    LCInterfaceModeInstall(LCInterfaceModeForLaunch(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo));
     if (LCAmbientAudioShouldEnable(isLiveProcess, lcGuestAppId, guestAppInfo, audioLaunchInfo)) {
         // Install before dyld hides host images and before guest initializers.
         LCAmbientAudioInstall();

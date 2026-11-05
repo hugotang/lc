@@ -151,4 +151,51 @@
     XCTAssertTrue(CGAffineTransformEqualToTransform(content.transform, CGAffineTransformMakeScale(2, 2)));
     XCTAssertTrue([self.container.gestureRecognizers containsObject:gesture]);
 }
+- (void)testFixedRatiosFitAndStayCenteredAcrossChromeAndHostSizes {
+    NSArray *ratios = @[[NSValue valueWithCGSize:CGSizeMake(9, 16)], [NSValue valueWithCGSize:CGSizeMake(16, 9)],
+                        [NSValue valueWithCGSize:CGSizeMake(3, 4)], [NSValue valueWithCGSize:CGSizeMake(4, 3)],
+                        [NSValue valueWithCGSize:CGSizeMake(9, 19.5)]];
+    for (NSValue *ratio in ratios) {
+        self.chrome.aspectRatio = ratio.CGSizeValue;
+        for (NSValue *size in @[[NSValue valueWithCGSize:CGSizeMake(400, 600)],
+                               [NSValue valueWithCGSize:CGSizeMake(700, 300)],
+                               [NSValue valueWithCGSize:CGSizeMake(400, 260)]]) {
+            self.container.frame = (CGRect){CGPointMake(40, 60), size.CGSizeValue};
+            for (NSUInteger choices = 0; choices < 8; choices++) {
+                BOOL overlay = (choices & 1) != 0, bottom = (choices & 2) != 0, hidden = (choices & 4) != 0;
+                [self applyOverlay:overlay bottom:bottom hidden:hidden];
+                CGFloat barHeight = overlay || hidden ? 0 : 44;
+                CGRect area = CGRectMake(0, bottom ? 0 : barHeight, size.CGSizeValue.width, size.CGSizeValue.height - barHeight);
+                CGFloat aspect = ratio.CGSizeValue.width / ratio.CGSizeValue.height;
+                CGFloat width = MIN(area.size.width, area.size.height * aspect);
+                CGRect guest = self.guest.frame;
+                XCTAssertEqualWithAccuracy(guest.size.width, width, 0.5);
+                XCTAssertEqualWithAccuracy(guest.size.height, width / aspect, 0.5);
+                XCTAssertEqualWithAccuracy(CGRectGetMidX(guest), CGRectGetMidX(area), 0.5);
+                XCTAssertEqualWithAccuracy(CGRectGetMidY(guest), CGRectGetMidY(area), 0.5);
+                XCTAssertTrue(CGRectContainsRect(CGRectInset(area, -0.5, -0.5), guest));
+            }
+        }
+    }
+    self.chrome.aspectRatio = CGSizeZero;
+    XCTAssertTrue([self applyOverlay:YES bottom:NO hidden:YES]);
+    XCTAssertTrue(CGRectEqualToRect(self.guest.frame, self.container.bounds));
+    self.chrome.aspectRatio = CGSizeMake(0, 16);
+    XCTAssertFalse([self applyOverlay:YES bottom:NO hidden:YES]);
+    XCTAssertTrue(CGRectEqualToRect(self.guest.frame, self.container.bounds));
+}
+- (void)testLetterboxTouchesDoNotReachGuestAndOverlayHideKeepsItsFrame {
+    self.chrome.aspectRatio = CGSizeMake(9, 16);
+    self.container.frame = CGRectMake(40, 60, 700, 300);
+    [self applyOverlay:YES bottom:NO hidden:NO];
+    CGRect frame = self.guest.frame;
+    UIView *marginHit = [self.container hitTest:CGPointMake(5, 150) withEvent:nil];
+    XCTAssertFalse(marginHit == self.guest || [marginHit isDescendantOfView:self.guest]);
+    XCTAssertEqual([self.container hitTest:self.guest.center withEvent:nil], self.guest);
+    XCTAssertFalse([self applyOverlay:YES bottom:NO hidden:YES]);
+    XCTAssertTrue(CGRectEqualToRect(frame, self.guest.frame));
+    self.chrome.aspectRatio = CGSizeMake(18, 32);
+    XCTAssertFalse([self applyOverlay:YES bottom:NO hidden:YES]);
+    XCTAssertTrue(CGRectEqualToRect(frame, self.guest.frame));
+}
 @end

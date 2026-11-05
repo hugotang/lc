@@ -9583,6 +9583,259 @@
         }
       }
     },
+    "lc.appSettings.displaySettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display & Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示与布局"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示與版面"
+          }
+        }
+      }
+    },
+    "lc.appSettings.interfaceMode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface Mode (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "界面模式（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面模式（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.interfaceMode.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reports iPhone or iPad to this app. The app must include a compatible interface; some layouts and resources may still follow the physical device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让此应用识别为 iPhone 或 iPad。应用须具备相应界面；部分布局和资源仍可能依照实际设备。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓此 App 識別為 iPhone 或 iPad。App 須具備對應介面；部分版面和資源仍可能依照實際裝置。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aspect Ratio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面比例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "畫面比例"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填满窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填滿視窗"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.custom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Ratio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义比例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂比例"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.width" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Width"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寬"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.height" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.customHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter width and height from 1 to 10000. Decimals are allowed. The ratio must be between 1:10 and 10:1."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽和高可输入 1 至 10000，支持小数。比例须介于 1:10 与 10:1 之间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寬和高可輸入 1 至 10000，支援小數。比例須介於 1:10 與 10:1 之間。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps this width:height after rotation or resizing, with margins where needed. A fixed ratio also makes the app read its window size as its screen size."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转或调整窗口大小后仍保持此宽高比，必要时留边。固定比例也会让应用以窗口大小作为屏幕大小。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋轉或調整視窗大小後仍保持此寬高比，必要時留邊。固定比例也會讓 App 以視窗大小作為螢幕大小。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to all accounts of this app in virtual multitasking windows. Close and reopen all its accounts after changing these settings. Requires TweakLoader injection."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于此应用在虚拟多任务窗口中的所有账号。更改后请关闭并重新启动所有账号。需要启用 TweakLoader 注入。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於此 App 在虛擬多工視窗中的所有帳號。更改後請關閉並重新啟動所有帳號。需要啟用 TweakLoader 注入。"
+          }
+        }
+      }
+    },
     "lc.appSettings.useWindowScreenSize" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -1,5 +1,14 @@
 # Device checks for multitasking changes
 
+## Per-app interface mode and aspect ratio (3.8.34)
+
+The user requested per-app iPhone/iPad interface selection and a fixed width:height such as 9:16. Device acceptance is pending. Install the LiveContainer+SideStore package for this user's updates.
+
+- In the app's Settings → Display & Layout, start with Automatic + 9:16, close all of its accounts, and restore two and four accounts. Compare launching in portrait then rotating to landscape against launching in landscape then rotating to portrait. The content should stay 9:16, centered inside each slot without stretching. Try a landscape single row, unequal dividers, reserved areas and 50%/100%/200% scales. Verify game layout and ads separately; a stable outer canvas does not itself prove Monster Strike recalculated its private design layout.
+- Check 16:9, 3:4, 4:3 and a custom 9:19.5. Cancel a custom edit and verify the old ratio remains. Close/reopen the app and verify the choice persists. Return to Fill Window and check that the prior screen-size compatibility preference is restored. With injection disabled, settings remain visible but unavailable and the next launch uses the original behavior.
+- In fixed-ratio windows, tap near all four content corners and in the letterbox margins, then test tap/single-finger/two-finger sync. Only actual content touches should reach the game. Check minimize/restore, fullscreen with overlay controls shown/hidden, keyboard appearance and return from PiP. Overlay visibility must not resize the guest.
+- Test iPhone and iPad modes separately with the same ratio, closing all accounts before each change. Inspect Copy Window Geometry: the host's requested mode and the guest's device/trait idioms should agree (Phone = 0, Pad = 1 in UIKit; requested mode = 1/2). Check game menus, dialogs, keyboard and ads. The modes only override device-type queries; missing app resources or other layout decisions may still prevent the desired interface. Native-window launches, ordinary launches and other apps should retain their own settings.
+
 ## Floating control defaults and swipe-only feedback (3.8.33)
 
 The user approved size-based Icons Only, host-shape position selection, Large Content Viewer and a swipe-only tap hint after a best-practice review. No device result has been reported yet.

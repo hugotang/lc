@@ -31,6 +31,8 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) BOOL isAppRunning;
 @property(nonatomic) BOOL shouldIgnoreSceneUpdates, shouldSkipDebounceOnce;
 @property(nonatomic) CGFloat scaleRatio;
+// Captured before launch; edits in App Settings apply on the next launch.
+@property(nonatomic, readonly) CGSize windowAspectRatio;
 @property(nonatomic) UIView* contentView;
 @property(nonatomic) LCTapSyncPeer *tapSyncPeer;
 @property(nonatomic) _UIScenePresenter *presenter;

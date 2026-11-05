@@ -251,10 +251,19 @@ struct LCAppSettingsView: View {
                     }
                 }
                 Section {
-                    Toggle(isOn: $model.uiUseWindowScreenSize) {
+                    NavigationLink {
+                        LCAppDisplaySettingsView(model: model)
+                    } label: {
+                        Text("lc.appSettings.displaySettings".loc)
+                    }
+                }
+                Section {
+                    Toggle(isOn: Binding(get: {
+                        model.uiUseWindowScreenSize || LCAppAspectRatioIsValid(model.uiWindowAspectRatio)
+                    }, set: { model.uiUseWindowScreenSize = $0 })) {
                         Text("lc.appSettings.useWindowScreenSize".loc)
                     }
-                    .disabled(model.uiDontInjectTweakLoader)
+                    .disabled(model.uiDontInjectTweakLoader || LCAppAspectRatioIsValid(model.uiWindowAspectRatio))
                 } footer: {
                     Text("lc.appSettings.useWindowScreenSizeDesc".loc)
                 }

@@ -621,6 +621,10 @@
     BOOL compactGrid = self.isInGridLayout && !self.isMaximized && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars && !self.isAppTerminated;
     BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized && !self.isAppTerminated);
     BOOL overlay = self.isMaximized && [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskOverlayMode"];
+    self.chromeLayout.aspectRatio = self.appSceneVC.windowAspectRatio;
+    BOOL fixedAspect = self.chromeLayout.aspectRatio.width > 0;
+    self.appSceneVC.view.clipsToBounds = fixedAspect;
+    self.view.backgroundColor = fixedAspect ? UIColor.blackColor : UIColor.systemBackgroundColor;
     BOOL geometryChanged = [self.chromeLayout applyToContainer:self.view guest:self.appSceneVC.view bar:self.navigationBar
                                                         bottom:bottomWindowBar hidden:hideWindowBar overlay:overlay];
     self.resizeHandle.hidden = compactGrid;
@@ -670,6 +674,11 @@
         safeAreaInsets.bottom = safeAreaInsets.left = safeAreaInsets.right = 0;
     }
     
+    // Letterboxing may already put the game clear of the physical safe area.
+    // Send only the insets that intersect the actual guest content.
+    if (self.appSceneVC.windowAspectRatio.width > 0) {
+        settings.peripheryInsets = self.appSceneVC.view.safeAreaInsets;
+    }
     // scale peripheryInsets to match the scale ratio
     settings.peripheryInsets = UIEdgeInsetsMake(settings.peripheryInsets.top/_scaleRatio, settings.peripheryInsets.left/_scaleRatio, settings.peripheryInsets.bottom/_scaleRatio, settings.peripheryInsets.right/_scaleRatio);
     if(UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad) {

@@ -223,6 +223,16 @@
     XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", enabled, @{@"virtualWindow": @NO}));
     XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", enabled, @{@"virtualWindow": @"YES"}));
     XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", @{@"LCUseWindowScreenSize": @YES, @"dontInjectTweakLoader": @YES}, virtual));
+    NSDictionary *fixed = @{LCAppWindowAspectRatioKey: @[@9, @16], @"LCUseWindowScreenSize": @NO};
+    XCTAssertTrue(LCWindowScreenShouldEnable(YES, @"game", fixed, virtual));
+    XCTAssertFalse(LCWindowScreenShouldEnable(NO, @"game", fixed, virtual));
+    XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", fixed, @{@"virtualWindow": @NO}));
+    XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game",
+        @{LCAppWindowAspectRatioKey: @[@9, @16], @"dontInjectTweakLoader": @YES}, virtual));
+    NSDictionary *launch = @{@"virtualWindow": @YES, @"appDisplaySettings": LCAppDisplaySettingsSnapshot(fixed)};
+    XCTAssertTrue(LCWindowScreenShouldEnable(YES, @"game", @{}, launch));
+    XCTAssertFalse(LCWindowScreenShouldEnable(YES, @"game", fixed,
+        @{@"virtualWindow": @YES, @"appDisplaySettings": LCAppDisplaySettingsSnapshot(@{})}));
     CGRect original = [UIScreen.mainScreen lc_windowScreen_bounds];
     XCTAssertTrue(CGRectEqualToRect(UIScreen.mainScreen.bounds, original));
     XCTAssertEqual(UIScreen.mainScreen.coordinateSpace, self.state.originalOrientedSpace ?: UIScreen.mainScreen.coordinateSpace);

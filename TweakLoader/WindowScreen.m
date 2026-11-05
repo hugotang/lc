@@ -1,4 +1,5 @@
 #import "WindowScreen.h"
+#import "../LiveContainer/LCAppDisplaySettings.h"
 #import <WebKit/WebKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -487,7 +488,8 @@ static void LCWindowScreenSwizzle(Class cls, SEL original, SEL replacement) {
 }
 
 BOOL LCWindowScreenShouldEnable(BOOL isLiveProcess, NSString *guestAppId, NSDictionary *appInfo, NSDictionary *launchInfo) {
-    return isLiveProcess && guestAppId.length && [appInfo[@"LCUseWindowScreenSize"] isEqual:@YES] &&
+    return isLiveProcess && guestAppId.length &&
+        LCAppDisplayUsesWindowScreenSize(LCAppDisplaySettingsForLaunch(appInfo, launchInfo)) &&
         ![appInfo[@"dontInjectTweakLoader"] boolValue] && [launchInfo[@"virtualWindow"] isEqual:@YES];
 }
 
