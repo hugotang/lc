@@ -112,6 +112,7 @@ private struct LCLocationControlsView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
         .confirmationDialog("lc.location.restoreRealConfirm".lcLocationText, isPresented: $restoring, titleVisibility: .visible) {
             Button("lc.location.restoreReal".lcLocationText, role: .destructive) { _ = model.session.setEnabled(false) }
+                .accessibilityIdentifier("location.confirmRestoreReal")
             Button("lc.common.cancel".lcLocationText, role: .cancel) {}
         }
         .onDisappear { model.session.stopMoving() }

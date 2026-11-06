@@ -119,7 +119,7 @@
     XCUIElement *restore = self.app.buttons[@"location.restoreReal"];
     if (!restore.hittable) [self.app swipeUp];
     [restore tap];
-    [self.app.buttons[@"Use System Location"] tap];
+    [self.app.buttons[@"location.confirmRestoreReal"] tap];
     XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Using system location");
     [self.app.buttons[@"location.collapse"] tap];
     XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"0");
