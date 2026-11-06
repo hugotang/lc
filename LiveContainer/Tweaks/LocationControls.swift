@@ -281,22 +281,22 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
 }
 
 @objc(LCLocationUI)
-@MainActor final class LCLocationUI: NSObject {
+@MainActor public final class LCLocationUI: NSObject {
     private static var windows: [String: LCLocationOverlayWindow] = [:]
     private static var guestTokens: [NSObjectProtocol] = []
     private static var disconnectToken: NSObjectProtocol?
     @objc(pickerWithInitial:completion:)
-    static func picker(withInitial initial: [AnyHashable: Any], completion: @escaping ([AnyHashable: Any]) -> Void) -> UIViewController {
+    public static func picker(withInitial initial: [AnyHashable: Any], completion: @escaping ([AnyHashable: Any]) -> Void) -> UIViewController {
         LCLocationPickerController(rootView: LCLocationPickerView(initial: LCLocationPoint(initial)) { completion($0.settings(enabled: true)) })
     }
     @objc(showControlsForSession:inScene:)
-    static func showControls(for session: LCLocationSession, in scene: UIWindowScene) {
+    public static func showControls(for session: LCLocationSession, in scene: UIWindowScene) {
         showShortcut(for: session, in: scene)
         let key = session.bundlePath + ":" + scene.session.persistentIdentifier
         (windows[key]?.rootViewController as? LCLocationOverlayController)?.expand()
     }
     @objc(showShortcutForSession:inScene:)
-    static func showShortcut(for session: LCLocationSession, in scene: UIWindowScene) {
+    public static func showShortcut(for session: LCLocationSession, in scene: UIWindowScene) {
         if disconnectToken == nil {
             disconnectToken = NotificationCenter.default.addObserver(forName: UIScene.didDisconnectNotification, object: nil, queue: .main) { note in
                 DispatchQueue.main.async {
@@ -321,13 +321,13 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
         windows[key]?.isHidden = true; windows[key]?.windowScene = nil; windows[key] = nil
     }
     @objc(hideControlsForSession:)
-    static func hideControls(for session: LCLocationSession) {
+    public static func hideControls(for session: LCLocationSession) {
         for key in Array(windows.keys) where key.hasPrefix(session.bundlePath + ":") {
             removeWindow(key)
         }
     }
     @objc(installGuestControlsForSession:)
-    static func installGuestControls(for session: LCLocationSession) {
+    public static func installGuestControls(for session: LCLocationSession) {
         let update: @MainActor () -> Void = {
             let info = NSDictionary(contentsOfFile: session.bundlePath + "/LCAppInfo.plist")
             guard info?["LCLocationQuickControl"] as? Bool == true else { hideControls(for: session); return }
