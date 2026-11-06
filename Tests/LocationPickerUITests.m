@@ -128,10 +128,14 @@
     XCUIElement *restore = self.app.buttons[@"location.restoreReal"];
     if (!restore.hittable) [self.app swipeUp];
     [restore tap];
-    // SwiftUI exposes both the confirmation action and its nested button.
-    // Both refer to the same action inside the presented sheet.
-    [[self.app.buttons matchingIdentifier:@"location.confirmRestoreReal"].firstMatch tap];
-    XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Using system location");
+    // Tap the actual nested control, as with the SwiftUI switch row above.
+    XCUIElement *confirmation = [self.app.buttons matchingIdentifier:@"location.confirmRestoreReal"].firstMatch;
+    XCUIElement *inner = confirmation.buttons.firstMatch;
+    [(inner.exists ? inner : confirmation) tap];
+    XCTNSPredicateExpectation *restored = [[XCTNSPredicateExpectation alloc]
+        initWithPredicate:[NSPredicate predicateWithFormat:@"label == %@", @"Using system location"]
+        object:self.app.staticTexts[@"location.motionStatus"]];
+    [self waitForExpectations:@[restored] timeout:5];
     [XCUIDevice.sharedDevice pressButton:XCUIDeviceButtonHome];
     [self.app activate];
     XCTAssertTrue([self.app.buttons[@"location.quickControl"] waitForExistenceWithTimeout:10]);
