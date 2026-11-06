@@ -88,6 +88,7 @@
     XCTAssertFalse(self.app.buttons[@"location.showOnMap"].enabled);
     XCTAssertTrue(self.app.staticTexts[@"location.invalid"].exists);
     [self enter:@"-33.8688, 151.2093" field:@"location.coordinatePair"];
+    [self attachScreenshot];
     [self.app.buttons[@"location.keyboardDone"] tap];
     [self.app.buttons[@"location.showOnMap"] tap];
     XCTAssertTrue([self.app.staticTexts[@"location.selectedCoordinate"] waitForExistenceWithTimeout:10]);
@@ -113,6 +114,14 @@
     XCTAssertNotEqualObjects(self.app.staticTexts[@"location.liveCoordinate"].label, before);
     XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Custom location · stationary");
     [self attachScreenshot];
+    // The overlay picker temporarily owns keyboard focus. Dismissing it must
+    // return to the same live panel and update the saved point immediately.
+    [self.app.buttons[@"location.liveChoose"] tap]; [self openCoordinates];
+    [self enter:@"23" field:@"lc.location.latitude"];
+    [self.app.buttons[@"location.showOnMap"] tap];
+    [self.app.buttons[@"location.save"] tap];
+    XCTAssertTrue([self.app.staticTexts[@"location.liveCoordinate"] waitForExistenceWithTimeout:10]);
+    XCTAssertTrue([self.app.staticTexts[@"location.liveCoordinate"].label hasPrefix:@"23.000000,"]);
     [self.app.buttons[@"location.collapse"] tap];
     XCTAssertTrue([self.app.buttons[@"location.quickControl"] waitForExistenceWithTimeout:10]);
     [self.app.buttons[@"location.quickControl"] tap];
@@ -121,7 +130,10 @@
     [restore tap];
     [self.app.buttons[@"location.confirmRestoreReal"] tap];
     XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Using system location");
-    [self.app.buttons[@"location.collapse"] tap];
+    [XCUIDevice.sharedDevice pressButton:XCUIDeviceButtonHome];
+    [self.app activate];
+    XCTAssertTrue([self.app.buttons[@"location.quickControl"] waitForExistenceWithTimeout:10]);
+    XCTAssertFalse(self.app.buttons[@"location.collapse"].exists);
     XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"0");
 }
 @end
