@@ -9,6 +9,8 @@
 #import "WindowChromeLayout.h"
 #import "WindowContentGeometry.h"
 #import "../LiveContainer/Localization.h"
+#import "../LiveContainer/Tweaks/LocationUI.h"
+#import "../LiveContainer/LCSharedUtils.h"
 #import "utils.h"
 
 @interface DecoratedAppSceneViewController()
@@ -68,6 +70,9 @@
                     return [weakSelf scaleSliderViewWithTitle:@"lc.multitask.scale".loc min:0.5 max:2.0 value:weakSelf.scaleRatio stepInterval:0.01];
                 }],
                 [MultitaskTapSyncManager.shared windowMenuForContainer:controller.appSceneVC.dataUUID],
+                [UIAction actionWithTitle:@"lc.location.title".loc image:[UIImage systemImageNamed:@"location.circle"] identifier:nil handler:^(UIAction *action) {
+                    [weakSelf showLocationControls];
+                }],
                 [UIMenu menuWithTitle:@"lc.dock.diagnostics".loc image:[UIImage systemImageNamed:@"wrench.and.screwdriver"] identifier:nil options:0 children:@[copyPID, copyGeometry]]
             ];
             return [UIMenu menuWithTitle:[MultitaskDockManager.shared accountTitleForContainer:controller.dataUUID] children:menuItems];
@@ -210,6 +215,25 @@
     if (![self.navigationItem.title isEqualToString:title]) self.navigationItem.title = title;
 }
 
+- (void)showLocationControls {
+    LCLocationSession *session = [self locationSession];
+    if (session && self.view.window.windowScene) [LCLocationUI showControlsForSession:session inScene:self.view.window.windowScene];
+}
+
+- (LCLocationSession *)locationSession {
+    bool shared = false;
+    NSBundle *bundle = [LCSharedUtils findBundleWithBundleId:self.appSceneVC.bundleId isSharedAppOut:&shared];
+    NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+    if (!bundle || [info[@"dontInjectTweakLoader"] boolValue] || [info[@"is32bit"] boolValue]) return nil;
+    NSString *title = bundle.infoDictionary[@"CFBundleDisplayName"] ?: bundle.infoDictionary[@"CFBundleName"] ?: self.title;
+    return [LCLocationSession sessionForPath:bundle.bundlePath title:title];
+}
+
+- (void)hideLocationControls {
+    LCLocationSession *session = [self locationSession];
+    if (session) { [session stopMoving]; [LCLocationUI hideControlsForSession:session]; }
+}
+
 
 // Stolen from UIKitester
 - (UIView *)scaleSliderViewWithTitle:(NSString *)title min:(CGFloat)minValue max:(CGFloat)maxValue value:(CGFloat)initialValue stepInterval:(CGFloat)step {
@@ -280,6 +304,7 @@
 }
 
 - (void)closeWindow {
+    [self hideLocationControls];
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     _isAppTerminationRequested = true;
@@ -293,6 +318,7 @@
 }
 
 - (void)togglePictureInPicture {
+    [self hideLocationControls];
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
@@ -305,6 +331,7 @@
 - (void)minimizeWindow {
     if (self.view.hidden || self.windowMinimization.isMinimized || self.isAppTerminationRequested ||
         self.appSceneVC.shouldIgnoreSceneUpdates || [PiPManager hasSessionForVC:self.appSceneVC]) return;
+    [self hideLocationControls];
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [self.windowMinimization minimize];
@@ -317,6 +344,7 @@
 }
 
 - (void)minimizeWindowPiP {
+    [self hideLocationControls];
     [self prepareForWindowRestore];
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
@@ -435,6 +463,7 @@
 }
 
 - (void)appSceneVCAppDidExit:(AppSceneViewController*)vc {
+    [self hideLocationControls];
     BOOL wasTerminated = self.isAppTerminated;
     self.isAppTerminated = YES;
     [self.windowMinimization invalidate];

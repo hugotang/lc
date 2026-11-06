@@ -9,7 +9,7 @@ static BOOL LCTestServicesEnabled = YES;
 @property(nonatomic) CLAuthorizationStatus authorizationStatus;
 @property(nonatomic) CLLocationDistance distanceFilter;
 @property(nonatomic, strong) CLLocation *location;
-@property(nonatomic) NSUInteger originalRequests, permissionRequests;
+@property(nonatomic) NSUInteger originalRequests, permissionRequests, originalStops;
 + (BOOL)locationServicesEnabled;
 - (void)requestLocation;
 - (void)startUpdatingLocation;
@@ -26,7 +26,7 @@ static BOOL LCTestServicesEnabled = YES;
 + (BOOL)locationServicesEnabled { return LCTestServicesEnabled; }
 - (void)requestLocation { self.originalRequests++; }
 - (void)startUpdatingLocation { self.originalRequests++; }
-- (void)stopUpdatingLocation {}
+- (void)stopUpdatingLocation { self.originalStops++; }
 - (void)startMonitoringSignificantLocationChanges { self.originalRequests++; }
 - (void)stopMonitoringSignificantLocationChanges {}
 - (void)requestWhenInUseAuthorization { self.permissionRequests++; }
@@ -68,6 +68,7 @@ static BOOL LCTestServicesEnabled = YES;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ XCTAssertTrue(LCCustomLocationHookClass(LCTestLocationManager.class)); });
     LCTestServicesEnabled = YES;
+    LCLocationSnapshot = nil;
     LCCustomCoordinate = CLLocationCoordinate2DMake(22.3193, 114.1694);
     self.manager = [LCTestLocationManager new];
     self.receiver = [LCTestLocationDelegate new];
@@ -212,5 +213,59 @@ static BOOL LCTestServicesEnabled = YES;
         [NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL]
         options:0 format:NULL error:NULL];
     XCTAssertEqualObjects(decoded, info);
+}
+
+- (void)updateLatitude:(double)latitude enabled:(BOOL)enabled speed:(double)speed timestamp:(double)timestamp {
+    LCCustomLocationUpdate(@{@"enabled": @(enabled), @"latitude": @(latitude), @"longitude": @114,
+        @"speed": @(speed), @"course": @0, @"timestamp": @(timestamp)});
+    // Update enqueues work on the manager's run loop, which schedules delivery.
+    [self drain]; [self drain];
+}
+- (void)testExistingManagerSwitchesToRealAndBackWithoutRestart {
+    [self updateLatitude:22 enabled:NO speed:0 timestamp:0];
+    CLLocation *real = [[CLLocation alloc] initWithLatitude:1 longitude:2];
+    self.manager.location = real;
+    [self.manager startUpdatingLocation]; [self drain];
+    XCTAssertEqual(self.manager.originalRequests, 1u);
+    [self.proxy locationManager:(id)self.manager didUpdateLocations:@[real]];
+    XCTAssertEqual(self.manager.location, real);
+    [self updateLatitude:22 enabled:YES speed:3 timestamp:NSDate.date.timeIntervalSince1970];
+    XCTAssertEqual(self.manager.originalStops, 1u);
+    XCTAssertEqualWithAccuracy(self.receiver.locations.lastObject.coordinate.latitude, 22, 0.000001);
+    XCTAssertEqual(self.receiver.locations.lastObject.speed, 3);
+    NSUInteger count = self.receiver.locations.count;
+    [self.proxy locationManager:(id)self.manager didUpdateLocations:@[real]];
+    XCTAssertEqual(self.receiver.locations.count, count);
+    [self updateLatitude:22 enabled:NO speed:0 timestamp:0];
+    XCTAssertEqual(self.manager.originalRequests, 2u);
+    XCTAssertNil(self.proxy.timer);
+    XCTAssertEqual(self.manager.location, real);
+    [self updateLatitude:23 enabled:YES speed:0 timestamp:0];
+    XCTAssertEqual(self.manager.originalStops, 2u);
+    XCTAssertEqualWithAccuracy(self.manager.location.coordinate.latitude, 23, 0.000001);
+}
+- (void)testMovingDistanceFilterAndExpiredSpeed {
+    self.manager.distanceFilter = 100;
+    [self updateLatitude:22 enabled:YES speed:0 timestamp:0];
+    [self.manager startUpdatingLocation]; [self drain];
+    XCTAssertEqual(self.receiver.locations.count, 1u);
+    [self updateLatitude:22.0001 enabled:YES speed:3 timestamp:NSDate.date.timeIntervalSince1970];
+    XCTAssertEqual(self.receiver.locations.count, 1u);
+    [self updateLatitude:22.001 enabled:YES speed:3 timestamp:NSDate.date.timeIntervalSince1970];
+    XCTAssertEqual(self.receiver.locations.count, 2u);
+    XCTAssertEqual(self.manager.location.speed, 3);
+    [self updateLatitude:22.003 enabled:YES speed:6 timestamp:NSDate.date.timeIntervalSince1970 - 10];
+    XCTAssertEqual(self.receiver.locations.count, 3u);
+    XCTAssertEqual(self.manager.location.speed, 0); XCTAssertEqual(self.manager.location.course, -1);
+    XCTAssertNil(self.proxy.timer);
+}
+- (void)testStoppedManagerDoesNotResumeWhenModeChanges {
+    [self.manager startUpdatingLocation]; [self drain];
+    [self.manager stopUpdatingLocation];
+    NSUInteger count = self.receiver.locations.count;
+    [self updateLatitude:22 enabled:NO speed:0 timestamp:0];
+    XCTAssertEqual(self.manager.originalRequests, 0u);
+    [self updateLatitude:23 enabled:YES speed:0 timestamp:0];
+    XCTAssertEqual(self.receiver.locations.count, count); XCTAssertNil(self.proxy.timer);
 }
 @end

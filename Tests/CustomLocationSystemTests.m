@@ -3,6 +3,7 @@
 // replace the globals used by the deterministic lifecycle suite.
 #define LCLocationDelegateProxy LCTestSystemLocationProxy
 #define LCCustomLocationInstall LCTestSystemLocationInstall
+#define LCCustomLocationUpdate LCTestSystemLocationUpdate
 #import "../LiveContainer/Tweaks/CustomLocation.m"
 
 @interface LCTestSystemLocationManager : CLLocationManager

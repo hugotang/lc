@@ -65,7 +65,9 @@
     [self enter:@"91" field:@"lc.location.latitude"]; [self enter:@"0" field:@"lc.location.longitude"];
     XCTAssertFalse(self.app.buttons[@"location.showOnMap"].enabled);
     XCTAssertTrue(self.app.staticTexts[@"location.invalid"].exists);
-    [self enter:@"-33.8688" field:@"lc.location.latitude"]; [self enter:@"151.2093" field:@"lc.location.longitude"];
+    [self enter:@"33.8688" field:@"lc.location.latitude"];
+    [self.app.buttons[@"lc.location.latitude.sign"] tap];
+    [self enter:@"151.2093" field:@"lc.location.longitude"];
     [self.app.buttons[@"location.showOnMap"] tap];
     XCTAssertTrue([self.app.staticTexts[@"location.selectedCoordinate"] waitForExistenceWithTimeout:10]);
     XCTAssertEqualObjects(self.app.staticTexts[@"location.selectedCoordinate"].label, @"-33.868800, 151.209300");
@@ -77,5 +79,49 @@
     XCTAssertTrue([self.app.buttons[@"location.cancel"] waitForExistenceWithTimeout:10]);
     [self.app.buttons[@"location.cancel"] tap];
     XCTAssertTrue([self.app.staticTexts[@"-33.868800, 151.209300"] exists]);
+}
+- (void)testCoordinatePairValidationAndKeyboardDone {
+    [self.app.buttons[@"location.choose"] tap]; [self openCoordinates];
+    [self enter:@"22.3193, 114.1694" field:@"location.coordinatePair"];
+    XCTAssertTrue(self.app.buttons[@"location.showOnMap"].enabled);
+    [self enter:@"91, 0" field:@"location.coordinatePair"];
+    XCTAssertFalse(self.app.buttons[@"location.showOnMap"].enabled);
+    XCTAssertTrue(self.app.staticTexts[@"location.invalid"].exists);
+    [self enter:@"-33.8688, 151.2093" field:@"location.coordinatePair"];
+    [self.app.buttons[@"location.keyboardDone"] tap];
+    [self.app.buttons[@"location.showOnMap"] tap];
+    XCTAssertTrue([self.app.staticTexts[@"location.selectedCoordinate"] waitForExistenceWithTimeout:10]);
+    XCTAssertEqualObjects(self.app.staticTexts[@"location.selectedCoordinate"].label, @"-33.868800, 151.209300");
+    [self.app.buttons[@"location.save"] tap];
+}
+- (void)testLivePanelJoystickReleaseFavoritesAndRestoreSystemLocation {
+    [self toggleLocation]; [self openCoordinates];
+    [self enter:@"22" field:@"lc.location.latitude"]; [self enter:@"114" field:@"lc.location.longitude"];
+    [self.app.buttons[@"location.showOnMap"] tap];
+    [self.app.buttons[@"location.save"] tap];
+    XCUIElement *open = self.app.buttons[@"location.openControls"];
+    if (!open.hittable) [self.app swipeUp];
+    [open tap];
+    XCTAssertTrue([self.app.buttons[@"location.joystickToggle"] waitForExistenceWithTimeout:10]);
+    [self.app.buttons[@"location.favorites"] tap];
+    [self.app.buttons[@"Save Current Place"] tap];
+    [self.app.buttons[@"location.joystickToggle"] tap];
+    XCUIElement *stick = self.app.otherElements[@"location.joystick"];
+    XCTAssertTrue([stick waitForExistenceWithTimeout:10]);
+    NSString *before = self.app.staticTexts[@"location.liveCoordinate"].label;
+    [[stick coordinateWithNormalizedOffset:CGVectorMake(0.8, 0.5)] pressForDuration:2.3];
+    XCTAssertNotEqualObjects(self.app.staticTexts[@"location.liveCoordinate"].label, before);
+    XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Custom location · stationary");
+    [self attachScreenshot];
+    [self.app.buttons[@"location.collapse"] tap];
+    XCTAssertTrue([self.app.buttons[@"location.quickControl"] waitForExistenceWithTimeout:10]);
+    [self.app.buttons[@"location.quickControl"] tap];
+    XCUIElement *restore = self.app.buttons[@"location.restoreReal"];
+    if (!restore.hittable) [self.app swipeUp];
+    [restore tap];
+    [self.app.buttons[@"Use System Location"] tap];
+    XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Using system location");
+    [self.app.buttons[@"location.collapse"] tap];
+    XCTAssertEqualObjects(self.app.switches[@"location.enabled"].value, @"0");
 }
 @end

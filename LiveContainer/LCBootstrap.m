@@ -19,6 +19,7 @@
 #import "Tweaks/AmbientAudio.h"
 #import "Tweaks/BackgroundAudio.h"
 #import "Tweaks/CustomLocation.h"
+#import "Tweaks/LocationSession.h"
 #include <mach-o/ldsyms.h>
 
 extern char **environ;
@@ -531,8 +532,11 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);
     
     BOOL hookDlopen = !isSideStore && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
-    if (LCAppLocationShouldEnable(lcGuestAppId, isSideStore, guestAppInfo)) {
-        LCCustomLocationInstall(guestAppInfo[LCAppLocationKey]);
+    if (lcGuestAppId.length && !isSideStore && ![guestAppInfo[@"dontInjectTweakLoader"] boolValue] && ![guestAppInfo[@"is32bit"] boolValue]) {
+        Class locationHandler = NSClassFromString(@"LiveProcessHandler");
+        NSDictionary *locationLaunch = [locationHandler respondsToSelector:@selector(retrievedAppInfo)] ? [locationHandler retrievedAppInfo] : nil;
+        LCLocationStartGuest(bundlePath, appBundle.infoDictionary[@"CFBundleDisplayName"] ?: appBundle.infoDictionary[@"CFBundleName"] ?: lcGuestAppId,
+                             ![locationLaunch[@"virtualWindow"] boolValue]);
     }
     Class processHandler = NSClassFromString(@"LiveProcessHandler");
     NSDictionary *audioLaunchInfo = [processHandler respondsToSelector:@selector(retrievedAppInfo)] ?

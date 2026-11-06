@@ -95,6 +95,8 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         _statusKey = _sourceContainer && _targetContainers.count ? @"lc.tapSync.restoredPaused" : @"lc.tapSync.chooseWindows";
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostWillResignActive:)
                                                    name:UIApplicationWillResignActiveNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(pause)
+                                                   name:@"LCLocationControlsWillExpand" object:nil];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostDidBecomeActive:)
                                                    name:UIApplicationDidBecomeActiveNotification object:nil];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(hostDidEnterBackground:)

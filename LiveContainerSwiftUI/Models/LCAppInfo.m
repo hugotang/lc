@@ -6,6 +6,10 @@
 #import "LCAppInfo.h"
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/Tweaks/LocationSession.h"
+#import <sys/file.h>
+#import <fcntl.h>
+#import <unistd.h>
 
 
 @implementation LCAppInfo
@@ -288,7 +292,16 @@
 
 - (void)save {
     if(!_autoSaveDisabled) {
+        int locationLock = open([_bundlePath stringByAppendingPathComponent:@".lc-location-settings.lock"].fileSystemRepresentation, O_CREAT | O_RDWR, 0600);
+        if (locationLock >= 0) flock(locationLock, LOCK_EX);
+        NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+        // Running guests own location state; unrelated settings saves must not
+        // overwrite a newer point, favorite or quick-control preference.
+        for (NSString *key in @[LCAppLocationKey, @"LCLocationRevision", @"LCLocationQuickControl", @"LCLocationFavorites"]) {
+            if (current[key]) _info[key] = current[key]; else [_info removeObjectForKey:key];
+        }
         [_info writeBinToFile:[NSString stringWithFormat:@"%@/LCAppInfo.plist", _bundlePath] atomically:YES];
+        if (locationLock >= 0) { flock(locationLock, LOCK_UN); close(locationLock); }
     }
 
 }
@@ -601,14 +614,17 @@
 }
 
 - (NSDictionary *)customLocation {
-    return LCAppLocationSettings(_info[LCAppLocationKey]);
+    NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+    return LCAppLocationSettings(current[LCAppLocationKey] ?: _info[LCAppLocationKey]);
 }
 
 - (void)setCustomLocation:(NSDictionary *)settings {
     NSDictionary *valid = LCAppLocationSettings(settings);
-    if (valid.count) _info[LCAppLocationKey] = valid;
-    else [_info removeObjectForKey:LCAppLocationKey];
-    [self save];
+    if (valid.count && ![valid isEqual:self.customLocation]) {
+        LCLocationSession *session = [LCLocationSession sessionForPath:_bundlePath title:self.displayName];
+        [session selectPoint:valid enabled:[valid[@"enabled"] boolValue]];
+        _info[LCAppLocationKey] = session.settings;
+    }
 }
 
 - (void)setWindowAspectRatio:(CGSize)ratio {

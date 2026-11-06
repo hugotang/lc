@@ -16,7 +16,7 @@ import sys
 repo, root = map(Path, sys.argv[1:])
 project = root / 'LocationPicker.xcodeproj'
 (root / 'LocationPicker-Bridging-Header.h').write_text(
-    f'#import "{repo}/LiveContainer/LCAppLocationSettings.h"\n')
+    f'#import "{repo}/LiveContainer/LCAppLocationSettings.h"\n#import "{repo}/LiveContainer/Tweaks/LocationSession.h"\n')
 plistlib.dump({
     'CFBundleExecutable': '$(EXECUTABLE_NAME)',
     'CFBundleIdentifier': '$(PRODUCT_BUNDLE_IDENTIFIER)',
@@ -33,6 +33,10 @@ plistlib.dump({
 sources = [
     ('H1', 'Tests/LocationPickerTestHost.swift', 'sourcecode.swift'),
     ('H2', 'LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppLocationSettingsView.swift', 'sourcecode.swift'),
+    ('H3', 'LiveContainer/Tweaks/LocationPicker.swift', 'sourcecode.swift'),
+    ('H4', 'LiveContainer/Tweaks/LocationControls.swift', 'sourcecode.swift'),
+    ('H5', 'LiveContainer/Tweaks/LocationSession.m', 'sourcecode.c.objc'),
+    ('H6', 'LiveContainer/Tweaks/CustomLocation.m', 'sourcecode.c.objc'),
     ('T1', 'Tests/LocationPickerUITests.m', 'sourcecode.c.objc'),
 ]
 # Explicit IDs keep the generated project small and stable in CI diagnostics.
@@ -96,7 +100,7 @@ catalog = json.loads((repo / 'Resources/Localizable.xcstrings').read_text())['st
 folder = root / 'DerivedData/Build/Products/Debug-iphonesimulator/LocationPickerTestHost.app/en.lproj'
 folder.mkdir(exist_ok=True)
 values = {key:entry['localizations']['en']['stringUnit']['value'] for key,entry in catalog.items()
-          if key.startswith('lc.location.') or key == 'lc.common.cancel'}
+          if key.startswith('lc.location.') or key in ('lc.common.cancel', 'lc.common.done')}
 plistlib.dump(values, (folder / 'Localizable.strings').open('wb'))
 PYSTRINGS
 set --

@@ -9,6 +9,8 @@
 #include "LCAppInfo.h"
 #include "../LiveContainer/LCAppLanguage.h"
 #include "../LiveContainer/LCSharedUtils.h"
+#include "../LiveContainer/Tweaks/LocationSession.h"
+#include "../LiveContainer/Tweaks/LocationUI.h"
 #include "Utilities/LCUtils.h"
 #include "Utilities/unarchive.h"
 #include "../MultitaskSupport/AppSceneViewController.h"

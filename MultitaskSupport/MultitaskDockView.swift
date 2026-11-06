@@ -1201,6 +1201,9 @@ private struct DockWindowActions: View {
         }
         if vc.appSceneVC.isAppRunning {
             MultitaskTapSyncWindowActions(container: app.appUUID)
+            Button { perform { vc.showLocationControls() } } label: {
+                Label("lc.location.title".loc, systemImage: "location.circle")
+            }
             Menu {
                 Button {
                     UIPasteboard.general.string = String(vc.appSceneVC.pid)
