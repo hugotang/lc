@@ -67,6 +67,7 @@
     XCTAssertTrue(self.app.staticTexts[@"location.invalid"].exists);
     [self enter:@"33.8688" field:@"lc.location.latitude"];
     [self.app.buttons[@"lc.location.latitude.sign"] tap];
+    XCTAssertEqualObjects(self.app.textFields[@"lc.location.latitude"].value, @"-33.8688");
     [self enter:@"151.2093" field:@"lc.location.longitude"];
     [self.app.buttons[@"location.showOnMap"] tap];
     XCTAssertTrue([self.app.staticTexts[@"location.selectedCoordinate"] waitForExistenceWithTimeout:10]);

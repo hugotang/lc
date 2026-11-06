@@ -282,12 +282,15 @@ private struct LCLocationCoordinateEditor: View {
                     .focused($focusedField, equals: title)
                     .accessibilityIdentifier(title)
                     .textInputAutocapitalization(.never).disableAutocorrection(true)
-                Button("±") {
+                Button {
                     pair = ""
                     let value = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     text.wrappedValue = value.hasPrefix("-") || value.hasPrefix("−") ? String(value.dropFirst()) : "-" + value
+                } label: {
+                    Text("±").frame(width: 44, height: 44).contentShape(Rectangle())
                 }
-                .buttonStyle(.bordered).frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.borderless)
+                .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityLabel("lc.location.changeSign".lcLocationText + ": " + title.lcLocationText)
                 .accessibilityIdentifier(title + ".sign")
             }
