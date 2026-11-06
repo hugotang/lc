@@ -327,6 +327,12 @@ private struct LCLocationNumberField: UIViewRepresentable {
         let sign = UIButton(type: .system)
         sign.setTitle("±", for: .normal)
         sign.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        // UITextField sizes its accessory with Auto Layout, ignoring the frame
+        // when UIButton's smaller intrinsic content size is available.
+        NSLayoutConstraint.activate([
+            sign.widthAnchor.constraint(equalToConstant: 44),
+            sign.heightAnchor.constraint(equalToConstant: 44)
+        ])
         sign.backgroundColor = .tertiarySystemFill
         sign.layer.cornerRadius = 10
         sign.accessibilityLabel = "lc.location.changeSign".lcLocationText + ": " + title.lcLocationText

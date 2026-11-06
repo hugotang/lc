@@ -66,6 +66,8 @@
     XCTAssertFalse(self.app.buttons[@"location.showOnMap"].enabled);
     XCTAssertTrue(self.app.staticTexts[@"location.invalid"].exists);
     [self enter:@"33.8688" field:@"lc.location.latitude"];
+    XCTAssertGreaterThanOrEqual(self.app.buttons[@"lc.location.latitude.sign"].frame.size.width, 44.0);
+    XCTAssertGreaterThanOrEqual(self.app.buttons[@"lc.location.latitude.sign"].frame.size.height, 44.0);
     [self.app.buttons[@"lc.location.latitude.sign"] tap];
     XCTAssertEqualObjects(self.app.textFields[@"lc.location.latitude"].value, @"-33.8688");
     XCTAssertTrue(self.app.keyboards.firstMatch.exists);
