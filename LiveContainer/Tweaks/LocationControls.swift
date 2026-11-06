@@ -70,7 +70,7 @@ private struct LCLocationControlsView: View {
                                 Menu("lc.location.removeFavorite".lcLocationText) {
                                     ForEach(Array(model.favorites.enumerated()), id: \.offset) { index, value in
                                         if let point = LCLocationPoint(value) {
-                                            Button(point.name.isEmpty ? point.text : point.name, role: .destructive) { model.session.removeFavorite(at: index) }
+                                            Button(point.name.isEmpty ? point.text : point.name, role: .destructive) { model.session.removeFavorite(at: UInt(index)) }
                                         }
                                     }
                                 }
