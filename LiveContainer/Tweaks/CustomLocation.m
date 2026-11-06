@@ -43,7 +43,7 @@ static BOOL LCLocationIsEnabled(void) {
 - (void)schedule;
 - (void)deliver;
 - (void)refreshTimer;
-- (void)syncMode;
+- (void)syncModeEnabled:(BOOL)enabled;
 @end
 
 static LCLocationDelegateProxy *LCProxy(CLLocationManager *manager) {
@@ -110,14 +110,14 @@ static BOOL LCLocationAuthorized(CLLocationManager *manager) {
     self.timer.tolerance = 0.2;
     [self.runLoop addTimer:self.timer forMode:NSRunLoopCommonModes];
 }
-- (void)syncMode {
+- (void)syncModeEnabled:(BOOL)enabled {
     CLLocationManager *manager = self.manager;
     if (!manager) return;
-    BOOL enabled = LCLocationIsEnabled();
     if (self.simulated != enabled) {
         self.simulated = enabled;
         self.lastLocation = nil;
         self.deliveredContinuous = NO;
+        self.deniedReported = NO;
         if (enabled) {
             if (self.updating || self.requesting) LCOriginalLocationStop(manager, @selector(stopUpdatingLocation));
             if (self.significant) LCOriginalSignificantStop(manager, @selector(stopMonitoringSignificantLocationChanges));
@@ -130,10 +130,14 @@ static BOOL LCLocationAuthorized(CLLocationManager *manager) {
     }
 }
 - (void)deliver {
-    [self syncMode];
+    // Keep mode and coordinates from one immutable snapshot. Updates can arrive
+    // on the main thread while a manager delivers on its own creation run loop.
+    NSDictionary *snapshot = LCLocationReadSnapshot();
+    BOOL enabled = !snapshot || [snapshot[@"enabled"] boolValue];
+    [self syncModeEnabled:enabled];
     CLLocationManager *manager = self.manager;
     id<CLLocationManagerDelegate> target = self.target;
-    if (!LCLocationIsEnabled()) return;
+    if (!enabled) return;
     if (!manager || !target || !(self.requesting || self.updating || self.significant)) return;
     if (!LCLocationAuthorized(manager)) {
         self.lastLocation = nil;
@@ -151,7 +155,6 @@ static BOOL LCLocationAuthorized(CLLocationManager *manager) {
     }
     self.deniedReported = NO;
     CLLocation *previous = self.lastLocation;
-    NSDictionary *snapshot = LCLocationReadSnapshot();
     CLLocationCoordinate2D coordinate = snapshot ? CLLocationCoordinate2DMake([snapshot[@"latitude"] doubleValue], [snapshot[@"longitude"] doubleValue]) : LCCustomCoordinate;
     double age = NSDate.date.timeIntervalSince1970 - [snapshot[@"timestamp"] doubleValue];
     BOOL freshMotion = age >= 0 && age < 2.5;
@@ -272,17 +275,18 @@ static void LCLocationStart(CLLocationManager *manager, SEL selector) {
         else LCOriginalSignificantStart(manager, selector);
         return;
     }
-    BOOL resumed = proxy.simulated && !LCLocationIsEnabled() &&
+    BOOL enabled = LCLocationIsEnabled();
+    BOOL resumed = proxy.simulated && !enabled &&
         ((selector == @selector(startUpdatingLocation) && proxy.updating) ||
          (selector == @selector(requestLocation) && proxy.requesting && !proxy.updating) ||
          (selector == @selector(startMonitoringSignificantLocationChanges) && proxy.significant));
-    [proxy syncMode];
+    [proxy syncModeEnabled:enabled];
     if (selector == @selector(requestLocation)) proxy.requesting = YES;
     else if (selector == @selector(startMonitoringSignificantLocationChanges)) proxy.significant = YES;
     else proxy.updating = YES;
     proxy.deliveredContinuous = NO;
     proxy.deniedReported = NO;
-    if (!LCLocationIsEnabled() && !resumed) {
+    if (!enabled && !resumed) {
         if (selector == @selector(requestLocation)) LCOriginalLocationRequest(manager, selector);
         else if (selector == @selector(startUpdatingLocation)) LCOriginalLocationStart(manager, selector);
         else LCOriginalSignificantStart(manager, selector);
@@ -296,13 +300,14 @@ static void LCLocationStop(CLLocationManager *manager, SEL selector) {
         else LCOriginalSignificantStop(manager, selector);
         return;
     }
-    [proxy syncMode];
+    BOOL enabled = LCLocationIsEnabled();
+    [proxy syncModeEnabled:enabled];
     if (selector == @selector(stopMonitoringSignificantLocationChanges)) proxy.significant = NO;
     else { proxy.updating = NO; proxy.requesting = NO; }
     proxy.revision++;
     [proxy.timer invalidate];
     proxy.timer = nil;
-    if (!LCLocationIsEnabled()) {
+    if (!enabled) {
         if (selector == @selector(stopUpdatingLocation)) LCOriginalLocationStop(manager, selector);
         else LCOriginalSignificantStop(manager, selector);
     }

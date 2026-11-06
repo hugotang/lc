@@ -268,4 +268,14 @@ static BOOL LCTestServicesEnabled = YES;
     [self updateLatitude:23 enabled:YES speed:0 timestamp:0];
     XCTAssertEqual(self.receiver.locations.count, count); XCTAssertNil(self.proxy.timer);
 }
+- (void)testDeniedContinuousSubscriptionReportsAgainAfterModeSwitch {
+    self.manager.authorizationStatus = kCLAuthorizationStatusDenied;
+    [self.manager startUpdatingLocation]; [self drain];
+    XCTAssertEqual(self.receiver.error.code, kCLErrorDenied);
+    [self updateLatitude:22 enabled:NO speed:0 timestamp:0];
+    self.receiver.error = nil;
+    [self updateLatitude:22 enabled:YES speed:0 timestamp:0];
+    XCTAssertEqual(self.receiver.error.code, kCLErrorDenied);
+    XCTAssertEqual(self.receiver.locations.count, 0u); XCTAssertNil(self.manager.location);
+}
 @end
