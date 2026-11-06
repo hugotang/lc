@@ -128,7 +128,9 @@
     XCUIElement *restore = self.app.buttons[@"location.restoreReal"];
     if (!restore.hittable) [self.app swipeUp];
     [restore tap];
-    [self.app.buttons[@"location.confirmRestoreReal"] tap];
+    // SwiftUI exposes both the confirmation action and its nested button.
+    // Both refer to the same action inside the presented sheet.
+    [[self.app.buttons matchingIdentifier:@"location.confirmRestoreReal"].firstMatch tap];
     XCTAssertEqualObjects(self.app.staticTexts[@"location.motionStatus"].label, @"Using system location");
     [XCUIDevice.sharedDevice pressButton:XCUIDeviceButtonHome];
     [self.app activate];
