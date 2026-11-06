@@ -90,7 +90,12 @@ xcodebuild build-for-testing -project "$project" -scheme LocationPicker -configu
     -destination "platform=iOS Simulator,id=$simulator_id" -parallel-testing-enabled NO \
     -derivedDataPath "$test_root/DerivedData"
 simulator_state="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(d["state"] for group in data["devices"].values() for d in group if d["udid"]==sys.argv[1]))' "$simulator_id")"
-if [ "$simulator_state" != "Booted" ]; then xcrun simctl boot "$simulator_id"; fi
+# Release only a simulator this script boots. Sequential iPad/iPhone suites
+# must not keep both devices resident on the same hosted runner.
+if [ "$simulator_state" != "Booted" ]; then
+    trap 'xcrun simctl shutdown "$simulator_id" >/dev/null 2>&1 || true' EXIT
+    xcrun simctl boot "$simulator_id"
+fi
 xcrun simctl bootstatus "$simulator_id" -b
 python3 - "$repo_root" "$test_root" <<'PYSTRINGS'
 import json, plistlib, sys
