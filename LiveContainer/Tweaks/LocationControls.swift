@@ -14,7 +14,7 @@ final class LCLocationControlModel: ObservableObject {
         self.session = session
         refresh()
         observer = NotificationCenter.default.addObserver(forName: .LCLocationSessionDidChange, object: session, queue: .main) { [weak self] _ in
-            self?.refresh()
+            DispatchQueue.main.async { self?.refresh() }
         }
     }
     deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
@@ -217,9 +217,11 @@ private final class LCLocationOverlayController: UIViewController, UIAdaptivePre
         view.addSubview(button)
         for name in [UIApplication.willResignActiveNotification, UIScene.willDeactivateNotification] {
             tokens.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
-                guard let self else { return }
-                if let scene = note.object as? UIScene, scene !== self.view.window?.windowScene { return }
-                self.collapse()
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let scene = note.object as? UIScene, scene !== self.view.window?.windowScene { return }
+                    self.collapse()
+                }
             })
         }
     }
@@ -243,7 +245,7 @@ private final class LCLocationOverlayController: UIViewController, UIAdaptivePre
     }
     @objc func toggle() { expanded ? collapse() : expand() }
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        session.stopMoving(); super.viewWillTransition(to: size, with: coordinator)
+        collapse(); super.viewWillTransition(to: size, with: coordinator)
     }
     func expand() {
         guard !expanded else { return }; expanded = true; button.isHidden = true; session.refresh()
@@ -297,8 +299,10 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
     static func showShortcut(for session: LCLocationSession, in scene: UIWindowScene) {
         if disconnectToken == nil {
             disconnectToken = NotificationCenter.default.addObserver(forName: UIScene.didDisconnectNotification, object: nil, queue: .main) { note in
-                guard let scene = note.object as? UIWindowScene else { return }
-                for key in Array(windows.keys) where windows[key]?.windowScene === scene { removeWindow(key) }
+                DispatchQueue.main.async {
+                    guard let scene = note.object as? UIWindowScene else { return }
+                    for key in Array(windows.keys) where windows[key]?.windowScene === scene { removeWindow(key) }
+                }
             }
         }
         // One location control per scene keeps shortcuts and panels from
@@ -324,7 +328,7 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
     }
     @objc(installGuestControlsForSession:)
     static func installGuestControls(for session: LCLocationSession) {
-        let update = {
+        let update: @MainActor () -> Void = {
             let info = NSDictionary(contentsOfFile: session.bundlePath + "/LCAppInfo.plist")
             guard info?["LCLocationQuickControl"] as? Bool == true else { hideControls(for: session); return }
             for case let scene as UIWindowScene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
@@ -333,7 +337,9 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
             }
         }
         for name in [UIScene.didActivateNotification, NSNotification.Name.LCLocationSessionDidChange] {
-            guestTokens.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in update() })
+            guestTokens.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                DispatchQueue.main.async { update() }
+            })
         }
         update()
     }
