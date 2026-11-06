@@ -73,8 +73,10 @@
         return element.exists && element.frame.size.width > 0 && element.frame.size.height > 0 &&
             CGRectContainsRect(self.app.frame, element.frame);
     }]];
-    XCTAssertLessThanOrEqual(compact.frame.size.width, 184.0);
-    XCTAssertLessThanOrEqual(compact.frame.size.height, 228.0);
+    // Accessibility converts through screen coordinates; fractional origins
+    // can leave a subpixel rounding remainder in the reported dimensions.
+    XCTAssertEqualWithAccuracy(compact.frame.size.width, 184.0, 0.5);
+    XCTAssertEqualWithAccuracy(compact.frame.size.height, 228.0, 0.5);
     for (NSString *identifier in @[@"location.joystickSettings", @"location.joystickSpeed", @"location.joystickDrag"]) {
         [self waitForElement:self.app.buttons[identifier]
                    matching:[NSPredicate predicateWithFormat:@"exists == YES AND hittable == YES"]];
