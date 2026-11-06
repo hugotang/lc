@@ -71,6 +71,7 @@ NSString *LCLocationLocalized(NSString *key) {
 - (void)refresh {
     NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:self.infoPath];
     self.settings = LCAppLocationSettings(info[LCAppLocationKey]);
+    _quickControlEnabled = [info[@"LCLocationQuickControl"] boolValue];
     id favorites = info[@"LCLocationFavorites"];
     NSMutableArray *validFavorites = [NSMutableArray new];
     if ([favorites isKindOfClass:NSArray.class]) for (id point in favorites) {

@@ -24,6 +24,8 @@
 @property(nonatomic, readwrite) BOOL isAppTerminated;
 @property(nonatomic, readwrite) LCWindowMinimization *windowMinimization;
 @property(nonatomic) UIEdgeInsets lastGridSafeAreaInsets;
+@property(nonatomic) id locationPreferenceObserver;
+@property(nonatomic) BOOL lastLocationShortcut;
 - (void)updateGridSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings;
 @end
 
@@ -204,6 +206,7 @@
 }
 
 - (void)dealloc {
+    if (self.locationPreferenceObserver) [NSNotificationCenter.defaultCenter removeObserver:self.locationPreferenceObserver];
     if (self.observingChromeDefaults) {
         [NSUserDefaults.lcSharedDefaults removeObserver:self forKeyPath:@"LCMultitaskBottomWindowBar"];
         [NSUserDefaults.lcSharedDefaults removeObserver:self forKeyPath:@"LCMultitaskOverlayMode"];
@@ -218,6 +221,26 @@
 - (void)showLocationControls {
     LCLocationSession *session = [self locationSession];
     if (session && self.view.window.windowScene) [LCLocationUI showControlsForSession:session inScene:self.view.window.windowScene];
+}
+
+- (void)synchronizeLocationShortcut {
+    if (!self.appSceneVC.isAppRunning || self.isAppTerminated || self.isAppTerminationRequested ||
+        self.view.hidden || self.windowMinimization.isMinimized || [PiPManager hasSessionForVC:self.appSceneVC]) return;
+    LCLocationSession *session = [self locationSession];
+    if (!session || !self.view.window.windowScene) return;
+    if (!self.locationPreferenceObserver) {
+        self.lastLocationShortcut = session.quickControlEnabled;
+        __weak typeof(self) weakSelf = self;
+        self.locationPreferenceObserver = [NSNotificationCenter.defaultCenter addObserverForName:LCLocationSessionDidChange
+            object:session queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                typeof(self) controller = weakSelf;
+                if (!controller || controller.lastLocationShortcut == session.quickControlEnabled) return;
+                controller.lastLocationShortcut = session.quickControlEnabled;
+                if (!session.quickControlEnabled) [LCLocationUI hideControlsForSession:session];
+                else [controller synchronizeLocationShortcut];
+            }];
+    }
+    if (session.quickControlEnabled) [LCLocationUI synchronizeShortcutForSession:session inScene:self.view.window.windowScene];
 }
 
 - (LCLocationSession *)locationSession {
@@ -341,6 +364,7 @@
 - (void)prepareForWindowRestore {
     [self.windowMinimization invalidate];
     [MultitaskDockManager.shared gridLayoutDidChange];
+    dispatch_async(dispatch_get_main_queue(), ^{ [self synchronizeLocationShortcut]; });
 }
 
 - (void)minimizeWindowPiP {
@@ -364,6 +388,7 @@
         self.view.alpha = 1;
     } completion:^(BOOL finished) {
         [self.view.superview setNeedsLayout];
+        [self synchronizeLocationShortcut];
     }];
 }
 
@@ -520,12 +545,14 @@
             self.pid = vc.pid;
             [self updateOriginalFrame];
             [MultitaskDockManager.shared gridLayoutDidChange];
+            [self synchronizeLocationShortcut];
             if (handler) handler(@(self.pid), nil);
         }
     });
 }
 
 - (void)appSceneVCWillActivateScene:(AppSceneViewController *)vc {
+    dispatch_async(dispatch_get_main_queue(), ^{ [self synchronizeLocationShortcut]; });
     // Set up initial settings such as frame, safe area, etc
     [self appSceneVC:vc didUpdateFromSettings:vc.presenter.scene.settings.mutableCopy transitionContext:nil lifecycleActionType:0];
 }

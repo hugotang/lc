@@ -18,6 +18,7 @@ struct LCAppLocationSettingsView: View {
     @State private var requestedEnabled: Bool
     @State private var quickControl = false
     @State private var error: String?
+    @State private var windowScene: UIWindowScene?
 
     init(model: LCAppModel) {
         self.model = model
@@ -58,6 +59,7 @@ struct LCAppLocationSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Button {
+                    session.stopMoving()
                     enableAfterSelection = false
                     editing = true
                 } label: {
@@ -73,14 +75,18 @@ struct LCAppLocationSettingsView: View {
             Section {
                 Toggle("lc.location.quickControl".loc, isOn: $quickControl)
                     .disabled(unavailable)
+                    .accessibilityIdentifier("location.shortcutEnabled")
                     .onChange(of: quickControl) { value in
-                        let info = NSDictionary(contentsOfFile: model.appInfo.bundlePath() + "/LCAppInfo.plist")
-                        let saved = info?["LCLocationQuickControl"] as? Bool == true
-                        if value != saved, !session.setQuickControl(value) { quickControl = saved; error = session.error }
+                        let saved = session.quickControlEnabled
+                        if value != saved {
+                            if !session.setQuickControl(value) { quickControl = saved; error = session.error }
+                            if !session.quickControlEnabled { LCLocationUI.hideControls(for: session) }
+                            if let windowScene { LCLocationUI.synchronizeShortcut(for: session, in: windowScene) }
+                        }
                     }
                 Button {
-                    guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }) else { return }
-                    LCLocationUI.showControls(for: LCLocationSession.session(path: model.appInfo.bundlePath(), title: model.appInfo.displayName()), in: scene)
+                    guard let windowScene else { return }
+                    LCLocationUI.showControls(for: session, in: windowScene)
                 } label: { Label("lc.location.openControls".loc, systemImage: "location.circle") }
                 .disabled(unavailable).accessibilityIdentifier("location.openControls")
             } footer: { Text("lc.location.quickControlHelp".loc) }
@@ -88,27 +94,53 @@ struct LCAppLocationSettingsView: View {
             Section { Text("lc.location.coverage".loc).foregroundStyle(.secondary) }
         }
         .navigationTitle("lc.location.title".loc)
+        .background(LCLocationSettingsSceneView { scene in
+            guard windowScene !== scene else { return }
+            windowScene = scene
+            if let scene, !unavailable { LCLocationUI.synchronizeShortcut(for: session, in: scene) }
+        }.frame(width: 0, height: 0))
         .onAppear {
-            model.uiCustomLocation = model.appInfo.customLocation
+            session.refresh()
+            model.uiCustomLocation = session.settings
             requestedEnabled = enabled
-            let info = NSDictionary(contentsOfFile: model.appInfo.bundlePath() + "/LCAppInfo.plist")
-            quickControl = info?["LCLocationQuickControl"] as? Bool == true
+            quickControl = session.quickControlEnabled
         }
         .onReceive(NotificationCenter.default.publisher(for: .LCLocationSessionDidChange)) { notification in
             if let changed = notification.object as? LCLocationSession, changed === session {
                 error = changed.error
+                if quickControl != changed.quickControlEnabled {
+                    quickControl = changed.quickControlEnabled
+                    if !changed.quickControlEnabled { LCLocationUI.hideControls(for: changed) }
+                    if let windowScene, !unavailable { LCLocationUI.synchronizeShortcut(for: changed, in: windowScene) }
+                }
                 if !NSDictionary(dictionary: model.uiCustomLocation).isEqual(to: changed.settings) {
                     model.uiCustomLocation = changed.settings; requestedEnabled = enabled
                 }
             }
         }
         .sheet(isPresented: $editing, onDismiss: { requestedEnabled = enabled }) {
-            LCLocationPickerHost(initial: model.uiCustomLocation, presented: $editing) { value in
+            LCLocationPickerHost(initial: session.snapshot, presented: $editing) { value in
                 var value = value; value["enabled"] = enabled || enableAfterSelection
                 save(value)
             }
         }
     }
+}
+
+private struct LCLocationSettingsSceneView: UIViewRepresentable {
+    let changed: (UIWindowScene?) -> Void
+    final class SceneView: UIView {
+        var changed: ((UIWindowScene?) -> Void)?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            let scene = window?.windowScene
+            DispatchQueue.main.async { [weak self] in self?.changed?(scene) }
+        }
+    }
+    func makeUIView(context: Context) -> SceneView {
+        let view = SceneView(); view.changed = changed; return view
+    }
+    func updateUIView(_ view: SceneView, context: Context) { view.changed = changed }
 }
 
 

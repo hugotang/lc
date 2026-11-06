@@ -53,6 +53,7 @@ struct LCAppDisplaySettingsView: View {
                         Text(choice.title).tag(choice)
                     }
                 }
+                .accessibilityIdentifier("displaySettings.aspectRatio")
                 if AppAspectRatioChoice.matching(model.uiWindowAspectRatio) == .custom {
                     Button {
                         editingCustomRatio = true
@@ -68,6 +69,23 @@ struct LCAppDisplaySettingsView: View {
                 Text("lc.appSettings.aspectRatio.help".loc)
             }
             .disabled(model.uiDontInjectTweakLoader)
+            Section {
+                if LCAppAspectRatioIsValid(model.uiWindowAspectRatio) {
+                    Text("lc.appSettings.displaySettings.compatibilityAutomatic".loc)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("displaySettings.compatibilityAutomatic")
+                } else {
+                    DisclosureGroup("lc.appSettings.displaySettings.advanced".loc) {
+                        Toggle("lc.appSettings.useWindowScreenSize".loc, isOn: $model.uiUseWindowScreenSize)
+                            .disabled(model.uiDontInjectTweakLoader)
+                            .accessibilityIdentifier("displaySettings.useWindowScreenSize")
+                        Text("lc.appSettings.useWindowScreenSizeDesc".loc)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityIdentifier("displaySettings.advanced")
+                }
+            }
             Section {
                 Text("lc.appSettings.displaySettings.help".loc)
                     .foregroundStyle(.secondary)

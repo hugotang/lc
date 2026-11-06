@@ -14,6 +14,7 @@ FOUNDATION_EXPORT NSString *LCLocationLocalized(NSString *key);
 @property(nonatomic, readonly) NSDictionary *snapshot;
 @property(nonatomic, readonly) NSArray<NSDictionary *> *favorites;
 @property(nonatomic, readonly) BOOL moving;
+@property(nonatomic, readonly) BOOL quickControlEnabled;
 @property(nonatomic, readonly, nullable) NSString *error;
 + (instancetype)sessionForPath:(NSString *)path title:(NSString *)title NS_SWIFT_NAME(session(path:title:));
 - (void)refresh;

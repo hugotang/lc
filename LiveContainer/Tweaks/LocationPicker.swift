@@ -25,6 +25,28 @@ struct LCLocationPoint: Equatable {
     }
 }
 
+private enum LCLocationMarkerRole: Equatable {
+    case current, saved, pending
+
+    var title: String {
+        switch self {
+        case .current: return "lc.location.current".lcLocationText
+        case .saved: return "lc.location.saved".lcLocationText
+        case .pending: return "lc.location.pending".lcLocationText
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .current: return "checkmark"
+        case .saved: return "bookmark.fill"
+        case .pending: return "pencil"
+        }
+    }
+
+    var tint: UIColor { self == .pending ? .systemOrange : .systemBlue }
+}
+
 @MainActor
 final class LCLocationSearch: ObservableObject {
     @Published var results: [MKMapItem] = []
@@ -70,6 +92,9 @@ struct LCLocationPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var search = LCLocationSearch()
+    // Capture the app's custom point once, separately from every draft edit.
+    @State private var baseline: LCLocationPoint?
+    @State private var baselineRole: LCLocationMarkerRole
     @State private var point: LCLocationPoint?
     @State private var cameraPoint: LCLocationPoint?
     @State private var cameraRevision = 0
@@ -81,7 +106,10 @@ struct LCLocationPickerView: View {
     let save: (LCLocationPoint) -> Void
     let close: (() -> Void)?
 
-    init(initial: LCLocationPoint?, close: (() -> Void)? = nil, save: @escaping (LCLocationPoint) -> Void) {
+    init(initial: LCLocationPoint?, initialEnabled: Bool = false, close: (() -> Void)? = nil,
+         save: @escaping (LCLocationPoint) -> Void) {
+        _baseline = State(initialValue: initial)
+        _baselineRole = State(initialValue: initialEnabled ? .current : .saved)
         _point = State(initialValue: initial)
         _cameraPoint = State(initialValue: initial)
         self.save = save
@@ -140,7 +168,8 @@ struct LCLocationPickerView: View {
                     .frame(maxHeight: 180)
                 }
                 ZStack {
-                    LCLocationMap(point: point, cameraPoint: cameraPoint, cameraRevision: cameraRevision,
+                    LCLocationMap(baseline: baseline, baselineRole: baselineRole, point: point,
+                                  cameraPoint: cameraPoint, cameraRevision: cameraRevision,
                                   centerSelection: centerSelection, regionChanged: { visibleRegion = $0 },
                                   selected: { select($0, moveCamera: false) })
                     Image(systemName: "plus").font(.title2.weight(.light))
@@ -148,11 +177,31 @@ struct LCLocationPickerView: View {
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .frame(minHeight: 160)
+                .overlay(alignment: .topTrailing) {
+                    if let baseline {
+                        Button {
+                            cameraPoint = baseline
+                            cameraRevision += 1
+                            searching = false
+                        } label: {
+                            Label((baselineRole == .current ? "lc.location.returnCurrent" : "lc.location.returnSaved").lcLocationText,
+                                  systemImage: "arrow.uturn.backward")
+                                .labelStyle(.iconOnly)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .accessibilityIdentifier("location.returnBaseline")
+                        .padding(12)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 10) {
+                    if let baseline {
+                        pointSummary(baseline, role: baselineRole, roleID: "location.baselineRole",
+                                     coordinateID: "location.baselineCoordinate")
+                    }
                     if let point {
-                        Text(point.name.isEmpty ? "lc.location.selected".lcLocationText : point.name).font(.headline)
-                        Text(point.text).monospacedDigit().textSelection(.enabled).foregroundStyle(.secondary)
-                            .accessibilityIdentifier("location.selectedCoordinate")
+                        pointSummary(point, role: .pending, roleID: "location.pendingRole",
+                                     coordinateID: "location.selectedCoordinate")
                     } else {
                         Text("lc.location.mapHint".lcLocationText).font(.callout).foregroundStyle(.secondary)
                     }
@@ -184,6 +233,19 @@ struct LCLocationPickerView: View {
             .onDisappear { search.cancel() }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func pointSummary(_ point: LCLocationPoint, role: LCLocationMarkerRole,
+                              roleID: String, coordinateID: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: role.symbol).foregroundStyle(Color(role.tint)).accessibilityHidden(true)
+                Text(role.title).font(.headline).accessibilityIdentifier(roleID)
+            }
+            if !point.name.isEmpty { Text(point.name).font(.subheadline).foregroundStyle(.secondary) }
+            Text(point.text).font(.callout).monospacedDigit().textSelection(.enabled).foregroundStyle(.secondary)
+                .accessibilityIdentifier(coordinateID)
+        }
     }
 
     @ViewBuilder private var selectionButtons: some View {
@@ -362,6 +424,8 @@ private struct LCLocationNumberField: UIViewRepresentable {
 }
 
 private struct LCLocationMap: UIViewRepresentable {
+    let baseline: LCLocationPoint?
+    let baselineRole: LCLocationMarkerRole
     let point: LCLocationPoint?
     let cameraPoint: LCLocationPoint?
     let cameraRevision: Int
@@ -376,7 +440,9 @@ private struct LCLocationMap: UIViewRepresentable {
         map.showsUserLocation = false
         map.isPitchEnabled = false
         map.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: "location")
-        map.addGestureRecognizer(UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.longPress(_:))))
+        let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.longPress(_:)))
+        longPress.delegate = context.coordinator
+        map.addGestureRecognizer(longPress)
         if cameraPoint == nil {
             map.setRegion(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
                                             span: MKCoordinateSpan(latitudeDelta: 120, longitudeDelta: 180)), animated: false)
@@ -386,12 +452,7 @@ private struct LCLocationMap: UIViewRepresentable {
     func updateUIView(_ map: MKMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
-        if let point, coordinator.selectedPoint != point {
-            coordinator.selectedPoint = point
-            coordinator.pin.coordinate = point.coordinate
-            coordinator.pin.title = point.name.isEmpty ? "lc.location.selected".lcLocationText : point.name
-            if map.annotations.isEmpty { map.addAnnotation(coordinator.pin) }
-        }
+        coordinator.updateAnnotations(map, point: point)
         if coordinator.cameraRevision != cameraRevision {
             coordinator.cameraRevision = cameraRevision
             if let cameraPoint {
@@ -402,40 +463,133 @@ private struct LCLocationMap: UIViewRepresentable {
         if coordinator.centerSelection != centerSelection {
             coordinator.centerSelection = centerSelection
             let center = map.centerCoordinate
-            DispatchQueue.main.async { coordinator.pick(center) }
+            DispatchQueue.main.async { coordinator.pick(center, on: map) }
         }
     }
     static func dismantleUIView(_ map: MKMapView, coordinator: Coordinator) { map.delegate = nil }
 
-    final class Coordinator: NSObject, MKMapViewDelegate {
+    final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: LCLocationMap
-        let pin = MKPointAnnotation()
+        let baselinePin = MKPointAnnotation()
+        let pendingPin = MKPointAnnotation()
         var cameraRevision = -1
         var centerSelection = 0
+        var baselinePoint: LCLocationPoint?
         var selectedPoint: LCLocationPoint?
+        var draggingSelection = false
         init(_ parent: LCLocationMap) { self.parent = parent }
-        func pick(_ coordinate: CLLocationCoordinate2D) {
-            guard LCAppLocationCoordinateIsValid(coordinate) else { return }
-            parent.selected(LCLocationPoint(latitude: coordinate.latitude, longitude: coordinate.longitude))
+
+        func updateAnnotations(_ map: MKMapView, point: LCLocationPoint?) {
+            if let baseline = parent.baseline, baselinePoint != baseline {
+                baselinePin.coordinate = baseline.coordinate
+            }
+            baselinePoint = parent.baseline
+            if !draggingSelection {
+                if let point, selectedPoint != point { pendingPin.coordinate = point.coordinate }
+                selectedPoint = point
+            }
+
+            // Names do not determine whether two points coincide. At a shared
+            // coordinate one draggable marker carries both roles; the fixed
+            // baseline reappears as soon as the pending marker starts moving.
+            let coincident: Bool
+            if let baseline = parent.baseline, let point = selectedPoint {
+                coincident = !draggingSelection && baseline.latitude == point.latitude && baseline.longitude == point.longitude
+            } else {
+                coincident = false
+            }
+            baselinePin.title = parent.baselineRole.title
+            baselinePin.subtitle = parent.baseline?.name
+            pendingPin.title = coincident ? parent.baselineRole.title + " · " + LCLocationMarkerRole.pending.title : LCLocationMarkerRole.pending.title
+            var names = [selectedPoint?.name ?? ""]
+            if coincident, let name = parent.baseline?.name, !names.contains(name) { names.append(name) }
+            pendingPin.subtitle = names.filter { !$0.isEmpty }.joined(separator: " · ")
+
+            setVisible(parent.baseline != nil && !coincident, pin: baselinePin, on: map)
+            setVisible(selectedPoint != nil, pin: pendingPin, on: map)
+            for pin in [baselinePin, pendingPin] {
+                if let view = map.view(for: pin) as? MKMarkerAnnotationView { configure(view, for: pin) }
+            }
+        }
+
+        private func setVisible(_ visible: Bool, pin: MKPointAnnotation, on map: MKMapView) {
+            let present = map.annotations.contains { $0 === pin }
+            if visible && !present { map.addAnnotation(pin) }
+            if !visible && present { map.removeAnnotation(pin) }
+        }
+
+        private func configure(_ view: MKMarkerAnnotationView, for annotation: MKPointAnnotation) {
+            let pending = annotation === pendingPin
+            let role: LCLocationMarkerRole = pending ? .pending : parent.baselineRole
+            view.isDraggable = pending
+            view.canShowCallout = true
+            view.markerTintColor = role.tint
+            view.glyphTintColor = .white
+            view.glyphImage = UIImage(systemName: role.symbol)
+            view.titleVisibility = .visible
+            view.subtitleVisibility = .adaptive
+            view.displayPriority = .required
+            view.isAccessibilityElement = true
+            view.accessibilityIdentifier = pending ? "location.pendingMarker" : "location.baselineMarker"
+            view.accessibilityLabel = [annotation.title, annotation.subtitle]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+            view.accessibilityValue = (pending ? selectedPoint : parent.baseline)?.text
+        }
+
+        func pick(_ coordinate: CLLocationCoordinate2D, on map: MKMapView) {
+            guard LCAppLocationCoordinateIsValid(coordinate) else {
+                selectedPoint = nil
+                updateAnnotations(map, point: parent.point)
+                return
+            }
+            let point = LCLocationPoint(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            parent.selected(point)
+            // A drop at the unchanged point may not trigger a SwiftUI update.
+            // Refresh now so coincident markers always recombine after dragging.
+            updateAnnotations(map, point: point)
         }
         @objc func longPress(_ gesture: UILongPressGestureRecognizer) {
             guard gesture.state == .began, let map = gesture.view as? MKMapView else { return }
-            pick(map.convert(gesture.location(in: map), toCoordinateFrom: map))
+            pick(map.convert(gesture.location(in: map), toCoordinateFrom: map), on: map)
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // Let MapKit handle marker dragging and callouts without the map's
+            // long-press selection also creating a draft beneath the finger.
+            var view = touch.view
+            while let current = view {
+                if current is MKAnnotationView { return false }
+                view = current.superview
+            }
+            return true
         }
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             let region = mapView.region
             DispatchQueue.main.async { [weak self] in self?.parent.regionChanged(region) }
         }
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: "location", for: annotation)
-            view.isDraggable = true
-            view.canShowCallout = true
+            guard let pin = annotation as? MKPointAnnotation, pin === baselinePin || pin === pendingPin,
+                  let view = mapView.dequeueReusableAnnotationView(withIdentifier: "location", for: annotation) as? MKMarkerAnnotationView else { return nil }
+            configure(view, for: pin)
             return view
         }
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView,
                      didChange newState: MKAnnotationView.DragState, fromOldState oldState: MKAnnotationView.DragState) {
-            if newState == .ending, let coordinate = view.annotation?.coordinate { pick(coordinate) }
-            if newState == .ending || newState == .canceling { view.dragState = .none }
+            guard view.annotation === pendingPin else { return }
+            if newState == .starting {
+                draggingSelection = true
+                updateAnnotations(mapView, point: parent.point)
+            }
+            if newState == .ending || newState == .canceling {
+                let coordinate = pendingPin.coordinate
+                view.dragState = .none
+                draggingSelection = false
+                if newState == .ending { pick(coordinate, on: mapView) }
+                // A cancelled drag must restore the draft, including its name.
+                if newState == .canceling {
+                    selectedPoint = nil
+                    updateAnnotations(mapView, point: parent.point)
+                }
+            }
         }
     }
 }

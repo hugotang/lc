@@ -269,16 +269,7 @@ struct LCAppSettingsView: View {
                     } label: {
                         Text("lc.appSettings.displaySettings".loc)
                     }
-                }
-                Section {
-                    Toggle(isOn: Binding(get: {
-                        model.uiUseWindowScreenSize || LCAppAspectRatioIsValid(model.uiWindowAspectRatio)
-                    }, set: { model.uiUseWindowScreenSize = $0 })) {
-                        Text("lc.appSettings.useWindowScreenSize".loc)
-                    }
-                    .disabled(model.uiDontInjectTweakLoader || LCAppAspectRatioIsValid(model.uiWindowAspectRatio))
-                } footer: {
-                    Text("lc.appSettings.useWindowScreenSizeDesc".loc)
+                    .accessibilityIdentifier("displaySettings.open")
                 }
                 Section {
                     Toggle(isOn: $model.uiForceAmbientAudio) {

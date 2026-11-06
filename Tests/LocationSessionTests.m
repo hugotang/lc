@@ -7,6 +7,7 @@
 + (UIViewController *)pickerWithInitial:(NSDictionary *)initial completion:(void (^)(NSDictionary *))completion dismissal:(void (^)(void))dismissal { return [UIViewController new]; }
 + (void)showControlsForSession:(LCLocationSession *)session inScene:(UIWindowScene *)scene {}
 + (void)showShortcutForSession:(LCLocationSession *)session inScene:(UIWindowScene *)scene {}
++ (void)synchronizeShortcutForSession:(LCLocationSession *)session inScene:(UIWindowScene *)scene {}
 + (void)hideControlsForSession:(LCLocationSession *)session {}
 + (void)installGuestControlsForSession:(LCLocationSession *)session {}
 @end
@@ -63,6 +64,20 @@
     XCTAssertEqualWithAccuracy([self.session.settings[@"longitude"] doubleValue], moved, 1e-9);
     XCTAssertNil(self.session.snapshot[@"speed"]);
     [self.session moveEast:0 north:0 speed:6]; XCTAssertFalse(self.session.moving);
+}
+- (void)testShortcutPreferencePublishesImmediatelyAndRefreshesOtherSession {
+    LCLocationSession *other = [self newSession];
+    XCTAssertFalse(self.session.quickControlEnabled);
+    __block BOOL observedEnabled = NO;
+    id token = [NSNotificationCenter.defaultCenter addObserverForName:LCLocationSessionDidChange object:self.session
+        queue:nil usingBlock:^(NSNotification *note) { observedEnabled = ((LCLocationSession *)note.object).quickControlEnabled; }];
+    XCTAssertTrue([self.session setQuickControlEnabled:YES]);
+    XCTAssertTrue(observedEnabled);
+    [other refresh]; XCTAssertTrue(other.quickControlEnabled);
+    XCTAssertTrue([other setQuickControlEnabled:NO]);
+    [self.session refresh];
+    XCTAssertFalse(self.session.quickControlEnabled); XCTAssertFalse(observedEnabled);
+    [NSNotificationCenter.defaultCenter removeObserver:token];
 }
 - (void)testNewerSelectionWinsBeforeTickAndBeforeStop {
     [self.session selectPoint:[self point:22] enabled:YES];

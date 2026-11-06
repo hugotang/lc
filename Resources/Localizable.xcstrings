@@ -1,6 +1,190 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "lc.location.moveControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Joystick"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动摇杆浮窗"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動搖桿浮窗"
+          }
+        }
+      }
+    },
+    "lc.location.controls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位設定"
+          }
+        }
+      }
+    },
+    "lc.location.returnSaved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to Saved Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回已保存位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到已儲存位置"
+          }
+        }
+      }
+    },
+    "lc.location.returnCurrent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to Current Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回当前生效位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到目前生效位置"
+          }
+        }
+      }
+    },
+    "lc.location.pending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待应用位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待套用位置"
+          }
+        }
+      }
+    },
+    "lc.location.current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前生效位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前生效位置"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.advanced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進階"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.compatibilityAutomatic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window size compatibility is applied automatically with a fixed aspect ratio."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定比例会自动应用窗口尺寸兼容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定比例會自動套用視窗尺寸相容。"
+          }
+        }
+      }
+    },
     "lc.location.changeSign" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -628,19 +812,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Shows a movable shortcut in ordinary and native app windows. In virtual multitasking, open Location from the window or Dock menu."
+            "value" : "Applies immediately. Shows a movable shortcut for this app; turning it off closes its floating controls and stops movement. In multitasking, Location also stays available from the window or Dock menu."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在普通和原生窗口中显示可移动的快捷按钮。虚拟多任务请从窗口或 Dock 菜单打开定位。"
+            "value" : "立即生效。显示此 App 的可移动快捷按钮；关闭会收起浮动控制并停止移动。多任务中仍可从窗口或 Dock 菜单打开定位。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在普通和原生視窗中顯示可移動的快捷按鈕。虛擬多工請從視窗或 Dock 選單開啟定位。"
+            "value" : "立即生效。顯示此 App 的可移動快捷按鈕；關閉會收起浮動控制並停止移動。多工中仍可從視窗或 Dock 選單開啟定位。"
           }
         }
       }
