@@ -106,7 +106,10 @@
     [self openCoordinates];
     [self enter:pair field:@"location.coordinatePair"];
     [self tapWhenReady:self.app.buttons[@"location.showOnMap"]];
-    [self waitForAbsent:@"lc.location.latitude"];
+    // A dismissed nested sheet can remain in the accessibility snapshot.
+    // Wait for the visible destination instead of the old field's removal.
+    [self waitForElement:self.app.staticTexts[@"location.selectedCoordinate"]
+               matching:[NSPredicate predicateWithFormat:@"exists == YES AND hittable == YES AND label == %@", coordinate]];
     [self waitForLabel:coordinate identifier:@"location.selectedCoordinate"];
 }
 - (void)attachScreenshot {
@@ -349,6 +352,7 @@
         [self waitForLabel:role identifier:@"location.baselineRole"];
         [self waitForLabel:@"22.000000, 114.000000" identifier:@"location.baselineCoordinate"];
         [self waitForLabel:@"Selected Location" identifier:@"location.pendingRole"];
+        [self attachScreenshot];
         [self tapWhenReady:self.app.buttons[@"location.returnBaseline"]];
         [self waitForLabel:@"23.000000, 115.000000" identifier:@"location.selectedCoordinate"];
         [self waitForLabel:@"22.000000, 114.000000" identifier:@"location.baselineCoordinate"];

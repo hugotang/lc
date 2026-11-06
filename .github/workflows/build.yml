@@ -221,19 +221,20 @@ jobs:
           if-no-files-found: ignore
 
   test_location_picker:
-    name: Test custom location picker on iPhone and iPad
+    name: Test custom location picker on ${{ matrix.device }}
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iPhone, iPad]
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.2'
       - uses: actions/checkout@v6
-      - name: Test location picker on iPhone
+      - name: Test location picker
         env:
-          LC_TEST_DEVICE_FAMILY: iPhone
-          LC_TEST_RUN_SUFFIX: -iphone
-        run: bash Tests/run-location-picker-ui-tests.sh
-      - name: Test location picker on iPad
+          LC_TEST_DEVICE_FAMILY: ${{ matrix.device }}
         run: bash Tests/run-location-picker-ui-tests.sh
       - name: Export location picker screenshots
         if: always()
@@ -247,7 +248,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: location-picker-tests
+          name: location-picker-tests-${{ matrix.device }}
           path: |
             ${{ runner.temp }}/location-picker-ui-tests*/attachments
             ${{ runner.temp }}/location-picker-ui-tests*/results.xcresult
