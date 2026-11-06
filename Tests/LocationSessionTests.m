@@ -4,7 +4,7 @@
 
 // The session suite exercises production persistence without loading Swift UI.
 @implementation LCTestSessionUI
-+ (UIViewController *)pickerWithInitial:(NSDictionary *)initial completion:(void (^)(NSDictionary *))completion { return [UIViewController new]; }
++ (UIViewController *)pickerWithInitial:(NSDictionary *)initial completion:(void (^)(NSDictionary *))completion dismissal:(void (^)(void))dismissal { return [UIViewController new]; }
 + (void)showControlsForSession:(LCLocationSession *)session inScene:(UIWindowScene *)scene {}
 + (void)showShortcutForSession:(LCLocationSession *)session inScene:(UIWindowScene *)scene {}
 + (void)hideControlsForSession:(LCLocationSession *)session {}

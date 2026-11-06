@@ -103,7 +103,7 @@ struct LCAppLocationSettingsView: View {
             }
         }
         .sheet(isPresented: $editing, onDismiss: { requestedEnabled = enabled }) {
-            LCLocationPickerHost(initial: model.uiCustomLocation) { value in
+            LCLocationPickerHost(initial: model.uiCustomLocation, presented: $editing) { value in
                 var value = value; value["enabled"] = enabled || enableAfterSelection
                 save(value)
             }
@@ -114,7 +114,10 @@ struct LCAppLocationSettingsView: View {
 
 private struct LCLocationPickerHost: UIViewControllerRepresentable {
     let initial: [AnyHashable: Any]
+    @Binding var presented: Bool
     let save: ([AnyHashable: Any]) -> Void
-    func makeUIViewController(context: Context) -> UIViewController { LCLocationUI.picker(withInitial: initial, completion: save) }
+    func makeUIViewController(context: Context) -> UIViewController {
+        LCLocationUI.picker(withInitial: initial, completion: save, dismissal: { presented = false })
+    }
     func updateUIViewController(_ controller: UIViewController, context: Context) {}
 }

@@ -79,11 +79,13 @@ struct LCLocationPickerView: View {
     @State private var enteringCoordinates = false
     @FocusState private var searching: Bool
     let save: (LCLocationPoint) -> Void
+    let close: (() -> Void)?
 
-    init(initial: LCLocationPoint?, save: @escaping (LCLocationPoint) -> Void) {
+    init(initial: LCLocationPoint?, close: (() -> Void)? = nil, save: @escaping (LCLocationPoint) -> Void) {
         _point = State(initialValue: initial)
         _cameraPoint = State(initialValue: initial)
         self.save = save
+        self.close = close
     }
 
     private func select(_ newPoint: LCLocationPoint, moveCamera: Bool) {
@@ -160,7 +162,7 @@ struct LCLocationPickerView: View {
                         HStack { selectionButtons }
                     }
                     Button {
-                        if let point { save(point); dismiss() }
+                        if let point { save(point); if let close { close() } else { dismiss() } }
                     } label: {
                         Text("lc.location.useLocation".lcLocationText).frame(maxWidth: .infinity).padding(.vertical, 5)
                     }
@@ -173,7 +175,7 @@ struct LCLocationPickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("lc.common.cancel".lcLocationText) { dismiss() }.accessibilityIdentifier("location.cancel")
+                    Button("lc.common.cancel".lcLocationText) { if let close { close() } else { dismiss() } }.accessibilityIdentifier("location.cancel")
                 }
             }
             .sheet(isPresented: $enteringCoordinates) {

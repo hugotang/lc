@@ -263,9 +263,9 @@ private final class LCLocationOverlayController: UIViewController, UIAdaptivePre
     }
     func choose() {
         session.stopMoving()
-        let picker = LCLocationUI.picker(withInitial: session.snapshot) { [weak self] point in
+        let picker = LCLocationUI.picker(withInitial: session.snapshot, completion: { [weak self] point in
             _ = self?.session.select(point: point, enabled: true)
-        }
+        }, dismissal: nil)
         previousKeyWindow = view.window?.windowScene?.windows.first { $0.isKeyWindow && $0 !== self.view.window }
         view.window?.makeKey()
         present(picker, animated: true)
@@ -286,9 +286,15 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
     private static var windows: [String: LCLocationOverlayWindow] = [:]
     private static var guestTokens: [NSObjectProtocol] = []
     private static var disconnectToken: NSObjectProtocol?
-    @objc(pickerWithInitial:completion:)
-    public static func picker(withInitial initial: [AnyHashable: Any], completion: @escaping ([AnyHashable: Any]) -> Void) -> UIViewController {
-        LCLocationPickerController(rootView: LCLocationPickerView(initial: LCLocationPoint(initial)) { completion($0.settings(enabled: true)) })
+    @objc(pickerWithInitial:completion:dismissal:)
+    public static func picker(withInitial initial: [AnyHashable: Any], completion: @escaping ([AnyHashable: Any]) -> Void,
+                              dismissal: (() -> Void)?) -> UIViewController {
+        weak var presented: UIViewController?
+        let controller = LCLocationPickerController(rootView: LCLocationPickerView(initial: LCLocationPoint(initial), close: {
+            if let dismissal { dismissal() } else { presented?.dismiss(animated: true) }
+        }) { completion($0.settings(enabled: true)) })
+        presented = controller
+        return controller
     }
     @objc(showControlsForSession:inScene:)
     public static func showControls(for session: LCLocationSession, in scene: UIWindowScene) {
