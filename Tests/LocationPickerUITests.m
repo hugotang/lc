@@ -105,6 +105,8 @@
 - (void)selectCoordinatePair:(NSString *)pair expected:(NSString *)coordinate {
     [self openCoordinates];
     [self enter:pair field:@"location.coordinatePair"];
+    [self tapWhenReady:self.app.buttons[@"location.keyboardDone"]];
+    [self waitForElement:self.app.keyboards.firstMatch matching:[NSPredicate predicateWithFormat:@"exists == NO"]];
     [self tapWhenReady:self.app.buttons[@"location.showOnMap"]];
     // A dismissed nested sheet can remain in the accessibility snapshot.
     // Wait for the visible destination instead of the old field's removal.

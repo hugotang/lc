@@ -273,6 +273,15 @@ private final class LCLocationPassThroughView: UIView {
 }
 private final class LCLocationOverlayWindow: UIWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        // iPad can insert a full-window UIKit container above the root view.
+        // Gate touches by our visible controls before asking that hierarchy.
+        if let controller = rootViewController as? LCLocationOverlayController,
+           controller.presentedViewController == nil {
+            let local = controller.view.convert(point, from: self)
+            let inButton = !controller.button.isHidden && controller.button.frame.contains(local)
+            let inPanel = controller.panel?.view.frame.contains(local) == true
+            if !inButton && !inPanel { return nil }
+        }
         let hit = super.hitTest(point, with: event); return hit === self ? nil : hit
     }
 }
