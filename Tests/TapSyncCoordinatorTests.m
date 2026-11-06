@@ -313,6 +313,16 @@
     XCTAssertFalse(self.sync.recovering);
     XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.paused");
 }
+- (void)testLocationControlsPauseInputAndCancelAutomaticRecovery {
+    self.sync.resumeOnSource = YES;
+    self.sync.autoResumeAfterRotation = YES;
+    [self.sync start];
+    XCTAssertTrue(self.sync.active);
+    [NSNotificationCenter.defaultCenter postNotificationName:@"LCLocationControlsWillExpand" object:nil];
+    XCTAssertFalse(self.sync.active);
+    XCTAssertFalse(self.sync.recovering);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.paused");
+}
 - (void)testRotationWaitsForTransitionAndIgnoresAdditionalGeometryInterrupts {
     self.sync.autoResumeAfterRotation = YES;
     [self.sync start];

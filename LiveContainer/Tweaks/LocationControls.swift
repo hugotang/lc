@@ -13,7 +13,7 @@ final class LCLocationControlModel: ObservableObject {
     init(_ session: LCLocationSession) {
         self.session = session
         refresh()
-        observer = NotificationCenter.default.addObserver(forName: LCLocationSessionDidChange, object: session, queue: .main) { [weak self] _ in
+        observer = NotificationCenter.default.addObserver(forName: .LCLocationSessionDidChange, object: session, queue: .main) { [weak self] _ in
             self?.refresh()
         }
     }
@@ -332,7 +332,7 @@ private final class LCLocationPickerController: UIHostingController<LCLocationPi
                 if windows[key] == nil { showShortcut(for: session, in: scene) }
             }
         }
-        for name in [UIScene.didActivateNotification, LCLocationSessionDidChange] {
+        for name in [UIScene.didActivateNotification, NSNotification.Name.LCLocationSessionDidChange] {
             guestTokens.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in update() })
         }
         update()

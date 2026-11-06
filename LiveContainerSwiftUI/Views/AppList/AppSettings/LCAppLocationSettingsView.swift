@@ -94,7 +94,7 @@ struct LCAppLocationSettingsView: View {
             let info = NSDictionary(contentsOfFile: model.appInfo.bundlePath() + "/LCAppInfo.plist")
             quickControl = info?["LCLocationQuickControl"] as? Bool == true
         }
-        .onReceive(NotificationCenter.default.publisher(for: LCLocationSessionDidChange)) { notification in
+        .onReceive(NotificationCenter.default.publisher(for: .LCLocationSessionDidChange)) { notification in
             if let changed = notification.object as? LCLocationSession, changed === session {
                 error = changed.error
                 if !NSDictionary(dictionary: model.uiCustomLocation).isEqual(to: changed.settings) {
