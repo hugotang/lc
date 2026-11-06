@@ -6,6 +6,10 @@
 #import "LCAppInfo.h"
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/Tweaks/LocationSession.h"
+#import <sys/file.h>
+#import <fcntl.h>
+#import <unistd.h>
 
 
 @implementation LCAppInfo
@@ -288,7 +292,16 @@
 
 - (void)save {
     if(!_autoSaveDisabled) {
+        int locationLock = open([_bundlePath stringByAppendingPathComponent:@".lc-location-settings.lock"].fileSystemRepresentation, O_CREAT | O_RDWR, 0600);
+        if (locationLock >= 0) flock(locationLock, LOCK_EX);
+        NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+        // Running guests own location state; unrelated settings saves must not
+        // overwrite a newer point, favorite or quick-control preference.
+        for (NSString *key in @[LCAppLocationKey, @"LCLocationRevision", @"LCLocationQuickControl", @"LCLocationFavorites"]) {
+            if (current[key]) _info[key] = current[key]; else [_info removeObjectForKey:key];
+        }
         [_info writeBinToFile:[NSString stringWithFormat:@"%@/LCAppInfo.plist", _bundlePath] atomically:YES];
+        if (locationLock >= 0) { flock(locationLock, LOCK_UN); close(locationLock); }
     }
 
 }
@@ -589,6 +602,58 @@
 
 - (void)setFixLocalNotification:(bool)fixLocalNotification {
     _info[@"fixLocalNotification"] = @(fixLocalNotification);
+    [self save];
+}
+
+- (bool)useWindowScreenSize {
+    return [_info[@"LCUseWindowScreenSize"] boolValue];
+}
+
+- (CGSize)windowAspectRatio {
+    return LCAppAspectRatioFromInfo(_info);
+}
+
+- (NSDictionary *)customLocation {
+    NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+    return LCAppLocationSettings(current[LCAppLocationKey] ?: _info[LCAppLocationKey]);
+}
+
+- (void)setCustomLocation:(NSDictionary *)settings {
+    NSDictionary *valid = LCAppLocationSettings(settings);
+    if (valid.count && ![valid isEqual:self.customLocation]) {
+        LCLocationSession *session = [LCLocationSession sessionForPath:_bundlePath title:self.displayName];
+        [session selectPoint:valid enabled:[valid[@"enabled"] boolValue]];
+        _info[LCAppLocationKey] = session.settings;
+    }
+}
+
+- (void)setWindowAspectRatio:(CGSize)ratio {
+    if (CGSizeEqualToSize(ratio, CGSizeZero)) [_info removeObjectForKey:LCAppWindowAspectRatioKey];
+    else if (LCAppAspectRatioIsValid(ratio)) _info[LCAppWindowAspectRatioKey] = @[@(ratio.width), @(ratio.height)];
+    else return;
+    [self save];
+}
+
+- (void)setUseWindowScreenSize:(bool)useWindowScreenSize {
+    _info[@"LCUseWindowScreenSize"] = @(useWindowScreenSize);
+    [self save];
+}
+
+- (bool)forceAmbientAudio {
+    return [_info[@"LCForceAmbientAudio"] boolValue];
+}
+
+- (void)setForceAmbientAudio:(bool)forceAmbientAudio {
+    _info[@"LCForceAmbientAudio"] = @(forceAmbientAudio);
+    [self save];
+}
+
+- (bool)keepBackgroundAudio {
+    return [_info[@"LCKeepBackgroundAudio"] boolValue];
+}
+
+- (void)setKeepBackgroundAudio:(bool)keepBackgroundAudio {
+    _info[@"LCKeepBackgroundAudio"] = @(keepBackgroundAudio);
     [self save];
 }
 

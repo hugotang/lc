@@ -31,11 +31,15 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) BOOL isAppRunning;
 @property(nonatomic) BOOL shouldIgnoreSceneUpdates, shouldSkipDebounceOnce;
 @property(nonatomic) CGFloat scaleRatio;
+// Captured before launch; edits in App Settings apply on the next launch.
+@property(nonatomic, readonly) CGSize windowAspectRatio;
 @property(nonatomic) UIView* contentView;
 @property(nonatomic) LCTapSyncPeer *tapSyncPeer;
 @property(nonatomic) _UIScenePresenter *presenter;
 @property(nonatomic) _UISceneHostingController *hostingController API_AVAILABLE(ios(17.0));
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate deferLaunch:(BOOL)deferLaunch;
+- (void)startApp;
 - (void)setBackgroundNotificationEnabled:(bool)enabled;
 - (void)updateFrameWithSettingsBlock:(void (^)(UIMutableApplicationSceneSettings *settings))block;
 - (void)updateSettingsWithBlock:(void(^)(UIMutableApplicationSceneSettings *settings))block;
@@ -44,5 +48,6 @@ API_AVAILABLE(ios(16.0))
 - (void)openURLScheme:(NSString *)urlString;
 - (void)handleStatusBarTapAction:(UIAction *)action;
 - (BOOL)usesHostingControllerAPI;
+- (void)copyWindowGeometryDiagnostics;
 @end
 

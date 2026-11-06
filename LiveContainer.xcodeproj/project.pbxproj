@@ -162,6 +162,8 @@
 		172CA8562D9D721700CF6989 /* LCSharedUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCSharedUtils.h; sourceTree = "<group>"; };
 		172CA8572D9D721700CF6989 /* LCSharedUtils.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCSharedUtils.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000001 /* LCAppLanguage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppLanguage.h; sourceTree = "<group>"; };
+		CA4A6E3F30A0000300000001 /* LCAppDisplaySettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppDisplaySettings.h; sourceTree = "<group>"; };
+		CA4A6E3F30A0000400000001 /* LCAppLocationSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCAppLocationSettings.h; sourceTree = "<group>"; };
 		CA4A6E3F30A0000100000002 /* LCAppLanguage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCAppLanguage.m; sourceTree = "<group>"; };
 		CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCWorkspaceLaunch.h; sourceTree = "<group>"; };
 		172CA8582D9D721700CF6989 /* Localization.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Localization.h; sourceTree = "<group>"; };
@@ -222,8 +224,16 @@
 				TapSyncClient.m,
 				TapSyncClientState.h,
 				TapSyncClientState.m,
+				TapSyncReturnGesture.h,
+				TapSyncReturnGesture.m,
+				TapSyncWindow.h,
+				TapSyncWindow.m,
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
+				WindowScreen.h,
+				WindowScreen.m,
+				WindowGeometryDiagnostics.h,
+				WindowGeometryDiagnostics.m,
 			);
 			target = 174140392D9C0D0000F3F928 /* TweakLoader */;
 		};
@@ -269,10 +279,13 @@
 				AppSceneViewController.m,
 				DecoratedAppSceneViewController.h,
 				DecoratedAppSceneViewController.m,
+				DockRevealControl.h,
+				DockRevealControl.m,
 				LCStatusBarManager.h,
 				LCStatusBarManager.m,
 				MultitaskAppWindow.swift,
 				MultitaskDockView.swift,
+				MultitaskDockLayout.swift,
 				MultitaskManager.swift,
 				MultitaskPerformance.swift,
 				MultitaskTapSync.swift,
@@ -293,14 +306,26 @@
 				TapSyncPeer.m,
 				TapSyncSession.h,
 				TapSyncSession.m,
+				TapSyncRecovery.h,
+				TapSyncRecovery.m,
+				TapSyncSelection.h,
+				TapSyncSelection.m,
 				UIKitHooks.m,
 				"UIKitPrivate+MultitaskSupport.h",
 				VirtualWindowsHostView.h,
 				VirtualWindowsHostView.m,
 				WindowGridOrder.h,
 				WindowGridOrder.m,
+				WindowChromeLayout.h,
+				WindowChromeLayout.m,
+				WindowContentGeometry.h,
+				WindowContentGeometry.m,
+				WindowMinimization.h,
+				WindowMinimization.m,
 				WindowWorkspace.h,
 				WindowWorkspace.m,
+				WorkspaceLaunchLayout.h,
+				WorkspaceLaunchLayout.m,
 			);
 			target = 17413FB42D9C0BAE00F3F928 /* LiveContainerSwiftUI */;
 		};
@@ -448,6 +473,8 @@
 				172CA8562D9D721700CF6989 /* LCSharedUtils.h */,
 				172CA8572D9D721700CF6989 /* LCSharedUtils.m */,
 				CA4A6E3F30A0000100000001 /* LCAppLanguage.h */,
+				CA4A6E3F30A0000300000001 /* LCAppDisplaySettings.h */,
+				CA4A6E3F30A0000400000001 /* LCAppLocationSettings.h */,
 				CA4A6E3F30A0000100000002 /* LCAppLanguage.m */,
 				CA4A6E3F30A0000200000001 /* LCWorkspaceLaunch.h */,
 				172CA8582D9D721700CF6989 /* Localization.h */,
@@ -1945,7 +1972,9 @@
 				STRIP_STYLE = debugging;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveContainer/Tweaks/Location-Bridging-Header.h";
+				SWIFT_INSTALL_OBJC_HEADER = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -1986,7 +2015,9 @@
 				SKIP_INSTALL = YES;
 				STRIP_STYLE = debugging;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OBJC_BRIDGING_HEADER = "LiveContainer/Tweaks/Location-Bridging-Header.h";
+				SWIFT_INSTALL_OBJC_HEADER = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";

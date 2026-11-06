@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly, getter=isValid) BOOL valid;
 @property(nonatomic, readonly) NSUInteger pendingCount;
 @property(nonatomic, readonly) NSUInteger coalescedMoveCount;
+@property(nonatomic, copy, readonly, nullable) NSDictionary *lastInputFailure;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets;
 - (nullable instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets mode:(LCTapSyncMode)mode;
 - (LCTapSyncResult)enqueue:(NSDictionary *)tap fromSource:(NSString *)source session:(NSString *)session
@@ -28,6 +29,10 @@ NS_ASSUME_NONNULL_BEGIN
                       sequence:(uint64_t)sequence now:(NSTimeInterval)now;
 - (LCTapSyncResult)enqueueTouchFrame:(NSDictionary *)frame fromSource:(NSString *)source session:(NSString *)session
                            sequence:(uint64_t)sequence now:(NSTimeInterval)now;
+// Adopt one bounded return capture atomically before accepting its live continuation.
+// Ordinary live input retains its four-packet queue limit while the capture drains.
+- (LCTapSyncResult)enqueueSourceReturn:(NSArray<NSDictionary *> *)packets fromSource:(NSString *)source
+                              session:(NSString *)session now:(NSTimeInterval)now;
 // Returns a dictionary containing the original packet and sequence, in source order.
 - (nullable NSDictionary *)takeNextAtTime:(NSTimeInterval)now result:(LCTapSyncResult *)result;
 - (void)invalidate;

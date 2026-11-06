@@ -39,7 +39,7 @@ The CSV has a single header row and standard quoting, with no comment preamble. 
 
 | CSV fields | Meaning |
 | --- | --- |
-| `schema_version`, `build`, `ios_version`, `logical_cpus` | Report format version 2 and build/device metadata, repeated so ordinary CSV readers can import the file directly. |
+| `schema_version`, `build`, `ios_version`, `logical_cpus` | Report format version 3 and build/device metadata, repeated so ordinary CSV readers can import the file directly. Version 3 appends `sync_status`; older version 2 reports lack that column. |
 | `sample`, `segment`, `elapsed_s`, `segment_elapsed_s` | Sampling-round identity, condition segment, and host sample time relative to the measurement/segment start. Rows with the same sample number belong together. |
 | `record_type` | One `combined` row per sample, followed by one `process` row for each expected process, including missing readings. Sync reply/counter fields appear only on the combined row. |
 | `process_number`, `window_number`, `role` | Anonymous process number; host is 0 and a relaunched guest receives a new number. Window number is the current/last-known UI index, or 0 when unavailable. Roles are `host`, `source`, `follower` or `other`; selected sync roles remain visible while paused. Combined rows leave the numbers empty. No OS PIDs or container IDs are exported. |
@@ -47,6 +47,7 @@ The CSV has a single header row and standard quoting, with no comment preamble. 
 | `processes`, `cpu_coverage`, `memory_coverage` | Expected process count and counts with valid readings. Empty metric fields mean unavailable/warming/stale, never zero. |
 | `thermal_state`, `low_power_mode` | Thermal pressure 0 nominal, 1 fair, 2 serious, 3 critical; Low Power Mode 0 off, 1 on. |
 | `sync_mode`, `sync_active`, `followers` | Mode 0 taps, 1 single finger, 2 two fingers; forwarding active 0/1; selected follower count. |
+| `sync_status` | Input Sync's status key at the recorded sample, including `lc.tapSync.tooSlow` for an acknowledgment missing after three seconds and `lc.tapSync.expiredInput` for discarded late/out-of-order input. Compare it with CPU and response readings; process CPU alone cannot establish main-loop responsiveness. Status sampling is not a log of every event between rounds. |
 | `response_p50_ms`, `response_p95_ms`, `response_samples` | Reply percentiles/sample count as defined above, captured for that sample's segment. |
 | `delivered_commands`, `pending_commands`, `in_flight`, `peak_pending`, `host_coalesced_moves` | Successful command replies, current queued/in-flight work, peak queue and replaced movement frames. Cumulative counts are scoped to the segment. |
 

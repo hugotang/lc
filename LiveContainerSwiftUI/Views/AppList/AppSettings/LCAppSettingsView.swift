@@ -240,6 +240,19 @@ struct LCAppSettingsView: View {
                 }
             }
             
+            Section {
+                NavigationLink {
+                    LCAppLocationSettingsView(model: model)
+                } label: {
+                    HStack {
+                        Label("lc.location.title".loc, systemImage: "mappin.and.ellipse")
+                        Spacer()
+                        Text((model.uiCustomLocation["enabled"] as? Bool == true ? "lc.location.on" : "lc.location.off").loc)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             if #available(iOS 16.0, *) {
                 Section {
                     Picker(selection: $model.uiIsMultitaskModeSpecificed) {
@@ -249,6 +262,30 @@ struct LCAppSettingsView: View {
                     } label: {
                         Text("lc.appBanner.multitask".loc)
                     }
+                }
+                Section {
+                    NavigationLink {
+                        LCAppDisplaySettingsView(model: model)
+                    } label: {
+                        Text("lc.appSettings.displaySettings".loc)
+                    }
+                    .accessibilityIdentifier("displaySettings.open")
+                }
+                Section {
+                    Toggle(isOn: $model.uiForceAmbientAudio) {
+                        Text("lc.appSettings.forceAmbientAudio".loc)
+                    }
+                    .disabled(model.uiDontInjectTweakLoader)
+                } footer: {
+                    Text("lc.appSettings.forceAmbientAudioDesc".loc)
+                }
+                Section {
+                    Toggle(isOn: $model.uiKeepBackgroundAudio) {
+                        Text("lc.appSettings.keepBackgroundAudio".loc)
+                    }
+                    .disabled(model.uiDontInjectTweakLoader)
+                } footer: {
+                    Text("lc.appSettings.keepBackgroundAudioDesc".loc)
                 }
             }
             

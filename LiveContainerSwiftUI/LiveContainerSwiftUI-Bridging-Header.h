@@ -9,6 +9,8 @@
 #include "LCAppInfo.h"
 #include "../LiveContainer/LCAppLanguage.h"
 #include "../LiveContainer/LCSharedUtils.h"
+#include "../LiveContainer/Tweaks/LocationSession.h"
+#include "../LiveContainer/Tweaks/LocationUI.h"
 #include "Utilities/LCUtils.h"
 #include "Utilities/unarchive.h"
 #include "../MultitaskSupport/AppSceneViewController.h"
@@ -16,7 +18,9 @@
 #include "../MultitaskSupport/LCStatusBarManager.h"
 #include "../MultitaskSupport/PiPManager.h"
 #include "../MultitaskSupport/VirtualWindowsHostView.h"
+#include "../MultitaskSupport/DockRevealControl.h"
 #include "../MultitaskSupport/TapSyncCoordinator.h"
+#include "../MultitaskSupport/TapSyncControlsView.h"
 #include "../MultitaskSupport/PerformanceMonitor.h"
 #include "../LiveContainer/FoundationPrivate.h"
 

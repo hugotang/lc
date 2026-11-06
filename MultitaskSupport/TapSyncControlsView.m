@@ -3,6 +3,7 @@
 #import "PerformanceMonitor.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
+#include <math.h>
 
 @interface LCTapSyncControlsView ()
 @property(nonatomic) UIVisualEffectView *background;
@@ -16,6 +17,12 @@
 @end
 
 @implementation LCTapSyncControlsView
++ (BOOL)prefersCompactControlsForSmallestWindowSize:(CGSize)size {
+    if (!(size.width > 0) || !(size.height > 0) || !isfinite(size.width) || !isfinite(size.height)) {
+        return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
+    }
+    return MIN(size.width, size.height) < 600;
+}
 - (instancetype)initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame])) {
         self.layer.cornerRadius = 22;
@@ -39,6 +46,14 @@
         _pan.maximumNumberOfTouches = 1;
         _pan.cancelsTouchesInView = YES;
         [self addGestureRecognizer:_pan];
+        // Icons keep a fixed size over the game. At accessibility text sizes,
+        // a long press shows the enlarged icon and its name instead. Holding
+        // still selects this; moving first still drags the controls.
+        [self addInteraction:[UILargeContentViewerInteraction new]];
+        for (UIButton *button in @[_toggleButton, _settingsButton]) {
+            button.showsLargeContentViewer = YES;
+            button.scalesLargeContentImage = YES;
+        }
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(contentSizeChanged:)
                                                    name:UIContentSizeCategoryDidChangeNotification object:nil];
         [self refresh];
@@ -50,7 +65,7 @@
 - (void)toggleSync {
     if (self.showsPerformance) { if (self.configure) self.configure(); return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
-    if (sync.active || sync.starting) [sync pause];
+    if (sync.active || sync.starting || sync.recovering) [sync pause];
     else [sync start];
 }
 - (void)openSettings {
@@ -62,52 +77,62 @@
     return self.landscape ? @"LCTapSyncControlsLandscapePosition" : @"LCTapSyncControlsPortraitPosition";
 }
 - (void)setShowsPerformance:(BOOL)showsPerformance { _showsPerformance = showsPerformance; [self refresh]; }
+- (void)setSmallestSyncedWindowSize:(CGSize)size {
+    if (CGSizeEqualToSize(size, _smallestSyncedWindowSize)) return;
+    _smallestSyncedWindowSize = size;
+    [self refresh];
+}
 - (void)refresh {
     if (self.showsPerformance) { [self refreshPerformance]; [self refreshPlacementActions]; return; }
     LCTapSyncCoordinator *sync = LCTapSyncCoordinator.shared;
-    BOOL compact = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCTapSyncCompactControls"];
-    BOOL running = sync.active || sync.starting;
+    NSNumber *compactPreference = [NSUserDefaults.lcSharedDefaults objectForKey:@"LCTapSyncCompactControls"];
+    BOOL compact = compactPreference ? compactPreference.boolValue :
+        [LCTapSyncControlsView prefersCompactControlsForSmallestWindowSize:self.smallestSyncedWindowSize];
+    BOOL running = sync.active || sync.starting || sync.recovering;
     BOOL interrupted = sync.hasInterruption;
-    NSString *title = [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
+    NSString *title = sync.recovering ? @"lc.tapSync.paused".loc : [NSString localizedStringWithFormat:(running ? @"lc.tapSync.overlayActive" : @"lc.tapSync.overlayResume").loc,
         (long)sync.targetContainers.count];
     UIButtonConfiguration *configuration = UIButtonConfiguration.tintedButtonConfiguration;
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
     configuration.baseBackgroundColor = running ? UIColor.systemOrangeColor : interrupted ? UIColor.systemYellowColor : UIColor.systemBlueColor;
     configuration.baseForegroundColor = UIColor.labelColor;
-    configuration.image = [UIImage systemImageNamed:running ? @"pause.fill" : interrupted ? @"exclamationmark.triangle.fill" : @"play.fill"];
+    NSString *symbol = sync.starting || sync.recovering ? @"hourglass" : sync.active ? @"pause.fill" :
+        interrupted ? @"exclamationmark.triangle.fill" : @"play.fill";
+    configuration.image = [UIImage systemImageNamed:symbol withConfiguration:
+        [UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightMedium]];
     configuration.imagePadding = 7;
     configuration.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 8, 12);
-    configuration.title = sync.starting ? @"lc.tapSync.starting".loc : compact ?
-        [NSString stringWithFormat:@"1 → %lu", (unsigned long)sync.targetContainers.count] : title;
+    NSString *actionTitle = sync.starting ? @"lc.tapSync.starting".loc : title;
+    configuration.title = compact ? nil : actionTitle;
     NSMutableArray *affected = [NSMutableArray array];
     for (NSString *container in sync.interruptedContainers) {
         [affected addObject:[NSString stringWithFormat:@"#%lu", (unsigned long)[sync windowNumberForContainer:container]]];
     }
     NSString *status = affected.count ? [NSString stringWithFormat:@"%@ · %@", [affected componentsJoinedByString:@", "], sync.statusKey.loc] : sync.statusKey.loc;
-    // Compact controls must not hide a failed start behind a momentary icon change.
-    configuration.subtitle = !running && (!compact || interrupted) ? status : nil;
+    // Keep long reasons in setup and VoiceOver, so an interruption never grows
+    // the floating control across a small game window.
+    configuration.subtitle = nil;
     configuration.titleLineBreakMode = NSLineBreakByTruncatingTail;
-    configuration.subtitleLineBreakMode = interrupted ? NSLineBreakByWordWrapping : NSLineBreakByTruncatingTail;
     configuration.titleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
         NSMutableDictionary *result = attributes.mutableCopy;
         result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-        return result;
-    };
-    configuration.subtitleTextAttributesTransformer = ^NSDictionary *(NSDictionary *attributes) {
-        NSMutableDictionary *result = attributes.mutableCopy;
-        result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption2];
         return result;
     };
     self.toggleButton.configuration = configuration;
     self.toggleButton.accessibilityLabel = (running ? @"lc.tapSync.pause" : @"lc.tapSync.resume").loc;
     self.toggleButton.accessibilityValue = [NSString stringWithFormat:@"%@. %@", title, status];
     self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
+    self.toggleButton.largeContentTitle = actionTitle;
+    self.toggleButton.largeContentImage = configuration.image;
     UIButtonConfiguration *settings = UIButtonConfiguration.plainButtonConfiguration;
     settings.image = [UIImage systemImageNamed:@"gearshape" withConfiguration:
         [UIImageSymbolConfiguration configurationWithPointSize:19 weight:UIImageSymbolWeightMedium]];
     settings.baseForegroundColor = UIColor.labelColor;
     self.settingsButton.configuration = settings;
     self.settingsButton.accessibilityLabel = @"lc.tapSync.configure".loc;
+    self.settingsButton.accessibilityValue = interrupted || sync.recovering ? status : nil;
+    self.settingsButton.largeContentTitle = self.settingsButton.accessibilityLabel;
+    self.settingsButton.largeContentImage = settings.image;
     if (interrupted && ![self.lastAnnouncedInterruption isEqualToString:status]) {
         self.lastAnnouncedInterruption = status;
         if (self.window) UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, status);
@@ -159,11 +184,15 @@
     self.toggleButton.accessibilityLabel = @"lc.performance.title".loc;
     self.toggleButton.accessibilityValue = [NSString stringWithFormat:@"%@. %@", configuration.title, configuration.subtitle];
     self.toggleButton.accessibilityHint = @"lc.tapSync.dragControls".loc;
+    self.toggleButton.largeContentTitle = self.toggleButton.accessibilityValue;
+    self.toggleButton.largeContentImage = nil;
     UIButtonConfiguration *close = UIButtonConfiguration.plainButtonConfiguration;
     close.image = [UIImage systemImageNamed:@"xmark.circle" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20]];
     close.baseForegroundColor = UIColor.secondaryLabelColor;
     self.settingsButton.configuration = close;
     self.settingsButton.accessibilityLabel = @"lc.performance.stop".loc;
+    self.settingsButton.largeContentTitle = self.settingsButton.accessibilityLabel;
+    self.settingsButton.largeContentImage = close.image;
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
@@ -178,8 +207,9 @@
     self.placementBounds = bounds;
     self.placementInsets = insets;
     self.availableBounds = CGRectInset(UIEdgeInsetsInsetRect(bounds, insets), 8, 8);
-    UIInterfaceOrientation orientation = self.window.windowScene.interfaceOrientation;
-    self.landscape = orientation == UIInterfaceOrientationUnknown ? bounds.size.width > bounds.size.height : UIInterfaceOrientationIsLandscape(orientation);
+    // Match the grid and Dock: the host's shape, not the scene orientation,
+    // selects the saved position. They differ in Split View and Stage Manager.
+    self.landscape = bounds.size.width > bounds.size.height;
     if (self.dragging && self.landscape != self.dragLandscape) {
         self.dragging = NO;
         self.pan.enabled = NO;

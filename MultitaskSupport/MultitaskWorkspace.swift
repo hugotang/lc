@@ -1,5 +1,14 @@
 import SwiftUI
 
+extension AppStorage where Value == Bool {
+    /// A live grid layout preference, using the key and default shared with
+    /// the host view and saved workspaces.
+    init(layout preference: LCWorkspaceLayoutPreference) {
+        self.init(wrappedValue: LCGridLayoutOptions.defaultValue(for: preference),
+                  LCGridLayoutOptions.userDefaultsKey(for: preference), store: LCUtils.appGroupUserDefault)
+    }
+}
+
 @available(iOS 16.0, *)
 @MainActor
 final class MultitaskWorkspaceManager: ObservableObject {
@@ -199,9 +208,22 @@ final class MultitaskWorkspaceManager: ObservableObject {
         }
         let host = MultitaskDockManager.shared.windowHostingView
         host.finishGridEditing()
+        // Exclude entries that cannot launch, and reserve the remaining saved
+        // slots before any game reads its startup screen dimensions.
+        let launchEntries = workspace.windows.filter { entry in
+            guard let model = models.first(where: { $0.appInfo.relativeBundlePath == entry.bundleName }) else { return false }
+            return model.appInfo.defaultClassicMode == 0 && model.uiContainers.contains { $0.folderName == entry.dataUUID }
+        }
+        if !launchEntries.isEmpty,
+           let launchWorkspace = LCWindowWorkspace(windows: launchEntries, proportions: workspace.proportions,
+                                                   layoutOptions: workspace.layoutOptions) {
+            host.prepareWorkspaceForLaunch(launchWorkspace)
+        }
+        defer { host.finishWorkspaceLaunch() }
         var restored = 0
         var failures: [String] = []
         for entry in workspace.windows {
+            if Task.isCancelled { return }
             guard let model = models.first(where: { $0.appInfo.relativeBundlePath == entry.bundleName }) else {
                 failures.append("lc.workspace.missingApp".localizeWithFormat(entry.bundleName))
                 continue
@@ -589,9 +611,9 @@ private struct MultitaskWorkspaceDetailView: View {
         return nil
     }
 
-    private func preference(_ preference: LCWorkspaceLayoutPreference, _ keyPath: KeyPath<LCWindowWorkspace, Bool>) -> Binding<Bool> {
+    private func preference(_ preference: LCWorkspaceLayoutPreference) -> Binding<Bool> {
         Binding {
-            workspace?.snapshot[keyPath: keyPath] ?? false
+            workspace?.snapshot.layoutOptions.value(for: preference) ?? false
         } set: { value in
             manager.setLayoutPreference(preference, enabled: value, for: identifier)
         }
@@ -612,7 +634,7 @@ private struct MultitaskWorkspaceDetailView: View {
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                     Section {
-                        Picker("lc.multitask.landscapeLayout".loc, selection: preference(.singleRowInLandscape, \.singleRowInLandscape)) {
+                        Picker("lc.multitask.landscapeLayout".loc, selection: preference(.singleRowInLandscape)) {
                             Text("lc.multitask.landscapeLayout.automatic".loc).tag(false)
                             Text("lc.multitask.landscapeLayout.singleRow".loc).tag(true)
                         }
@@ -620,10 +642,18 @@ private struct MultitaskWorkspaceDetailView: View {
                         Text("lc.workspace.savedLayout".loc)
                     }
                     Section {
-                        Toggle("lc.multitask.reservePortraitTop".loc, isOn: preference(.reservePortraitTop, \.reservePortraitTop))
-                        Toggle("lc.multitask.reservePortraitBottom".loc, isOn: preference(.reservePortraitBottom, \.reservePortraitBottom))
+                        Toggle("lc.multitask.reservePortraitTop".loc, isOn: preference(.reservePortraitTop))
+                        Toggle("lc.multitask.reservePortraitBottom".loc, isOn: preference(.reservePortraitBottom))
                     } header: {
                         Text("lc.multitask.portraitReservedAreas".loc)
+                    } footer: {
+                        Text("lc.workspace.layoutAutosave".loc)
+                    }
+                    Section {
+                        Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: preference(.reserveLandscapeTop))
+                        Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: preference(.reserveLandscapeBottom))
+                    } header: {
+                        Text("lc.multitask.landscapeReservedAreas".loc)
                     } footer: {
                         Text("lc.workspace.layoutAutosave".loc)
                     }

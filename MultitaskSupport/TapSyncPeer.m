@@ -5,6 +5,8 @@
 @property(nonatomic) NSXPCConnection *connection;
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) NSUUID *performanceRequest;
+@property(nonatomic) NSUUID *geometryRequest;
+@property(nonatomic) NSUUID *inputDiagnosticsRequest;
 @end
 
 @implementation LCTapSyncPeer
@@ -43,6 +45,8 @@
             if (!peer || !previous || peer.connection != previous) return;
             peer.connection = nil;
             peer.performanceRequest = nil;
+            peer.geometryRequest = nil;
+            peer.inputDiagnosticsRequest = nil;
             peer->_ready = NO;
             peer->_canReplay = NO;
             [previous invalidate];
@@ -81,10 +85,25 @@
         if (sender && self.connection == sender && self.ready && self.didInterrupt) self.didInterrupt(session, reason);
     });
 }
+- (void)physicalInputChanged:(BOOL)touching began:(BOOL)began session:(NSString *)session revision:(uint64_t)revision
+                    timestamp:(NSTimeInterval)timestamp returnRevision:(uint64_t)returnRevision {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didChangePhysicalInput) {
+            self.didChangePhysicalInput(session, revision, touching, began, timestamp, returnRevision);
+        }
+    });
+}
 - (void)submitTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence {
     NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (sender && self.connection == sender && self.ready && self.didReceiveTouchFrame) self.didReceiveTouchFrame(frame, session, sequence);
+    });
+}
+- (void)submitSourceReturn:(NSArray<NSDictionary *> *)packets session:(NSString *)session {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didReceiveSourceReturn) self.didReceiveSourceReturn(packets, session);
     });
 }
 - (void)sendWithReply:(void (^)(id<LCTapSyncGuestProtocol>, void (^)(LCTapSyncResult)))send
@@ -104,14 +123,42 @@
     }];
     send(proxy, finish);
 }
-- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode reply:(void (^)(LCTapSyncResult))reply {
+- (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
+         syncReturnGesture:(BOOL)syncReturnGesture
+                 reply:(void (^)(LCTapSyncResult))reply {
     [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
-        [proxy prepareSession:session source:source mode:mode reply:finish];
+        [proxy prepareSession:session source:source mode:mode resumeOnSource:resumeOnSource syncReturnGesture:syncReturnGesture reply:finish];
     } reply:reply];
+}
+- (void)suspendSession:(NSString *)session reply:(void (^)(LCTapSyncResult, BOOL, uint64_t))reply {
+    if (!self.ready || !self.connection) { reply(LCTapSyncResultUnavailable, NO, 0); return; }
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(LCTapSyncResult, BOOL, uint64_t) = ^(LCTapSyncResult result, BOOL touching, uint64_t revision) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completed) return;
+            completed = YES;
+            reply(self.connection == connection ? result : LCTapSyncResultUnavailable, touching, revision);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) {
+        finish(LCTapSyncResultUnavailable, NO, 0);
+    }];
+    [proxy suspendSession:session reply:finish];
 }
 - (void)stopSession:(NSString *)session {
     id<LCTapSyncGuestProtocol> proxy = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {}];
     [proxy stopSession:session];
+}
+- (void)resumeSourceSession:(NSString *)session previousSession:(NSString *)previous inputRevision:(uint64_t)revision
+                      reply:(void (^)(LCTapSyncResult))reply {
+    [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
+        [proxy resumeSourceSession:session previousSession:previous inputRevision:revision reply:finish];
+    } reply:reply];
+}
+- (void)discardSourceReturn:(NSString *)session beforeTime:(NSTimeInterval)time {
+    id<LCTapSyncGuestProtocol> proxy = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {}];
+    [proxy discardSourceReturn:session beforeTime:time];
 }
 - (void)replayTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence
             reply:(void (^)(LCTapSyncResult))reply {
@@ -131,6 +178,8 @@
     NSXPCConnection *connection = self.connection;
     self.connection = nil;
     self.performanceRequest = nil;
+    self.geometryRequest = nil;
+    self.inputDiagnosticsRequest = nil;
     _ready = NO;
     _canReplay = NO;
     [connection invalidate];
@@ -140,7 +189,9 @@
     self.didReceiveTap = nil;
     self.didReceiveTouch = nil;
     self.didReceiveTouchFrame = nil;
+    self.didReceiveSourceReturn = nil;
     self.didInterrupt = nil;
+    self.didChangePhysicalInput = nil;
 }
 - (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply {
@@ -167,5 +218,51 @@
     };
     id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
     [proxy samplePerformanceWithReply:finish];
+}
+- (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply {
+    // The caller has one bounded deadline. Keep this gate until the actual reply
+    // or disconnect, so repeated copies cannot queue work behind a stalled guest.
+    if (!self.ready || !self.connection || self.inputDiagnosticsRequest) { reply(nil); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.inputDiagnosticsRequest = request;
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *record) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completed) return;
+            completed = YES;
+            BOOL current = self.connection == connection && self.inputDiagnosticsRequest == request;
+            if (self.inputDiagnosticsRequest == request) self.inputDiagnosticsRequest = nil;
+            reply(current && [record isKindOfClass:NSDictionary.class] ? record : nil);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
+    [proxy readInputDiagnosticsForSession:session reply:finish];
+}
+- (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply {
+    // One on-demand request per guest. Timeouts discard late replies; they do
+    // not queue another UI request behind an unresponsive game.
+    if (!self.ready || !self.connection || self.geometryRequest) { reply(nil); return; }
+    NSUUID *request = NSUUID.UUID;
+    self.geometryRequest = request;
+    NSXPCConnection *connection = self.connection;
+    __block BOOL completed = NO;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *geometry) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.geometryRequest == request) self.geometryRequest = nil;
+            if (completed) return;
+            completed = YES;
+            BOOL current = self.connection == connection && !self.invalidated;
+            reply(current && [geometry isKindOfClass:NSDictionary.class] ? geometry : nil);
+        });
+    };
+    id<LCTapSyncGuestProtocol> proxy = [connection remoteObjectProxyWithErrorHandler:^(NSError *error) { finish(nil); }];
+    [proxy readWindowGeometryWithReply:finish];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (completed) return;
+        completed = YES;
+        // Retain the in-flight gate until its response or connection closes.
+        reply(nil);
+    });
 }
 @end

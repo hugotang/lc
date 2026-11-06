@@ -141,15 +141,16 @@ static void LCAppendCSVRow(NSMutableString *report, NSArray<NSString *> *columns
     NSArray<NSString *> *columns = @[@"schema_version", @"build", @"ios_version", @"logical_cpus", @"sample", @"segment", @"elapsed_s", @"segment_elapsed_s",
         @"record_type", @"process_number", @"window_number", @"role", @"processes", @"cpu_coverage", @"memory_coverage",
         @"cpu_pct", @"footprint_mib", @"cpu_interval_s", @"sample_elapsed_s", @"thermal_state", @"low_power_mode", @"sync_mode", @"sync_active", @"followers",
-        @"response_p50_ms", @"response_p95_ms", @"response_samples", @"delivered_commands", @"pending_commands", @"in_flight", @"peak_pending", @"host_coalesced_moves"];
+        @"response_p50_ms", @"response_p95_ms", @"response_samples", @"delivered_commands", @"pending_commands", @"in_flight", @"peak_pending", @"host_coalesced_moves", @"sync_status"];
     NSMutableString *report = [NSMutableString stringWithFormat:@"%@\r\n", [columns componentsJoinedByString:@","]];
     for (NSDictionary *s in self.samples) {
         NSDictionary *sync = s[@"sync"];
-        NSMutableDictionary *common = [@{@"schema_version": @2, @"build": metadata[@"build"] ?: @"unknown", @"ios_version": metadata[@"ios"] ?: @"unknown",
+        NSMutableDictionary *common = [@{@"schema_version": @3, @"build": metadata[@"build"] ?: @"unknown", @"ios_version": metadata[@"ios"] ?: @"unknown",
             @"logical_cpus": metadata[@"cpus"] ?: @"", @"sample": s[@"sample"], @"segment": s[@"segment"],
             @"elapsed_s": s[@"elapsed"], @"segment_elapsed_s": s[@"segmentElapsed"], @"processes": s[@"processCount"],
             @"cpu_coverage": s[@"cpuCoverage"], @"memory_coverage": s[@"memoryCoverage"], @"thermal_state": s[@"thermalState"],
-            @"low_power_mode": s[@"lowPowerMode"], @"sync_mode": sync[@"mode"] ?: @"", @"sync_active": sync[@"active"] ?: @"", @"followers": sync[@"targets"] ?: @""} mutableCopy];
+            @"low_power_mode": s[@"lowPowerMode"], @"sync_mode": sync[@"mode"] ?: @"", @"sync_active": sync[@"active"] ?: @"", @"followers": sync[@"targets"] ?: @"",
+            @"sync_status": sync[@"statusKey"] ?: @""} mutableCopy];
         NSMutableDictionary *combined = common.mutableCopy;
         [combined addEntriesFromDictionary:@{@"record_type": @"combined", @"role": @"combined", @"cpu_pct": s[@"totalCPU"] ?: @"",
             @"footprint_mib": s[@"totalMemoryMiB"] ?: @"", @"cpu_interval_s": s[@"cpuInterval"] ?: @"", @"sample_elapsed_s": s[@"elapsed"],
