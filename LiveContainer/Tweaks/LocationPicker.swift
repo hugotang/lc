@@ -348,6 +348,7 @@ private struct LCLocationNumberField: UIViewRepresentable {
         context.coordinator.parent = self
         if field.text != text { field.text = text }
     }
+    @available(iOS 16.0, *)
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
         CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width,
                height: max(44, uiView.intrinsicContentSize.height))
