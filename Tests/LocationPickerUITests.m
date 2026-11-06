@@ -68,6 +68,16 @@
     [self enter:@"33.8688" field:@"lc.location.latitude"];
     [self.app.buttons[@"lc.location.latitude.sign"] tap];
     XCTAssertEqualObjects(self.app.textFields[@"lc.location.latitude"].value, @"-33.8688");
+    XCTAssertTrue(self.app.keyboards.firstMatch.exists);
+    [self.app.buttons[@"lc.location.latitude.sign"] tap];
+    XCTAssertEqualObjects(self.app.textFields[@"lc.location.latitude"].value, @"33.8688");
+    [self.app.buttons[@"lc.location.latitude.sign"] tap];
+    XCTAssertEqualObjects(self.app.textFields[@"lc.location.latitude"].value, @"-33.8688");
+    [self attachScreenshot];
+    [self.app.buttons[@"location.keyboardDone"] tap];
+    XCTNSPredicateExpectation *keyboardHidden = [[XCTNSPredicateExpectation alloc]
+        initWithPredicate:[NSPredicate predicateWithFormat:@"exists == NO"] object:self.app.keyboards.firstMatch];
+    [self waitForExpectations:@[keyboardHidden] timeout:5];
     [self enter:@"151.2093" field:@"lc.location.longitude"];
     [self.app.buttons[@"location.showOnMap"] tap];
     XCTAssertTrue([self.app.staticTexts[@"location.selectedCoordinate"] waitForExistenceWithTimeout:10]);

@@ -259,9 +259,11 @@ private struct LCLocationCoordinateEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("lc.common.done".lcLocationText) { focusedField = nil }
-                        .accessibilityIdentifier("location.keyboardDone")
+                    if focusedField == "pair" {
+                        Spacer()
+                        Button("lc.common.done".lcLocationText) { focusedField = nil }
+                            .accessibilityIdentifier("location.keyboardDone")
+                    }
                 }
                 ToolbarItem(placement: .cancellationAction) { Button("lc.common.cancel".lcLocationText) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -277,24 +279,78 @@ private struct LCLocationCoordinateEditor: View {
     private func coordinateField(_ title: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading) {
             Text(title.lcLocationText).font(.caption).foregroundStyle(.secondary)
-            HStack {
-                TextField(title.lcLocationText, text: Binding(get: { text.wrappedValue }, set: { text.wrappedValue = $0; pair = "" })).keyboardType(.decimalPad)
-                    .focused($focusedField, equals: title)
-                    .accessibilityIdentifier(title)
-                    .textInputAutocapitalization(.never).disableAutocorrection(true)
-                Button {
-                    pair = ""
-                    let value = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    text.wrappedValue = value.hasPrefix("-") || value.hasPrefix("−") ? String(value.dropFirst()) : "-" + value
-                } label: {
-                    Text("±").frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                .accessibilityLabel("lc.location.changeSign".lcLocationText + ": " + title.lcLocationText)
-                .accessibilityIdentifier(title + ".sign")
-            }
+            LCLocationNumberField(title: title, text: Binding(get: { text.wrappedValue }, set: {
+                text.wrappedValue = $0; pair = ""
+            }))
+            .frame(minHeight: 44)
         }
+    }
+}
+
+// Keep the sign control inside the native text field. A separate SwiftUI Form
+// button can resign the iPad keyboard on touch-down and move the sheet before
+// touch-up, cancelling the sign change.
+private struct LCLocationNumberField: UIViewRepresentable {
+    let title: String
+    @Binding var text: String
+
+    final class Coordinator: NSObject {
+        var parent: LCLocationNumberField
+        weak var field: UITextField?
+        init(_ parent: LCLocationNumberField) { self.parent = parent }
+        @objc func edited(_ field: UITextField) { parent.text = field.text ?? "" }
+        @objc func changeSign() {
+            guard let field else { return }
+            field.becomeFirstResponder()
+            let value = (field.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            field.text = value.hasPrefix("-") || value.hasPrefix("−") ? String(value.dropFirst()) : "-" + value
+            edited(field)
+        }
+        @objc func done() { field?.resignFirstResponder() }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        context.coordinator.field = field
+        field.placeholder = title.lcLocationText
+        field.accessibilityIdentifier = title
+        field.accessibilityLabel = title.lcLocationText
+        field.font = .preferredFont(forTextStyle: .body)
+        field.adjustsFontForContentSizeCategory = true
+        field.keyboardType = .decimalPad
+        field.autocapitalizationType = .none
+        field.autocorrectionType = .no
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        field.addTarget(context.coordinator, action: #selector(Coordinator.edited(_:)), for: .editingChanged)
+
+        let sign = UIButton(type: .system)
+        sign.setTitle("±", for: .normal)
+        sign.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        sign.backgroundColor = .tertiarySystemFill
+        sign.layer.cornerRadius = 10
+        sign.accessibilityLabel = "lc.location.changeSign".lcLocationText + ": " + title.lcLocationText
+        sign.accessibilityIdentifier = title + ".sign"
+        sign.addTarget(context.coordinator, action: #selector(Coordinator.changeSign), for: .touchUpInside)
+        field.rightView = sign
+        field.rightViewMode = .always
+
+        let toolbar = UIToolbar()
+        let done = UIBarButtonItem(title: "lc.common.done".lcLocationText, style: .done,
+                                  target: context.coordinator, action: #selector(Coordinator.done))
+        done.accessibilityIdentifier = "location.keyboardDone"
+        toolbar.items = [UIBarButtonItem(systemItem: .flexibleSpace), done]
+        toolbar.sizeToFit()
+        field.inputAccessoryView = toolbar
+        return field
+    }
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if field.text != text { field.text = text }
+    }
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width,
+               height: max(44, uiView.intrinsicContentSize.height))
     }
 }
 
