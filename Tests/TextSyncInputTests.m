@@ -20,6 +20,14 @@
 - (UITextRange *)selectedTextRange { return nil; }
 @end
 
+@interface LCTextSyncPassiveField : UITextField
+@property(nonatomic) NSUInteger focusRequests;
+@end
+@implementation LCTextSyncPassiveField
+- (BOOL)becomeFirstResponder { self.focusRequests++; return [super becomeFirstResponder]; }
+- (UITextRange *)selectedTextRange { return self.isFirstResponder ? [super selectedTextRange] : nil; }
+@end
+
 @interface LCTextSyncTestDelegate : NSObject <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic) NSUInteger validations, changes, controls;
 @property(nonatomic) BOOL reject, transform;
@@ -420,5 +428,142 @@
         XCTAssertLessThan(name.length, 32u);
     }
     XCTAssertEqualObjects(LCTextSyncUnavailableReasonName((LCTextSyncUnavailableReason)NSIntegerMax), @"unknown");
+}
+- (void)testPassiveFieldReplaysAfterKeyboardTransfersWithoutTakingFocus {
+    self.textView.hidden = YES;
+    NSDictionary *packet = [self packetFrom:@"A" to:@"A中文😀" input:self.field];
+    self.field.text = @"A";
+    [self setSelection:NSMakeRange(1, 0) input:self.field];
+    [self.field resignFirstResponder];
+    XCTAssertFalse(self.field.isFirstResponder);
+    LCTextSyncUnavailableReason reason;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:YES unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNoFocusedInput);
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason];
+    XCTAssertNotNil(target);
+    XCTAssertEqual(target.responder, self.field);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNone);
+
+    UIWindow *keyboardOwner = [[UIWindow alloc] initWithWindowScene:self.window.windowScene];
+    keyboardOwner.frame = self.window.bounds;
+    keyboardOwner.rootViewController = [UIViewController new];
+    UITextField *source = [[UITextField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
+    source.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+    [keyboardOwner.rootViewController.view addSubview:source];
+    [keyboardOwner makeKeyAndVisible];
+    XCTAssertTrue([source becomeFirstResponder]);
+    LCTextSyncTestDelegate *delegate = [LCTextSyncTestDelegate new];
+    self.field.delegate = delegate;
+    [self.field addTarget:delegate action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+    __block NSUInteger notifications = 0;
+    id token = [NSNotificationCenter.defaultCenter addObserverForName:UITextFieldTextDidChangeNotification object:self.field queue:nil usingBlock:^(NSNotification *note) { notifications++; }];
+    @try {
+        NSMutableDictionary *fresh = packet.mutableCopy;
+        fresh[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+        XCTAssertEqual([target applyPacket:fresh], LCTextSyncInputResultReady);
+        XCTAssertEqualObjects(self.field.text, @"A中文😀");
+        XCTAssertFalse(self.field.isFirstResponder);
+        XCTAssertTrue(source.isFirstResponder);
+        XCTAssertEqual(delegate.validations, 1u);
+        XCTAssertEqual(delegate.controls, 1u);
+        XCTAssertEqual(notifications, 1u);
+        XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultReady);
+    } @finally {
+        [NSNotificationCenter.defaultCenter removeObserver:token];
+        [keyboardOwner endEditing:YES];
+        keyboardOwner.hidden = YES;
+        keyboardOwner.windowScene = nil;
+        keyboardOwner.rootViewController = nil;
+        [self.window makeKeyWindow];
+    }
+}
+- (void)testPassiveTextViewReplaysMultilineEditAndDeletion {
+    XCTAssertTrue([self.textView becomeFirstResponder]);
+    self.field.hidden = YES;
+    NSDictionary *packet = [self packetFrom:@"line" to:@"line\n下一行" input:self.textView];
+    self.textView.text = @"line";
+    [self.textView resignFirstResponder];
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    LCTextSyncTestDelegate *delegate = [LCTextSyncTestDelegate new];
+    self.textView.delegate = delegate;
+    NSMutableDictionary *fresh = packet.mutableCopy;
+    fresh[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([target applyPacket:fresh], LCTextSyncInputResultReady);
+    XCTAssertFalse(self.textView.isFirstResponder);
+    XCTAssertEqualObjects(self.textView.text, @"line\n下一行");
+    XCTAssertEqual(delegate.validations, 1u);
+    XCTAssertEqual(delegate.changes, 1u);
+    NSMutableDictionary *deletion = packet.mutableCopy;
+    deletion[@"before"] = packet[@"after"];
+    deletion[@"after"] = @"";
+    deletion[@"selectionLocation"] = @0;
+    deletion[@"selectionLength"] = @0;
+    deletion[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([target applyPacket:deletion], LCTextSyncInputResultReady);
+    XCTAssertEqualObjects(self.textView.text, @"");
+    XCTAssertFalse(self.textView.isFirstResponder);
+}
+- (void)testPassiveFollowerDoesNotRequireOrSetOffFocusSelection {
+    [self.window endEditing:YES];
+    [self.field removeFromSuperview];
+    self.field = [[LCTextSyncPassiveField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
+    [self.surface insertSubview:self.field atIndex:0];
+    self.textView.hidden = YES;
+    self.field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self.field resignFirstResponder];
+    LCTextSyncPassiveField *field = (LCTextSyncPassiveField *)self.field;
+    field.focusRequests = 0;
+    XCTAssertNil(field.selectedTextRange);
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    NSMutableDictionary *fresh = packet.mutableCopy;
+    fresh[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([target applyPacket:fresh], LCTextSyncInputResultReady);
+    XCTAssertEqualObjects(field.text, @"AB");
+    XCTAssertFalse(field.isFirstResponder);
+    XCTAssertEqual(field.focusRequests, 0u);
+    // UIKit may update its internal selection during replacement. The adapter
+    // does not require a publicly available off-focus caret or acquire focus.
+    XCTAssertNil(field.selectedTextRange);
+}
+- (void)testPassiveFollowerRequiresUniqueEligibleInputAndRejectsCompetingFocus {
+    [self.window endEditing:YES];
+    LCTextSyncUnavailableReason reason;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonAmbiguousInput);
+    self.textView.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason];
+    XCTAssertNotNil(target);
+    self.textView.hidden = NO;
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonAmbiguousInput);
+    self.textView.hidden = YES;
+    self.field.secureTextEntry = YES;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    self.field.secureTextEntry = NO;
+    self.field.enabled = NO;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    self.field.enabled = YES;
+    CGRect frame = self.field.frame;
+    self.field.frame = CGRectZero;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    self.field.frame = frame;
+    LCTextSyncNestedResponderView *other = [[LCTextSyncNestedResponderView alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:other];
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonUnsupportedResponder);
+    [other removeFromSuperview];
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultReady);
+    UIView *wrapper = [[UIView alloc] initWithFrame:self.surface.bounds];
+    [self.surface addSubview:wrapper];
+    [wrapper addSubview:self.field];
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultMismatch);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonUnsupportedHierarchy);
+    [self.field removeFromSuperview];
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
 }
 @end

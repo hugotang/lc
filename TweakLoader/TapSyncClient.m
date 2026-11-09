@@ -189,6 +189,7 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 - (LCTapSyncResult)validateTextInputAtStage:(NSString *)stage;
 - (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session;
 - (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session result:(LCTapSyncResult *)result;
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window source:(BOOL)source session:(NSString *)session result:(LCTapSyncResult *)result;
 - (void)recordTextInputFailure:(NSString *)reason stage:(NSString *)stage session:(NSString *)session;
 - (LCTapSyncResult)applyTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)interrupt:(LCTapSyncResult)reason;
@@ -310,10 +311,13 @@ static LCTapSyncClient *tapSyncClient;
     return [self prepareTextInputForWindow:window session:session result:NULL];
 }
 - (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session result:(LCTapSyncResult *)result {
+    return [self prepareTextInputForWindow:window source:YES session:session result:result];
+}
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window source:(BOOL)source session:(NSString *)session result:(LCTapSyncResult *)result {
     if (result) *result = LCTapSyncResultAccepted;
     @try {
         LCTextSyncUnavailableReason reason = LCTextSyncUnavailableReasonNone;
-        LCTextSyncInput *input = [LCTextSyncInput inputForWindow:window unavailableReason:&reason];
+        LCTextSyncInput *input = [LCTextSyncInput inputForWindow:window source:source unavailableReason:&reason];
         if (!input) {
             [self recordTextInputFailure:reason ? LCTextSyncUnavailableReasonName(reason) : @"unavailable"
                                   stage:@"guestPrepare" session:session];
@@ -361,7 +365,7 @@ static LCTapSyncClient *tapSyncClient;
         LCTapSyncResult textResult = LCTapSyncResultTextInputUnavailable;
         @try {
             window = mode == LCTapSyncModeText ? LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &windowResult) : LCTapSyncGuestWindowWithResult(&windowResult);
-            if (window && mode == LCTapSyncModeText) textInput = [self prepareTextInputForWindow:window session:session result:&textResult];
+            if (window && mode == LCTapSyncModeText) textInput = [self prepareTextInputForWindow:window source:source session:session result:&textResult];
         } @catch (NSException *exception) {
             if (mode == LCTapSyncModeText) [self recordTextInputFailure:@"exception" stage:@"guestPrepare" session:session];
             reply(LCTapSyncResultTextInputUnavailable); return;

@@ -36120,9 +36120,9 @@
     "lc.tapSync.textSetup" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Text Only, the source and followers, then tap Done. Open the same field with identical text in every account, opening the source last. Wait for the keyboard layout to settle, then tap Resume on the floating control and type." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选好仅文字模式、来源和接收窗口后，轻点完成。在每个账号打开相同的输入框并让文字一致，最后打开来源窗口的输入框。等待键盘布局稳定后，轻点浮动控制的继续，再开始输入。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選好僅文字模式、來源和接收視窗後，點一下完成。在每個帳號開啟相同的輸入框並讓文字一致，最後開啟來源視窗的輸入框。等待鍵盤佈局穩定後，點一下浮動控制的繼續，再開始輸入。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Text Only, the source and followers, then tap Done. Open the same field with identical text in every account, opening the source last. Keep follower fields visible and editable; only the source needs keyboard focus. Wait for the layout to settle, then tap Resume and type." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选好仅文字模式、来源和接收窗口后，轻点完成。在每个账号打开相同的输入框并让文字一致，最后打开来源输入框。接收输入框保持显示且可编辑即可，只有来源需要键盘焦点。布局稳定后，轻点继续并开始输入。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選好僅文字模式、來源和接收視窗後，點一下完成。在每個帳號開啟相同的輸入框並讓文字一致，最後開啟來源輸入框。接收輸入框保持顯示且可編輯即可，只有來源需要鍵盤焦點。佈局穩定後，點一下繼續並開始輸入。" } }
       }
     },
     "lc.tapSync.textHelp" : {

@@ -568,12 +568,22 @@
     [self bindSession];
 }
 - (void)bindSession {
-    self.client.session = NSUUID.UUID.UUIDString;
-    self.client.textInput = [LCTextSyncInput inputForWindow:self.window];
-    XCTAssertNotNil(self.client.textInput);
+    [self bindSessionAsSource:self.client.source];
+}
+- (void)bindSessionAsSource:(BOOL)source {
+    self.client.session = nil;
+    NSString *session = NSUUID.UUID.UUIDString;
+    LCTapSyncResult result;
+    LCTextSyncInput *input = [self.client prepareTextInputForWindow:self.window source:source session:session result:&result];
+    XCTAssertNotNil(input);
+    XCTAssertEqual(result, LCTapSyncResultAccepted);
+    self.client.session = session;
+    self.client.source = source;
+    self.client.textInput = input;
     self.client.textWindow = self.window;
     self.client.textBounds = self.window.bounds;
     self.client.textOrientation = self.window.windowScene.interfaceOrientation;
+    [(UIControl *)input.responder addTarget:self.client action:@selector(textControlChanged:) forControlEvents:UIControlEventEditingChanged];
     self.client.sequence = 0;
     XCTAssertEqual([self.client validateTextInput], LCTapSyncResultAccepted);
 }
@@ -679,13 +689,95 @@
     XCTAssertEqual([self.client applyTextEdit:next session:session sequence:2], LCTapSyncResultExpired);
     XCTAssertEqualObjects(self.field.text, @"1234");
 }
+- (void)testPassiveFollowerPreparesAndReplaysWithoutFocusOrEcho {
+    [self changeText:@"房間😀"];
+    [self drainCapture];
+    NSMutableDictionary *packet = [self.host.textEdits.firstObject[@"edit"] mutableCopy];
+    XCTAssertNotNil(packet);
+    self.client.session = nil;
+    XCTAssertTrue([self.field resignFirstResponder]);
+    self.field.text = @"";
+    // The incoming role must override the previous session's source role.
+    XCTAssertTrue(self.client.source);
+    [self bindSessionAsSource:NO];
+    NSString *session = self.client.session;
+    XCTAssertFalse(self.field.isFirstResponder);
+    XCTAssertEqual(self.client.textInput.responder, self.field);
+    packet[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([self.client applyTextEdit:packet session:session sequence:1], LCTapSyncResultAccepted);
+    XCTAssertEqualObjects(self.field.text, @"房間😀");
+    XCTAssertFalse(self.field.isFirstResponder);
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+    XCTAssertEqual(self.host.interrupts, 0u);
+    XCTAssertEqualObjects(self.client.session, session);
+    packet[@"before"] = @"房間😀";
+    packet[@"after"] = @"房間";
+    packet[@"selectionLocation"] = @2;
+    packet[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([self.client applyTextEdit:packet session:session sequence:2], LCTapSyncResultAccepted);
+    XCTAssertEqualObjects(self.field.text, @"房間");
+    XCTAssertFalse(self.field.isFirstResponder);
+    [self drainCapture];
+    XCTAssertEqual(self.client.sequence, 2u);
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+    XCTAssertEqual(self.host.interrupts, 0u);
+}
+- (void)testPassiveFollowerLocalEditAndNewFocusStopTheSession {
+    self.client.session = nil;
+    XCTAssertTrue([self.field resignFirstResponder]);
+    [self bindSessionAsSource:NO];
+    NSString *session = self.client.session;
+    self.field.text = @"local edit";
+    [self.field sendActionsForControlEvents:UIControlEventEditingChanged];
+    XCTAssertFalse(self.field.isFirstResponder);
+    XCTAssertNil(self.client.session);
+    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputMismatch);
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session][@"lastInputFailure"][@"reason"], @"localEdit");
+    [self bindSessionAsSource:NO];
+    session = self.client.session;
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    XCTAssertNil(self.client.session);
+    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputNotFocused);
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session][@"lastInputFailure"][@"reason"], @"focusChanged");
+    XCTAssertEqual(self.host.interrupts, 2u);
+    XCTAssertEqual(self.host.textEdits.count, 0u);
+}
+- (void)testPassiveFollowerRejectsAReplacementFieldAtTheSamePath {
+    [self changeText:@"1234"];
+    [self drainCapture];
+    NSMutableDictionary *packet = [self.host.textEdits.firstObject[@"edit"] mutableCopy];
+    XCTAssertNotNil(packet);
+    self.client.session = nil;
+    XCTAssertTrue([self.field resignFirstResponder]);
+    self.field.text = @"";
+    [self bindSessionAsSource:NO];
+    NSString *session = self.client.session;
+    UITextField *bound = self.field;
+    UIView *parent = bound.superview;
+    NSUInteger index = [parent.subviews indexOfObjectIdenticalTo:bound];
+    UITextField *replacement = [[UITextField alloc] initWithFrame:bound.frame];
+    replacement.accessibilityIdentifier = bound.accessibilityIdentifier;
+    [bound removeFromSuperview];
+    [parent insertSubview:replacement atIndex:index];
+    self.field = replacement;
+    packet[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([self.client applyTextEdit:packet session:session sequence:1], LCTapSyncResultTextInputNotFocused);
+    XCTAssertEqualObjects(bound.text, @"");
+    XCTAssertEqualObjects(replacement.text ?: @"", @"");
+    XCTAssertFalse(replacement.isFirstResponder);
+    XCTAssertEqual(self.client.sequence, 0u);
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:session][@"lastInputFailure"][@"reason"], @"focusChanged");
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+}
 - (void)testPreparationDiagnosticsBindIncomingSessionBeforeItBecomesActive {
     NSString *oldSession = self.client.session;
     self.client.session = nil;
     [self.field resignFirstResponder];
+    self.client.source = NO;
     NSString *attempt = NSUUID.UUID.UUIDString;
     LCTapSyncResult result;
-    XCTAssertNil([self.client prepareTextInputForWindow:self.window session:attempt result:&result]);
+    XCTAssertNil([self.client prepareTextInputForWindow:self.window source:YES session:attempt result:&result]);
     XCTAssertEqual(result, LCTapSyncResultTextInputNotFocused);
     NSDictionary *failure = [self.client inputDiagnosticsForSession:attempt][@"lastInputFailure"];
     XCTAssertEqualObjects(failure[@"reason"], @"noFocusedInput");

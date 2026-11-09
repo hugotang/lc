@@ -61,6 +61,34 @@ static UIView<UITextInput> *LCTextSyncFocusedInput(UIWindow *window, LCTextSyncU
     return found;
 }
 
+static UIView<UITextInput> *LCTextSyncInputForRole(UIWindow *window, BOOL source, LCTextSyncUnavailableReason *reason) {
+    UIView<UITextInput> *focused = LCTextSyncFocusedInput(window, reason);
+    if (focused || source || *reason != LCTextSyncUnavailableReasonNoFocusedInput) return focused;
+    NSMutableArray<UIView *> *pending = [NSMutableArray arrayWithObject:window.rootViewController.viewIfLoaded];
+    UIView<UITextInput> *found = nil;
+    NSUInteger visited = 0;
+    while (pending.count) {
+        if (++visited > 2048) { *reason = LCTextSyncUnavailableReasonUnsupportedHierarchy; return nil; }
+        UIView *view = pending.lastObject;
+        [pending removeLastObject];
+        BOOL standard = [view isKindOfClass:UITextField.class] || [view isKindOfClass:UITextView.class];
+        if (standard) {
+            UIView<UITextInput> *input = (UIView<UITextInput> *)view;
+            BOOL editable = [view isKindOfClass:UITextField.class] ? ((UITextField *)view).enabled : ((UITextView *)view).editable;
+            if (LCTextSyncVisible(view, window) && editable && !input.isSecureTextEntry) {
+                if (found) { *reason = LCTextSyncUnavailableReasonAmbiguousInput; return nil; }
+                found = input;
+            }
+            // A standard input's private editors are implementation details,
+            // never additional candidates or substitutes for a hidden field.
+            continue;
+        }
+        [pending addObjectsFromArray:view.subviews];
+    }
+    if (found) *reason = LCTextSyncUnavailableReasonNone;
+    return found;
+}
+
 static NSDictionary *LCTextSyncField(UIView<UITextInput> *input, UIWindow *window) {
     UIView *root = window.rootViewController.viewIfLoaded;
     NSMutableArray *path = [NSMutableArray array];
@@ -134,6 +162,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
 @property(nonatomic, weak) UIWindow *window;
 @property(nonatomic, copy) NSDictionary *field;
 @property(nonatomic, copy) NSString *baseline;
+@property(nonatomic) BOOL source;
 @end
 
 @implementation LCTextSyncInput
@@ -141,11 +170,14 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     return [self inputForWindow:window unavailableReason:NULL];
 }
 + (instancetype)inputForWindow:(UIWindow *)window unavailableReason:(LCTextSyncUnavailableReason *)reason {
+    return [self inputForWindow:window source:YES unavailableReason:reason];
+}
++ (instancetype)inputForWindow:(UIWindow *)window source:(BOOL)source unavailableReason:(LCTextSyncUnavailableReason *)reason {
     LCTextSyncUnavailableReason failure = LCTextSyncUnavailableReasonNone;
     if (!reason) reason = &failure;
     *reason = LCTextSyncUnavailableReasonNone;
     if (!NSThread.isMainThread) { *reason = LCTextSyncUnavailableReasonWrongThread; return nil; }
-    UIView<UITextInput> *input = LCTextSyncFocusedInput(window, reason);
+    UIView<UITextInput> *input = LCTextSyncInputForRole(window, source, reason);
     if (!input) return nil;
     if (input.isSecureTextEntry) { *reason = LCTextSyncUnavailableReasonSecure; return nil; }
     if (input.markedTextRange) { *reason = LCTextSyncUnavailableReasonComposing; return nil; }
@@ -153,12 +185,13 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     NSDictionary *field = LCTextSyncField(input, window);
     if (!LCTextSyncStringIsValid(text, LCTextSyncMaximumLength)) { *reason = LCTextSyncUnavailableReasonInvalidText; return nil; }
     if (!field) { *reason = LCTextSyncUnavailableReasonUnsupportedHierarchy; return nil; }
-    if (!LCTextSyncSelection(input, text, NULL)) { *reason = LCTextSyncUnavailableReasonInvalidSelection; return nil; }
+    if ((source || input.isFirstResponder) && !LCTextSyncSelection(input, text, NULL)) { *reason = LCTextSyncUnavailableReasonInvalidSelection; return nil; }
     LCTextSyncInput *adapter = [self new];
     adapter.responder = input;
     adapter.window = window;
     adapter.field = field;
     adapter.baseline = text;
+    adapter.source = source;
     return adapter;
 }
 - (LCTextSyncInputResult)validateCurrentInput {
@@ -168,7 +201,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     if (!input || !self.window) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultUnavailable; }
     if (input.isSecureTextEntry) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSecure; return LCTextSyncInputResultUnavailable; }
     LCTextSyncUnavailableReason failure;
-    UIView<UITextInput> *focused = LCTextSyncFocusedInput(self.window, &failure);
+    UIView<UITextInput> *focused = LCTextSyncInputForRole(self.window, self.source, &failure);
     if (focused != input) {
         self.lastUnavailableReason = !focused && failure != LCTextSyncUnavailableReasonNoFocusedInput ? failure : LCTextSyncUnavailableReasonFocusChanged;
         return LCTextSyncInputResultUnavailable;
@@ -179,7 +212,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     }
     NSString *text = LCTextSyncText(input);
     if (!LCTextSyncStringIsValid(text, LCTextSyncMaximumLength)) { self.lastUnavailableReason = LCTextSyncUnavailableReasonInvalidText; return LCTextSyncInputResultUnavailable; }
-    if (!LCTextSyncSelection(input, text, NULL)) { self.lastUnavailableReason = LCTextSyncUnavailableReasonInvalidSelection; return LCTextSyncInputResultUnavailable; }
+    if ((self.source || input.isFirstResponder) && !LCTextSyncSelection(input, text, NULL)) { self.lastUnavailableReason = LCTextSyncUnavailableReasonInvalidSelection; return LCTextSyncInputResultUnavailable; }
     return LCTextSyncInputResultReady;
 }
 - (NSDictionary *)captureEditAtTime:(NSTimeInterval)time result:(LCTextSyncInputResult *)result {
@@ -210,6 +243,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     LCTextSyncInputResult status = [self validateCurrentInput];
     if (status != LCTextSyncInputResultReady) return status;
     UIView<UITextInput> *input = self.responder;
+    BOOL passive = !self.source && !input.isFirstResponder;
     if (input.markedTextRange) { self.lastUnavailableReason = LCTextSyncUnavailableReasonComposing; return LCTextSyncInputResultUnavailable; }
     NSString *before = packet[@"before"], *after = packet[@"after"];
     if (![packet[@"field"] isEqual:self.field] || ![LCTextSyncText(input) isEqual:before] || ![self.baseline isEqual:before]) return LCTextSyncInputResultMismatch;
@@ -231,6 +265,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     // A validator can change text, focus, or delegate. Never overwrite that work.
     if (self.shouldContinue && !self.shouldContinue()) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged; return LCTextSyncInputResultUnavailable; }
     if ([self validateCurrentInput] != LCTextSyncInputResultReady) return LCTextSyncInputResultMismatch;
+    if (passive && input.isFirstResponder) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultMismatch; }
     if (input.markedTextRange) { self.lastUnavailableReason = LCTextSyncUnavailableReasonComposing; return LCTextSyncInputResultMismatch; }
     if (![LCTextSyncText(input) isEqual:before]) return LCTextSyncInputResultMismatch;
     if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
@@ -251,6 +286,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
         // Delegate validation and custom UITextInput methods run guest code.
         // Recheck immediately before mutation, not only on packet arrival.
         if (self.shouldContinue && !self.shouldContinue()) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged; return LCTextSyncInputResultUnavailable; }
+        if (passive && input.isFirstResponder) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultMismatch; }
         if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
         [input replaceRange:range withText:replacement];
         if (field && observer.controlEvents == 0) [field sendActionsForControlEvents:UIControlEventEditingChanged];
@@ -268,8 +304,15 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     }
     if (self.shouldContinue && !self.shouldContinue()) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged; return LCTextSyncInputResultUnavailable; }
     if ([self validateCurrentInput] != LCTextSyncInputResultReady) return LCTextSyncInputResultMismatch;
+    if (passive && input.isFirstResponder) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultMismatch; }
     if (input.markedTextRange) { self.lastUnavailableReason = LCTextSyncUnavailableReasonComposing; return LCTextSyncInputResultMismatch; }
     if (![LCTextSyncText(input) isEqual:after]) return LCTextSyncInputResultMismatch;
+    // Unfocused followers need no caret. Setting a selection can acquire the
+    // keyboard in custom controls; replay only the validated document edit.
+    if (passive) {
+        self.baseline = after;
+        return LCTextSyncInputResultReady;
+    }
     NSUInteger location = [packet[@"selectionLocation"] unsignedIntegerValue], length = [packet[@"selectionLength"] unsignedIntegerValue];
     start = [input positionFromPosition:input.beginningOfDocument offset:(NSInteger)location];
     end = start ? [input positionFromPosition:start offset:(NSInteger)length] : nil;

@@ -1,6 +1,6 @@
 # Monster Strike 33.0.0 text input investigation
 
-The user reported that Text Only sync in LiveContainer 3.8.40 pauses at preparation in Monster Strike's search field, including after opening the field in every account and returning to the source. The previous generic message does not identify the rejected condition. **3.8.41 adds per-window readiness reasons and diagnostics; it is not a confirmed fix for the search field.**
+The user reported that Text Only sync in LiveContainer 3.8.40 pauses at preparation in Monster Strike's search field, including after opening the field in every account and returning to the source. The previous generic message did not identify the rejected condition. **The 3.8.41 device report established missing focus in followers 1 and 2. Version 3.8.42 removes the simultaneous-focus requirement for eligible follower fields; successful game replay still requires device verification.**
 
 The supplied executable is the same Japanese Monster Strike 33.0.0 / 33.0.0.1 analyzed in [MonsterStrikeWindowSizing.md](MonsterStrikeWindowSizing.md), SHA-256 `63a241f6b0e9073bf7c1dc267a5ce8f5d4729c8d139287abd36c4fd9f22e9042`. IDA analysis on 2026-11-10 examined two input paths. Addresses are unslid and specific to this build. No game executable, account data or save was changed. Binary and decompilation artifacts remain local.
 
@@ -17,4 +17,10 @@ The supplied executable is the same Japanese Monster Strike 33.0.0 / 33.0.0.1 an
 
 Static evidence shows that the native edit-box path should be class-compatible and visible while open, and that the game also contains an incompatible raw engine path. It does not establish which path the reported search screen uses, the active responder in each hosted account at Resume, or whether switching accounts closes the earlier edit box. UIKit focus arbitration on the user's device remains an unmeasured factor.
 
-The next device result should retain the full per-window reason or Copy Sync Diagnostics report from one failed attempt on 3.8.41. That result distinguishes no focus, unsupported responder, visibility, composition, selection and security before selecting a compatibility change. Current code intentionally retains its exact field/text matching, app delegate validation and manual Resume behavior.
+## Device result and follower fix
+
+On 2026-11-10 the user supplied a complete 3.8.41 report from iPadOS 27.0.1. Source was window 4. Followers 1 and 2 recorded `noFocusedInput` at `guestPrepare` (uptimes 18313.783145 and 18313.783921); the host stopped at 18313.784083 with zero forwarded actions. Follower 3 and the source had no matching failure. The source was not prepared after follower preparation failed, so its empty diagnostic is not evidence of successful source readiness. The user confirmed the search fields stayed visible while keyboard focus moved between accounts.
+
+This establishes that the focused-only preparation rule blocked these followers. It does not prove which native field remained in those windows or which system action moved focus. The 3.8.42 adapter keeps the source focused-only but allows a follower without a focused responder to bind one visible, editable, nonsecure UITextField/UITextView. A new ambiguity, different responder, removal or visibility/structure change rejects replay. The packet still must match the bound field and preceding text before any mutation. Unfocused targets use public range replacement and app callbacks without taking focus or requiring/restoring a caret.
+
+This change directly addresses the measured readiness blocker without hooking Monster Strike or replaying raw keyboard events. Physical-device text insertion, deletion and committed Japanese/Chinese input across the four search fields remain the acceptance check.

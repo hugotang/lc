@@ -39,6 +39,9 @@ FOUNDATION_EXPORT NSString *LCTextSyncUnavailableReasonName(LCTextSyncUnavailabl
 @property(nonatomic, copy, nullable) BOOL (^shouldContinue)(void);
 + (nullable instancetype)inputForWindow:(UIWindow *)window;
 + (nullable instancetype)inputForWindow:(UIWindow *)window unavailableReason:(LCTextSyncUnavailableReason * _Nullable)reason;
+// Sources require focus. Followers can bind one unambiguous visible editable
+// field after the keyboard moves to another account, without acquiring focus.
++ (nullable instancetype)inputForWindow:(UIWindow *)window source:(BOOL)source unavailableReason:(LCTextSyncUnavailableReason * _Nullable)reason;
 // Allows an in-progress composition; does not advance the committed baseline.
 - (LCTextSyncInputResult)validateCurrentInput;
 // Ready with nil means unchanged text or an IME composition still in progress.
