@@ -317,6 +317,9 @@
         completetionHandler(NO, @"Info.plist not found");
         return;
     }
+    // A previous helper-only signing failure may leave the main executable's
+    // signature valid. Keep retrying until the complete bundle is signed.
+    forceSign |= [info[@"LCGuestExtensionSignPending"] boolValue];
     NSFileManager* fm = NSFileManager.defaultManager;
     NSString *execPath = [NSString stringWithFormat:@"%@/%@", appPath, _infoPlist[@"CFBundleExecutable"]];
     
@@ -385,6 +388,7 @@
             return;
         }
         info[@"LCGuestExtensionPatchRevision"] = @1;
+        info[@"LCGuestExtensionSignPending"] = @YES;
         forceSign = YES;
         [self save];
     }
@@ -423,6 +427,8 @@
                     } else {
                         bool signatureValid = checkCodeSignature(executablePath.UTF8String);
                         if(signatureValid) {
+                            [info removeObjectForKey:@"LCGuestExtensionSignPending"];
+                            [self save];
                             completetionHandler(YES, [error localizedDescription]);
                         } else {
                             completetionHandler(NO, @"lc.signer.latestCertificateInvalidErr");
