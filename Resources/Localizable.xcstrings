@@ -36133,6 +36133,14 @@
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "同步標準輸入框中已確認的文字、貼上和刪除。中文、日文在選字完成後轉送。不包含觸控手勢、傳送或 Return 提交動作、密碼框、網頁和遊戲自訂輸入框。中斷後，請重新開啟對應輸入框並手動繼續。" } }
       }
     },
+    "lc.tapSync.textBusy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Text synchronization paused because a follower could not keep up. Check all fields, then resume." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "接收窗口未能及时处理，文字同步已暂停。请检查所有输入框后再继续。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "接收視窗未能及時處理，文字同步已暫停。請檢查所有輸入框後再繼續。" } }
+      }
+    },
     "lc.tapSync.textInputUnavailable" : {
       "extractionState" : "manual",
       "localizations" : {

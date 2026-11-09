@@ -91,6 +91,7 @@
 }
 @end
 @implementation LCTestInputHost
+- (void)readyWithVersion:(NSInteger)version canReplay:(BOOL)canReplay {}
 - (instancetype)init {
     if ((self = [super init])) { _input = [NSMutableArray array]; _touches = [NSMutableArray array]; _frames = [NSMutableArray array]; }
     return self;
@@ -588,6 +589,16 @@
     XCTAssertEqualObjects(self.host.textEdits[1][@"sequence"], @2);
     XCTAssertEqual(self.host.taps, 0u);
     XCTAssertNotNil(self.client.session);
+}
+- (void)testUIKitInsertAndDeleteCaptureWithoutManualNotifications {
+    [self.field insertText:@"A😀"];
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+    XCTAssertEqualObjects(self.host.textEdits.firstObject[@"edit"][@"after"], @"A😀");
+    [self.field deleteBackward];
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 2u);
+    XCTAssertEqualObjects(self.host.textEdits.lastObject[@"edit"][@"after"], @"A");
 }
 - (void)testPendingCaptureCannotCrossSessionReplacement {
     [self changeText:@"old"];

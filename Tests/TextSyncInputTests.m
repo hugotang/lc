@@ -2,6 +2,18 @@
 #import "../TweakLoader/TextSyncInput.h"
 #import "TapSyncTestWindow.h"
 
+@interface LCTextSyncNestedResponderView : UIView
+@end
+@implementation LCTextSyncNestedResponderView
+- (BOOL)isFirstResponder { return YES; }
+@end
+
+@interface LCTextSyncAdditionalFocusedField : UITextField
+@end
+@implementation LCTextSyncAdditionalFocusedField
+- (BOOL)isFirstResponder { return YES; }
+@end
+
 @interface LCTextSyncTestDelegate : NSObject <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic) NSUInteger validations, changes, controls;
 @property(nonatomic) BOOL reject, transform;
@@ -92,6 +104,7 @@
 }
 - (void)testCaptureAdvancesOnceAndRetainsUnicodeSelection {
     LCTextSyncInput *source = [LCTextSyncInput inputForWindow:self.window];
+    XCTAssertNotNil(source);
     self.field.text = @"房間😀12";
     [self setSelection:NSMakeRange(4, 2) input:self.field];
     LCTextSyncInputResult result;
@@ -110,6 +123,7 @@
 }
 - (void)testCompositionWaitsForCommitAndCancellationProducesNoPacket {
     LCTextSyncInput *source = [LCTextSyncInput inputForWindow:self.window];
+    XCTAssertNotNil(source);
     [self.field setMarkedText:@"zhong" selectedRange:NSMakeRange(5, 0)];
     XCTAssertNotNil(self.field.markedTextRange);
     LCTextSyncInputResult result;
@@ -203,6 +217,7 @@
 }
 - (void)testFocusSecurityWindowAndFieldSignatureChangesReject {
     LCTextSyncInput *source = [LCTextSyncInput inputForWindow:self.window];
+    XCTAssertNotNil(source);
     self.field.secureTextEntry = YES;
     XCTAssertNil([LCTextSyncInput inputForWindow:self.window]);
     XCTAssertEqual([source validateCurrentInput], LCTextSyncInputResultUnavailable);
@@ -307,5 +322,20 @@
     XCTAssertEqual(delegate.validations, 1u);
     XCTAssertEqual(delegate.controls, 0u);
     XCTAssertEqual(self.field.delegate, delegate);
+}
+- (void)testPrivateEditorIsPartOfFocusedFieldButSeparateFocusedFieldsAreRejected {
+    XCTAssertTrue(self.field.isFirstResponder);
+    LCTextSyncNestedResponderView *editor = [[LCTextSyncNestedResponderView alloc] initWithFrame:self.field.bounds];
+    [self.field addSubview:editor];
+    LCTextSyncInput *input = [LCTextSyncInput inputForWindow:self.window];
+    XCTAssertNotNil(input);
+    XCTAssertEqual(input.responder, self.field);
+    LCTextSyncAdditionalFocusedField *other = [[LCTextSyncAdditionalFocusedField alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:other];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window]);
+    XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultUnavailable);
+    [other removeFromSuperview];
+    XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultReady);
+    [editor removeFromSuperview];
 }
 @end

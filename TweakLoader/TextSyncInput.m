@@ -24,6 +24,10 @@ static UIView<UITextInput> *LCTextSyncFocusedInput(UIWindow *window) {
             if ([view isKindOfClass:UITextField.class] && !((UITextField *)view).enabled) return nil;
             if ([view isKindOfClass:UITextView.class] && !((UITextView *)view).editable) return nil;
             found = (UIView<UITextInput> *)view;
+            // A focused UITextField can also expose its private field editor as
+            // a first responder. It belongs to this public input, not another
+            // independently focused field. Still inspect all sibling branches.
+            continue;
         }
         [pending addObjectsFromArray:view.subviews];
     }

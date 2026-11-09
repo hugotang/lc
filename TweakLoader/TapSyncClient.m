@@ -733,7 +733,7 @@ static LCTapSyncClient *tapSyncClient;
         if (event.type == UIEventTypeTouches) [self observePhysicalInput:event];
         if (self.suspended) return;
         if (event.type != UIEventTypeTouches && event.type != UIEventTypePresses) return;
-        if (!self.source) { [self interrupt:LCTapSyncResultPhysicalTouch]; return; }
+        if (!self.source) { [self interrupt:event.type == UIEventTypePresses ? LCTapSyncResultTextInputMismatch : LCTapSyncResultPhysicalTouch]; return; }
         LCTapSyncResult result = [self validateTextInput];
         if (result != LCTapSyncResultAccepted) { [self interrupt:result]; return; }
         for (UITouch *touch in event.allTouches) {

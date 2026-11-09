@@ -624,7 +624,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     switch (result) {
         case LCTapSyncResultUnsupported: status = @"lc.tapSync.unsupported"; break;
         case LCTapSyncResultGeometryChanged: status = @"lc.tapSync.layoutChanged"; break;
-        case LCTapSyncResultBusy: status = @"lc.tapSync.interrupted"; break;
+        case LCTapSyncResultBusy: status = self.mode == LCTapSyncModeText ? @"lc.tapSync.textBusy" : @"lc.tapSync.interrupted"; break;
         case LCTapSyncResultExpired: status = @"lc.tapSync.expiredInput"; break;
         case LCTapSyncResultStopped: status = @"lc.tapSync.paused"; break;
         case LCTapSyncResultInvalidGesture: status = @"lc.tapSync.gestureInterrupted"; break;
@@ -747,8 +747,8 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         @"version": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
         @"systemVersion": UIDevice.currentDevice.systemVersion, @"copiedAtUptime": @(NSProcessInfo.processInfo.systemUptime),
         @"currentStatus": self.statusKey, @"active": @(self.active), @"starting": @(self.starting), @"recovering": @(self.recovering),
-        @"options": @{@"resumeOnSource": @(self.resumeOnSource), @"syncFirstReturnGesture": @(self.syncReturnGesture),
-            @"resumeAfterRotation": @(self.autoResumeAfterRotation)}} mutableCopy];
+        @"options": @{@"resumeOnSource": @(self.mode != LCTapSyncModeText && self.resumeOnSource), @"syncFirstReturnGesture": @(self.mode != LCTapSyncModeText && self.syncReturnGesture),
+            @"resumeAfterRotation": @(self.mode != LCTapSyncModeText && self.autoResumeAfterRotation)}} mutableCopy];
     NSDictionary *interruption = self.lastInterruptionDiagnostics;
     if (interruption) report[@"lastInterruption"] = interruption;
     if (self.inputDiagnosticsRequest) { report[@"guestReadStatus"] = @"alreadyReading"; reply(report.copy); return; }
