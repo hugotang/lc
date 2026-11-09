@@ -2,15 +2,17 @@
 #include "TapSyncGeometry.h"
 #include "TouchSyncGeometry.h"
 #include "MultiTouchSyncGeometry.h"
+#import "TextSyncPacket.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-enum { LCTapSyncProtocolVersion = 6 };
+enum { LCTapSyncProtocolVersion = 7 };
 
 typedef NS_ENUM(NSInteger, LCTapSyncMode) {
     LCTapSyncModeTapsOnly = 0,
     LCTapSyncModeSingleFinger,
     LCTapSyncModeTwoFingers,
+    LCTapSyncModeText,
 };
 
 typedef NS_ENUM(NSInteger, LCTapSyncResult) {
@@ -31,6 +33,8 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
     LCTapSyncResultPhysicalTouch,
     LCTapSyncResultPreparationTimedOut,
     LCTapSyncResultSuspended,
+    LCTapSyncResultTextInputUnavailable,
+    LCTapSyncResultTextInputMismatch,
 };
 
 @protocol LCTapSyncGuestProtocol
@@ -48,6 +52,8 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
              reply:(void (^)(LCTapSyncResult))reply;
 - (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply;
+- (void)replayTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence
+                 reply:(void (^)(LCTapSyncResult))reply;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply;
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary *))reply;
 - (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary *))reply;
@@ -58,6 +64,7 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
 - (void)submitTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)submitTouch:(NSDictionary *)touch session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)submitTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence;
+- (void)submitTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)submitSourceReturn:(NSArray<NSDictionary *> *)packets session:(NSString *)session;
 - (void)interruptSession:(NSString *)session reason:(LCTapSyncResult)reason;
 - (void)physicalInputChanged:(BOOL)touching began:(BOOL)began session:(NSString *)session revision:(uint64_t)revision
@@ -74,6 +81,8 @@ static inline NSXPCInterface *LCTapSyncHostInterface(void) {
               forSelector:@selector(submitTouchFrame:session:sequence:) argumentIndex:0 ofReply:NO];
     [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
               forSelector:@selector(submitSourceReturn:session:) argumentIndex:0 ofReply:NO];
+    [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
+              forSelector:@selector(submitTextEdit:session:sequence:) argumentIndex:0 ofReply:NO];
     return interface;
 }
 
@@ -91,6 +100,8 @@ static inline NSXPCInterface *LCTapSyncGuestInterface(void) {
               forSelector:@selector(readWindowGeometryWithReply:) argumentIndex:0 ofReply:YES];
     [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSString.class, NSNumber.class, nil]
               forSelector:@selector(readInputDiagnosticsForSession:reply:) argumentIndex:0 ofReply:YES];
+    [interface setClasses:[NSSet setWithObjects:NSDictionary.class, NSArray.class, NSString.class, NSNumber.class, nil]
+              forSelector:@selector(replayTextEdit:session:sequence:reply:) argumentIndex:0 ofReply:NO];
     return interface;
 }
 

@@ -58,6 +58,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
     -I "$repo_root/LiveContainer" \
     "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" \
+    "$repo_root/TweakLoader/TextSyncInput.m" "$repo_root/Tests/TextSyncInputTests.m" \
     "$repo_root/MultitaskSupport/TapSyncCoordinator.m" "$repo_root/MultitaskSupport/TapSyncRecovery.m" \
     "$repo_root/MultitaskSupport/TapSyncControlsView.m" "$repo_root/Tests/TapSyncControlsViewTests.m" \
     "$repo_root/LiveContainer/Localization.m" \

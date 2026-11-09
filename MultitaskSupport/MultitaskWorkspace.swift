@@ -665,7 +665,8 @@ private struct MultitaskWorkspaceDetailView: View {
                                 Label("lc.tapSync.savedGroup".loc, systemImage: "hand.draw")
                                 Spacer()
                                 Text(workspace.snapshot.tapSyncGroup.isEmpty ? "lc.common.none".loc :
-                                    (workspace.snapshot.tapSyncGroup["mode"] as? String == "twoFingers" ? "lc.tapSync.mode.twoFingers".loc :
+                                    (workspace.snapshot.tapSyncGroup["mode"] as? String == "text" ? "lc.tapSync.mode.text".loc :
+                                     workspace.snapshot.tapSyncGroup["mode"] as? String == "twoFingers" ? "lc.tapSync.mode.twoFingers".loc :
                                      workspace.snapshot.tapSyncGroup["mode"] as? String == "singleFinger" ?
                                         "lc.tapSync.mode.singleFinger".loc : "lc.tapSync.mode.tapsOnly".loc))
                                     .foregroundStyle(.secondary)

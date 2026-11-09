@@ -12,6 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, nullable) void (^didReceiveTap)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy, nullable) void (^didReceiveTouch)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy, nullable) void (^didReceiveTouchFrame)(NSDictionary *, NSString *, uint64_t);
+@property(nonatomic, copy, nullable) void (^didReceiveTextEdit)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy, nullable) void (^didReceiveSourceReturn)(NSArray<NSDictionary *> *, NSString *);
 @property(nonatomic, copy, nullable) void (^didInterrupt)(NSString *, LCTapSyncResult);
 @property(nonatomic, copy, nullable) void (^didChangePhysicalInput)(NSString *, uint64_t, BOOL, BOOL, NSTimeInterval, uint64_t);
@@ -29,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
              reply:(void (^)(LCTapSyncResult))reply;
 - (void)replayTouchFrame:(NSDictionary *)frame session:(NSString *)session sequence:(uint64_t)sequence
                   reply:(void (^)(LCTapSyncResult))reply;
+- (void)replayTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence
+                 reply:(void (^)(LCTapSyncResult))reply;
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)readWindowGeometryWithReply:(void (^)(NSDictionary * _Nullable))reply;
 - (void)readInputDiagnosticsForSession:(NSString *)session reply:(void (^)(NSDictionary * _Nullable))reply;

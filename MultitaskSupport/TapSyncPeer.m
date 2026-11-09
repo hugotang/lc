@@ -100,6 +100,12 @@
         if (sender && self.connection == sender && self.ready && self.didReceiveTouchFrame) self.didReceiveTouchFrame(frame, session, sequence);
     });
 }
+- (void)submitTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (sender && self.connection == sender && self.ready && self.didReceiveTextEdit) self.didReceiveTextEdit(edit, session, sequence);
+    });
+}
 - (void)submitSourceReturn:(NSArray<NSDictionary *> *)packets session:(NSString *)session {
     NSXPCConnection *sender = NSXPCConnection.currentConnection;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -189,6 +195,7 @@
     self.didReceiveTap = nil;
     self.didReceiveTouch = nil;
     self.didReceiveTouchFrame = nil;
+    self.didReceiveTextEdit = nil;
     self.didReceiveSourceReturn = nil;
     self.didInterrupt = nil;
     self.didChangePhysicalInput = nil;
@@ -197,6 +204,12 @@
                   reply:(void (^)(LCTapSyncResult))reply {
     [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
         [proxy replayTouchFrame:frame session:session sequence:sequence reply:finish];
+    } reply:reply];
+}
+- (void)replayTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence
+                 reply:(void (^)(LCTapSyncResult))reply {
+    [self sendWithReply:^(id<LCTapSyncGuestProtocol> proxy, void (^finish)(LCTapSyncResult)) {
+        [proxy replayTextEdit:edit session:session sequence:sequence reply:finish];
     } reply:reply];
 }
 - (void)samplePerformanceWithReply:(void (^)(NSDictionary *))reply {

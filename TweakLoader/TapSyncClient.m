@@ -9,6 +9,7 @@
 #import "TapSyncClientState.h"
 #import "TapSyncReturnGesture.h"
 #import "TapSyncWindow.h"
+#import "TextSyncInput.h"
 #import "WindowGeometryDiagnostics.h"
 
 // These setters are used only inside the selected guest process. No system-wide HID injection is used.
@@ -132,6 +133,13 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 @property(nonatomic) BOOL source, replaying, supported, keyboardVisible;
 @property(nonatomic) BOOL suspended, resumeOnSource;
 @property(nonatomic) BOOL syncReturnGesture;
+@property(nonatomic) LCTextSyncInput *textInput;
+@property(nonatomic, weak) UIWindow *textWindow;
+@property(nonatomic) CGRect textBounds;
+@property(nonatomic) UIInterfaceOrientation textOrientation;
+@property(nonatomic) BOOL textCaptureScheduled;
+@property(nonatomic) NSUInteger textCaptureGeneration;
+@property(nonatomic) NSTimeInterval textCaptureTimestamp;
 @property(nonatomic) LCTapSyncReturnGesture *returnGesture;
 @property(nonatomic) NSHashTable<UITouch *> *returnTouches;
 @property(nonatomic, weak) UIWindow *returnWindow;
@@ -173,6 +181,12 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 @property(nonatomic, copy) NSDictionary *lastInputFailure;
 @property(nonatomic, copy) NSString *lastInputFailureSession;
 - (void)observeEvent:(UIEvent *)event;
+- (void)scheduleTextCapture;
+- (void)textInputChanged:(NSNotification *)notification;
+- (void)textFocusChanged:(NSNotification *)notification;
+- (void)textControlChanged:(UIControl *)control;
+- (LCTapSyncResult)validateTextInput;
+- (LCTapSyncResult)applyTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)interrupt:(LCTapSyncResult)reason;
 - (void)interruptAfterCurrentEvent:(LCTapSyncResult)reason;
 - (void)connectToHost;
@@ -194,12 +208,30 @@ static LCTapSyncClient *tapSyncClient;
 
 @implementation LCTapSyncClient
 - (instancetype)init {
-    if ((self = [super init])) _inputState = [LCTapSyncClientState new];
+    if ((self = [super init])) {
+        _inputState = [LCTapSyncClientState new];
+        NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+        for (NSString *name in @[UITextFieldTextDidChangeNotification, UITextViewTextDidChangeNotification]) {
+            [center addObserver:self selector:@selector(textInputChanged:) name:name object:nil];
+        }
+        for (NSString *name in @[UITextFieldTextDidBeginEditingNotification, UITextFieldTextDidEndEditingNotification,
+                                 UITextViewTextDidBeginEditingNotification, UITextViewTextDidEndEditingNotification]) {
+            [center addObserver:self selector:@selector(textFocusChanged:) name:name object:nil];
+        }
+    }
     return self;
 }
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
 - (NSString *)session { return self.inputState.session; }
 - (void)setSession:(NSString *)session {
     [self discardReturnGesture];
+    if ([self.textInput.responder isKindOfClass:UIControl.class]) {
+        [(UIControl *)self.textInput.responder removeTarget:self action:@selector(textControlChanged:) forControlEvents:UIControlEventEditingChanged];
+    }
+    self.textInput = nil;
+    self.textWindow = nil;
+    self.textCaptureScheduled = NO;
+    self.textCaptureGeneration++;
     self.inputState.session = session;
 }
 - (void)connectToHost {
@@ -270,20 +302,22 @@ static LCTapSyncClient *tapSyncClient;
         self.session = nil;
         [self finishReplay:LCTapSyncResultStopped];
         [self discardCapture];
-        if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers) {
+        if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers && mode != LCTapSyncModeText) {
             reply(LCTapSyncResultUnsupported); return;
         }
         if (![session isKindOfClass:NSString.class] || session.length != 36) {
             reply(LCTapSyncResultInvalidGesture); return;
         }
-        if (self.keyboardVisible) { reply(LCTapSyncResultKeyboardVisible); return; }
+        if (self.keyboardVisible && mode != LCTapSyncModeText) { reply(LCTapSyncResultKeyboardVisible); return; }
         LCTapSyncResult windowResult;
-        UIWindow *window = LCTapSyncGuestWindowWithResult(&windowResult);
+        UIWindow *window = mode == LCTapSyncModeText ? LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &windowResult) : LCTapSyncGuestWindowWithResult(&windowResult);
         if (!window) { reply(windowResult); return; }
         if (window.bounds.size.width < 1 || window.bounds.size.height < 1 || window.windowScene.interfaceOrientation == UIInterfaceOrientationUnknown) {
             reply(LCTapSyncResultWindowNotReady); return;
         }
-        if (!source && !self.supported) { reply(LCTapSyncResultUnsupported); return; }
+        if (!source && !self.supported && mode != LCTapSyncModeText) { reply(LCTapSyncResultUnsupported); return; }
+        LCTextSyncInput *textInput = mode == LCTapSyncModeText ? [LCTextSyncInput inputForWindow:window] : nil;
+        if (mode == LCTapSyncModeText && !textInput) { reply(LCTapSyncResultTextInputUnavailable); return; }
         @try {
             if (self.inputState.hasPhysicalTouches || ([UIApplication.sharedApplication respondsToSelector:@selector(_touchesEvent)] &&
                 LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState))) {
@@ -295,8 +329,17 @@ static LCTapSyncClient *tapSyncClient;
         self.mode = mode;
         self.suspended = NO;
         self.suspensionResult = LCTapSyncResultSuspended;
-        self.resumeOnSource = resumeOnSource;
-        self.syncReturnGesture = syncReturnGesture;
+        self.resumeOnSource = resumeOnSource && mode != LCTapSyncModeText;
+        self.syncReturnGesture = syncReturnGesture && mode != LCTapSyncModeText;
+        self.textInput = textInput;
+        if (textInput) {
+            self.textWindow = window;
+            self.textBounds = window.bounds;
+            self.textOrientation = window.windowScene.interfaceOrientation;
+            if ([textInput.responder isKindOfClass:UIControl.class]) {
+                [(UIControl *)textInput.responder addTarget:self action:@selector(textControlChanged:) forControlEvents:UIControlEventEditingChanged];
+            }
+        }
         self.returnNotBefore = 0;
         self.physicalInputRevision = 0;
         self.sequence = 0;
@@ -682,6 +725,25 @@ static LCTapSyncClient *tapSyncClient;
     });
 }
 - (void)observeEvent:(UIEvent *)event {
+    if (self.session && self.mode == LCTapSyncModeText && !self.replaying) {
+        if (event.type == UIEventTypeTouches) [self observePhysicalInput:event];
+        if (self.suspended) return;
+        if (event.type != UIEventTypeTouches && event.type != UIEventTypePresses) return;
+        if (!self.source) { [self interrupt:LCTapSyncResultPhysicalTouch]; return; }
+        LCTapSyncResult result = [self validateTextInput];
+        if (result != LCTapSyncResultAccepted) { [self interrupt:result]; return; }
+        for (UITouch *touch in event.allTouches) {
+            if (touch.phase != UITouchPhaseBegan) continue;
+            UIView *view = touch.view;
+            if (LCTapSyncIsSystemKeyboardWindow(touch.window)) continue;
+            if (!view || (view != self.textInput.responder && ![view isDescendantOfView:self.textInput.responder])) {
+                [self interrupt:LCTapSyncResultTextInputUnavailable]; return;
+            }
+        }
+        // Observe committed edits after UIKit handles this event. Key events themselves are never replayed.
+        [self scheduleTextCapture];
+        return;
+    }
     if (!self.replaying && event.type == UIEventTypeTouches) {
         uint64_t previousReturn = self.returnGesture.revision;
         uint64_t previousInput = self.physicalInputRevision;
@@ -710,6 +772,105 @@ static LCTapSyncClient *tapSyncClient;
         return;
     }
     [self captureSourceEvent:event];
+}
+
+static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
+    switch (result) {
+        case LCTextSyncInputResultReady: return LCTapSyncResultAccepted;
+        case LCTextSyncInputResultMismatch: return LCTapSyncResultTextInputMismatch;
+        case LCTextSyncInputResultInvalid: return LCTapSyncResultInvalidGesture;
+        default: return LCTapSyncResultTextInputUnavailable;
+    }
+}
+- (LCTapSyncResult)validateTextInput {
+    if (!self.textInput || !self.textWindow) return LCTapSyncResultTextInputUnavailable;
+    LCTapSyncResult result;
+    UIWindow *window = LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &result);
+    if (!window) return result;
+    if (window != self.textWindow || !CGRectEqualToRect(window.bounds, self.textBounds) ||
+        window.windowScene.interfaceOrientation != self.textOrientation) return LCTapSyncResultGeometryChanged;
+    return LCTextSyncResult([self.textInput validateCurrentInput]);
+}
+- (void)textInputChanged:(NSNotification *)notification {
+    if (!self.session || self.mode != LCTapSyncModeText || self.replaying || self.suspended) return;
+    if (notification.object != self.textInput.responder) return;
+    if (!self.source) { [self interrupt:LCTapSyncResultTextInputMismatch]; return; }
+    [self scheduleTextCapture];
+}
+- (void)textControlChanged:(UIControl *)control {
+    [self textInputChanged:[NSNotification notificationWithName:UITextFieldTextDidChangeNotification object:control]];
+}
+- (void)textFocusChanged:(NSNotification *)notification {
+    if (!self.session || self.mode != LCTapSyncModeText || self.replaying || self.suspended) return;
+    UIView *view = [notification.object isKindOfClass:UIView.class] ? notification.object : nil;
+    if (view == self.textInput.responder || view.window == self.textWindow) {
+        // Even a field that resigns and regains focus before the next run loop requires a fresh session.
+        [self interrupt:LCTapSyncResultTextInputUnavailable];
+    }
+}
+- (void)scheduleTextCapture {
+    if (!self.session || self.mode != LCTapSyncModeText || !self.source || self.suspended || self.replaying || self.textCaptureScheduled) return;
+    self.textCaptureScheduled = YES;
+    self.textCaptureTimestamp = NSProcessInfo.processInfo.systemUptime;
+    NSUInteger generation = self.textCaptureGeneration;
+    NSString *session = self.session;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (generation != self.textCaptureGeneration || ![self.session isEqualToString:session]) return;
+        self.textCaptureScheduled = NO;
+        if (self.suspended || self.replaying) return;
+        LCTapSyncResult result = [self validateTextInput];
+        if (result != LCTapSyncResultAccepted) { [self interrupt:result]; return; }
+        @try {
+            LCTextSyncInputResult captured;
+            NSDictionary *packet = [self.textInput captureEditAtTime:self.textCaptureTimestamp result:&captured];
+            if (captured != LCTextSyncInputResultReady) { [self interrupt:LCTextSyncResult(captured)]; return; }
+            if (!packet) return;
+            NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+            if (self.sequence == UINT64_MAX || !LCTextSyncPacketIsFresh(packet, now)) {
+                [self recordExpiredInput:packet sequence:self.sequence previousSequence:self.sequence atTime:now stage:@"guestCapture"];
+                [self interrupt:LCTapSyncResultExpired]; return;
+            }
+            id<LCTapSyncHostProtocol> host = [self.connection remoteObjectProxyWithErrorHandler:^(NSError *error) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if ([self.session isEqualToString:session]) [self interrupt:LCTapSyncResultUnavailable];
+                });
+            }];
+            [host submitTextEdit:packet session:session sequence:++self.sequence];
+        } @catch (NSException *exception) { [self interrupt:LCTapSyncResultTextInputUnavailable]; }
+    });
+}
+- (LCTapSyncResult)applyTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence {
+    if (![self.session isEqualToString:session] || self.source) return LCTapSyncResultStopped;
+    if (self.mode != LCTapSyncModeText) return LCTapSyncResultInvalidGesture;
+    if (self.suspended) return self.suspensionResult;
+    NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+    if (self.sequence == UINT64_MAX || sequence != self.sequence + 1 || !LCTextSyncPacketIsFresh(packet, now)) {
+        [self recordExpiredInput:packet sequence:sequence previousSequence:self.sequence atTime:now stage:@"guestReceive"];
+        return LCTapSyncResultExpired;
+    }
+    LCTapSyncResult result = [self validateTextInput];
+    if (result != LCTapSyncResultAccepted) return result;
+    if (self.inputState.hasPhysicalTouches) return LCTapSyncResultPhysicalTouch;
+    @try {
+        if ([UIApplication.sharedApplication respondsToSelector:@selector(_touchesEvent)] &&
+            LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) return LCTapSyncResultPhysicalTouch;
+        self.replaying = YES;
+        result = LCTextSyncResult([self.textInput applyPacket:packet]);
+    } @catch (NSException *exception) { result = LCTapSyncResultTextInputUnavailable; }
+    @finally { self.replaying = NO; }
+    if (result == LCTapSyncResultAccepted) {
+        if (![self.session isEqualToString:session]) return LCTapSyncResultStopped;
+        self.sequence = sequence;
+    }
+    return result;
+}
+- (void)replayTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence
+                 reply:(void (^)(LCTapSyncResult))reply {
+    NSXPCConnection *sender = NSXPCConnection.currentConnection;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!sender || self.connection != sender) { reply(LCTapSyncResultUnavailable); return; }
+        reply([self applyTextEdit:packet session:session sequence:sequence]);
+    });
 }
 - (void)captureSourceEvent:(UIEvent *)event {
     NSMutableSet<UITouch *> *touches = [NSMutableSet set];
@@ -1257,6 +1418,35 @@ static LCTapSyncClient *tapSyncClient;
 }
 @end
 
+// Some input methods commit by unmarking an unchanged string without a text-change
+// notification. Hook only the standard controls in an opted-in guest process.
+@implementation UITextField (LCTextSyncCommit)
+- (void)lc_textSync_unmarkText {
+    [self lc_textSync_unmarkText];
+    if (tapSyncClient.textInput.responder == (id)self) [tapSyncClient scheduleTextCapture];
+}
+@end
+@implementation UITextView (LCTextSyncCommit)
+- (void)lc_textSync_unmarkText {
+    [self lc_textSync_unmarkText];
+    if (tapSyncClient.textInput.responder == (id)self) [tapSyncClient scheduleTextCapture];
+}
+@end
+
+static void LCTextSyncInstallCommitHooks(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        for (Class type in @[UITextField.class, UITextView.class]) {
+            SEL original = @selector(unmarkText), replacement = @selector(lc_textSync_unmarkText);
+            Method inherited = class_getInstanceMethod(type, original);
+            if (!inherited || !class_getInstanceMethod(type, replacement)) continue;
+            // Give each control its own method before exchanging an inherited implementation.
+            class_addMethod(type, original, method_getImplementation(inherited), method_getTypeEncoding(inherited));
+            swizzle(type, original, replacement);
+        }
+    });
+}
+
 __attribute__((constructor))
 static void LCTapSyncClientInit(void) {
     if (!NSUserDefaults.isLiveProcess || !NSUserDefaults.lcGuestAppId) return;
@@ -1265,6 +1455,7 @@ static void LCTapSyncClientInit(void) {
     NSXPCListenerEndpoint *endpoint = [handler retrievedAppInfo][@"tapSyncEndpoint"];
     if (![endpoint isKindOfClass:NSXPCListenerEndpoint.class]) return;
     swizzle(UIApplication.class, @selector(sendEvent:), @selector(lc_tapSync_sendEvent:));
+    LCTextSyncInstallCommitHooks();
     dispatch_async(dispatch_get_main_queue(), ^{
         tapSyncClient = [LCTapSyncClient new];
         tapSyncClient.supported = LCTapReplayAvailable();
@@ -1287,7 +1478,8 @@ static void LCTapSyncClientInit(void) {
         [center addObserverForName:UIKeyboardWillShowNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
             if ([note.userInfo[UIKeyboardIsLocalUserInfoKey] isEqual:@NO]) return;
             tapSyncClient.keyboardVisible = YES;
-            [tapSyncClient interruptAfterCurrentEvent:LCTapSyncResultKeyboardVisible];
+            if (tapSyncClient.mode == LCTapSyncModeText) [tapSyncClient scheduleTextCapture];
+            else [tapSyncClient interruptAfterCurrentEvent:LCTapSyncResultKeyboardVisible];
         }];
         for (NSString *name in @[UIKeyboardWillHideNotification, UIKeyboardDidHideNotification]) {
             [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {

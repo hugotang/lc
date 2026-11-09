@@ -10,13 +10,14 @@ static BOOL LCTapSyncContainerIsValid(id value) {
 }
 
 static LCTapSyncMode LCTapSyncValidMode(LCTapSyncMode mode) {
-    return mode == LCTapSyncModeSingleFinger || mode == LCTapSyncModeTwoFingers ? mode : LCTapSyncModeTapsOnly;
+    return mode == LCTapSyncModeSingleFinger || mode == LCTapSyncModeTwoFingers || mode == LCTapSyncModeText ? mode : LCTapSyncModeTapsOnly;
 }
 
 static NSString *LCTapSyncModeName(LCTapSyncMode mode) {
     switch (mode) {
         case LCTapSyncModeSingleFinger: return @"singleFinger";
         case LCTapSyncModeTwoFingers: return @"twoFingers";
+        case LCTapSyncModeText: return @"text";
         default: return @"tapsOnly";
     }
 }
@@ -39,7 +40,8 @@ static NSString *LCTapSyncModeName(LCTapSyncMode mode) {
 }
 - (instancetype)initWithGroupPropertyList:(id)propertyList {
     NSDictionary *group = [propertyList isKindOfClass:NSDictionary.class] ? propertyList : @{};
-    LCTapSyncMode mode = [group[@"mode"] isEqual:@"twoFingers"] ? LCTapSyncModeTwoFingers :
+    LCTapSyncMode mode = [group[@"mode"] isEqual:@"text"] ? LCTapSyncModeText :
+        [group[@"mode"] isEqual:@"twoFingers"] ? LCTapSyncModeTwoFingers :
         [group[@"mode"] isEqual:@"singleFinger"] ? LCTapSyncModeSingleFinger : LCTapSyncModeTapsOnly;
     return [self initWithSource:group[@"source"] targets:group[@"targets"] ?: @[] mode:mode];
 }
@@ -69,7 +71,8 @@ static NSString *LCTapSyncModeName(LCTapSyncMode mode) {
     id legacy = [self.defaults objectForKey:LCTapSyncModeKey];
     LCTapSyncMode mode = LCTapSyncModeTapsOnly;
     if ([legacy isKindOfClass:NSNumber.class] && ([legacy isEqual:@(LCTapSyncModeSingleFinger)] ||
-                                                [legacy isEqual:@(LCTapSyncModeTwoFingers)])) mode = [legacy integerValue];
+                                                [legacy isEqual:@(LCTapSyncModeTwoFingers)] ||
+                                                [legacy isEqual:@(LCTapSyncModeText)])) mode = [legacy integerValue];
     return [[LCTapSyncSelection alloc] initWithSource:nil targets:@[] mode:mode];
 }
 - (void)saveSelection:(LCTapSyncSelection *)selection {

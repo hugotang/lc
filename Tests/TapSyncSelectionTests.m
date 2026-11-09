@@ -11,7 +11,7 @@ static void testRoundTripAndEdits(NSUserDefaults *defaults) {
     assert(initial.source == nil && initial.targets.count == 0 && initial.mode == LCTapSyncModeTapsOnly);
     [defaults setBool:YES forKey:@"LCTapSyncCompactControls"];
     [defaults setObject:@{@"x": @0.25, @"y": @0.75} forKey:@"LCTapSyncControlsPortraitPosition"];
-    for (LCTapSyncMode mode = LCTapSyncModeTapsOnly; mode <= LCTapSyncModeTwoFingers; mode++) {
+    for (LCTapSyncMode mode = LCTapSyncModeTapsOnly; mode <= LCTapSyncModeText; mode++) {
         NSArray *members = @[targetID, @"third-account", @"fourth-account"];
         LCTapSyncSelection *selection = [[LCTapSyncSelection alloc] initWithSource:sourceID targets:members mode:mode];
         [store saveSelection:selection];
@@ -47,6 +47,10 @@ static void testWorkspaceReplacement(NSUserDefaults *defaults) {
     assert([selection.groupPropertyList isEqual:workspace]);
     [store saveSelection:selection];
     assert([[store loadSelection].groupPropertyList isEqual:workspace]);
+    NSDictionary *textWorkspace = @{@"source": @"workspace-account", @"targets": @[sourceID, targetID], @"mode": @"text"};
+    [store saveSelection:[[LCTapSyncSelection alloc] initWithGroupPropertyList:textWorkspace]];
+    assert([store loadSelection].mode == LCTapSyncModeText);
+    assert([[store loadSelection].groupPropertyList isEqual:textWorkspace]);
     // A workspace without a sync group clears the last group and restores tap-only behavior.
     [store saveSelection:[[LCTapSyncSelection alloc] initWithGroupPropertyList:@{}]];
     assert([store loadSelection].source == nil && [store loadSelection].mode == LCTapSyncModeTapsOnly);
@@ -59,7 +63,7 @@ static void testWorkspaceReplacement(NSUserDefaults *defaults) {
 static void testValidationAndMigration(NSUserDefaults *defaults) {
     LCTapSyncSelectionStore *store = [[LCTapSyncSelectionStore alloc] initWithDefaults:defaults];
     [defaults removeObjectForKey:@"LCTapSyncLastSelection"];
-    for (LCTapSyncMode mode = LCTapSyncModeTapsOnly; mode <= LCTapSyncModeTwoFingers; mode++) {
+    for (LCTapSyncMode mode = LCTapSyncModeTapsOnly; mode <= LCTapSyncModeText; mode++) {
         [defaults setInteger:mode forKey:@"LCTapSyncMode"];
         assert([store loadSelection].mode == mode && [store loadSelection].source == nil);
     }

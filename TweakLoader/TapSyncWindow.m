@@ -110,7 +110,16 @@ BOOL LCTapSyncWindowIsCovered(UIWindow *guest, NSArray<UIWindow *> *windows) {
     return NO;
 }
 
-UIWindow *LCTapSyncFindGuestWindow(NSSet<UIScene *> *scenes, LCTapSyncResult *result) {
+BOOL LCTapSyncIsSystemKeyboardWindow(UIWindow *window) {
+    // Match system classes themselves, never similarly named app-defined subclasses.
+    for (NSString *name in @[@"UIRemoteKeyboardWindow", @"UITextEffectsWindow"]) {
+        Class type = NSClassFromString(name);
+        if (type && window.class == type && [[NSBundle bundleForClass:type] isEqual:[NSBundle bundleForClass:UIWindow.class]]) return YES;
+    }
+    return NO;
+}
+
+static UIWindow *LCTapSyncFindWindow(NSSet<UIScene *> *scenes, LCTapSyncResult *result, BOOL allowKeyboard) {
     if (result) *result = LCTapSyncResultSceneInactive;
     NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
     for (UIScene *scene in scenes) {
@@ -129,10 +138,24 @@ UIWindow *LCTapSyncFindGuestWindow(NSSet<UIScene *> *scenes, LCTapSyncResult *re
     }
     UIWindow *guest = keyWindow ?: (windows.count == 1 ? windows.firstObject : nil);
     if (!guest) return nil;
-    if (LCTapSyncWindowIsCovered(guest, guest.windowScene.windows)) {
+    NSArray<UIWindow *> *coveringWindows = guest.windowScene.windows;
+    if (allowKeyboard) {
+        coveringWindows = [coveringWindows filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(UIWindow *window, NSDictionary *bindings) {
+            return !LCTapSyncIsSystemKeyboardWindow(window);
+        }]];
+    }
+    if (LCTapSyncWindowIsCovered(guest, coveringWindows)) {
         if (result) *result = LCTapSyncResultWindowCovered;
         return nil;
     }
     if (result) *result = LCTapSyncResultAccepted;
     return guest;
+}
+
+UIWindow *LCTapSyncFindGuestWindow(NSSet<UIScene *> *scenes, LCTapSyncResult *result) {
+    return LCTapSyncFindWindow(scenes, result, NO);
+}
+
+UIWindow *LCTapSyncFindTextGuestWindow(NSSet<UIScene *> *scenes, LCTapSyncResult *result) {
+    return LCTapSyncFindWindow(scenes, result, YES);
 }

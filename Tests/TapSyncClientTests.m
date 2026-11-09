@@ -9,6 +9,7 @@
 @property(nonatomic) NSMutableArray<NSDictionary *> *input;
 @property(nonatomic) NSUInteger taps, interrupts;
 @property(nonatomic) NSMutableArray<NSDictionary *> *touches, *frames;
+@property(nonatomic) NSMutableArray<NSDictionary *> *textEdits;
 @property(nonatomic) NSUInteger returns;
 @property(nonatomic) LCTapSyncResult reason;
 @end
@@ -100,6 +101,10 @@
                            @"returnRevision": @(returnRevision)}];
 }
 - (void)submitTap:(NSDictionary *)tap session:(NSString *)session sequence:(uint64_t)sequence { self.taps++; }
+- (void)submitTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence {
+    if (!self.textEdits) self.textEdits = [NSMutableArray array];
+    [self.textEdits addObject:@{@"edit": edit, @"session": session, @"sequence": @(sequence)}];
+}
 - (void)submitTouch:(NSDictionary *)touch session:(NSString *)session sequence:(uint64_t)sequence {
     [self.touches addObject:@{@"touch": touch, @"session": session, @"sequence": @(sequence)}];
 }
@@ -506,5 +511,145 @@
     touch.testPhase = UITouchPhaseStationary;
     [self.client observeEvent:event];
     XCTAssertEqual(self.host.input.count, notifications);
+}
+@end
+
+
+@interface TapSyncTextClientTests : XCTestCase
+@property(nonatomic) UIWindow *window;
+@property(nonatomic) UITextField *field;
+@property(nonatomic) LCTapSyncClient *client;
+@property(nonatomic) LCTestInputConnection *connection;
+@property(nonatomic) LCTestInputHost *host;
+@end
+@implementation TapSyncTextClientTests
+- (void)setUp {
+    [super setUp];
+    self.continueAfterFailure = NO;
+    self.window = LCTapSyncTestHostWindow();
+    self.field = [[UITextField alloc] initWithFrame:CGRectMake(20, 60, 260, 44)];
+    self.field.accessibilityIdentifier = @"shared-input";
+    self.field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+    [self.window.rootViewController.view addSubview:self.field];
+    [self.window makeKeyWindow];
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    self.host = [LCTestInputHost new];
+    self.connection = [LCTestInputConnection new];
+    self.connection.host = self.host;
+    self.client = [LCTapSyncClient new];
+    self.client.connection = (id)self.connection;
+    self.client.mode = LCTapSyncModeText;
+    self.client.source = YES;
+    self.client.keyboardVisible = YES;
+    [self bindSession];
+}
+- (void)bindSession {
+    self.client.session = NSUUID.UUID.UUIDString;
+    self.client.textInput = [LCTextSyncInput inputForWindow:self.window];
+    XCTAssertNotNil(self.client.textInput);
+    self.client.textWindow = self.window;
+    self.client.textBounds = self.window.bounds;
+    self.client.textOrientation = self.window.windowScene.interfaceOrientation;
+    self.client.sequence = 0;
+    XCTAssertEqual([self.client validateTextInput], LCTapSyncResultAccepted);
+}
+- (void)tearDown {
+    self.client.session = nil;
+    self.client.connection = nil;
+    [self.field resignFirstResponder];
+    [self.field removeFromSuperview];
+    self.client = nil;
+    self.field = nil;
+    [super tearDown];
+}
+- (void)drainCapture {
+    XCTestExpectation *done = [self expectationWithDescription:@"pending committed edit captured"];
+    dispatch_async(dispatch_get_main_queue(), ^{ [done fulfill]; });
+    [self waitForExpectations:@[done] timeout:3];
+}
+- (void)changeText:(NSString *)text {
+    self.field.text = text;
+    self.field.selectedTextRange = [self.field textRangeFromPosition:self.field.endOfDocument toPosition:self.field.endOfDocument];
+    [NSNotificationCenter.defaultCenter postNotificationName:UITextFieldTextDidChangeNotification object:self.field];
+}
+- (void)testNotificationsCaptureOneCommittedEditAndPreserveOrder {
+    [self changeText:@"房間😀"];
+    [NSNotificationCenter.defaultCenter postNotificationName:UITextFieldTextDidChangeNotification object:self.field];
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+    NSDictionary *first = self.host.textEdits[0];
+    XCTAssertEqualObjects(first[@"edit"][@"before"], @"");
+    XCTAssertEqualObjects(first[@"edit"][@"after"], @"房間😀");
+    XCTAssertEqualObjects(first[@"sequence"], @1);
+    [self changeText:@"房間"];
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 2u);
+    XCTAssertEqualObjects(self.host.textEdits[1][@"edit"][@"before"], @"房間😀");
+    XCTAssertEqualObjects(self.host.textEdits[1][@"sequence"], @2);
+    XCTAssertEqual(self.host.taps, 0u);
+    XCTAssertNotNil(self.client.session);
+}
+- (void)testPendingCaptureCannotCrossSessionReplacement {
+    [self changeText:@"old"];
+    self.client.session = nil;
+    [self bindSession];
+    [self drainCapture];
+    XCTAssertEqual(self.host.textEdits.count, 0u);
+    [self changeText:@"new"];
+    [self drainCapture];
+    XCTAssertEqualObjects(self.host.textEdits.firstObject[@"edit"][@"before"], @"old");
+    XCTAssertEqualObjects(self.host.textEdits.firstObject[@"sequence"], @1);
+}
+- (void)testFocusLossAndFollowerLocalChangesStopInsteadOfForwarding {
+    [self changeText:@"pending"];
+    [self.field resignFirstResponder];
+    [self drainCapture];
+    XCTAssertNil(self.client.session);
+    XCTAssertEqual(self.host.textEdits.count, 0u);
+    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputUnavailable);
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    [self bindSession];
+    self.client.source = NO;
+    [self changeText:@"local edit"];
+    XCTAssertNil(self.client.session);
+    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputMismatch);
+}
+- (void)testReplayDoesNotEchoAndRejectsDuplicateExpiredOrWrongText {
+    [self changeText:@"1234"];
+    [self drainCapture];
+    NSDictionary *packet = self.host.textEdits.firstObject[@"edit"];
+    XCTAssertNotNil(packet);
+    self.client.session = nil;
+    self.field.text = @"";
+    self.field.selectedTextRange = [self.field textRangeFromPosition:self.field.endOfDocument toPosition:self.field.endOfDocument];
+    [self bindSession];
+    self.client.source = NO;
+    NSString *session = self.client.session;
+    XCTAssertEqual([self.client applyTextEdit:packet session:session sequence:1], LCTapSyncResultAccepted);
+    XCTAssertEqualObjects(self.field.text, @"1234");
+    XCTAssertNotNil(self.client.session);
+    XCTAssertEqual(self.host.textEdits.count, 1u);
+    XCTAssertEqual([self.client applyTextEdit:packet session:session sequence:1], LCTapSyncResultExpired);
+    NSMutableDictionary *next = packet.mutableCopy;
+    next[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([self.client applyTextEdit:next session:session sequence:2], LCTapSyncResultTextInputMismatch);
+    next[@"before"] = @"1234"; next[@"after"] = @""; next[@"selectionLocation"] = @0;
+    next[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime - 1);
+    XCTAssertEqual([self.client applyTextEdit:next session:session sequence:2], LCTapSyncResultExpired);
+    XCTAssertEqualObjects(self.field.text, @"1234");
+}
+- (void)testMarkedCompositionWaitsForUnmarkHookAndCancelsOnStop {
+    LCTextSyncInstallCommitHooks();
+    tapSyncClient = self.client;
+    @try {
+        [self.field setMarkedText:@"中" selectedRange:NSMakeRange(1, 0)];
+        [NSNotificationCenter.defaultCenter postNotificationName:UITextFieldTextDidChangeNotification object:self.field];
+        [self drainCapture];
+        XCTAssertEqual(self.host.textEdits.count, 0u);
+        [self.field unmarkText];
+        [self drainCapture];
+        XCTAssertEqual(self.host.textEdits.count, 1u);
+        XCTAssertEqualObjects(self.host.textEdits.firstObject[@"edit"][@"after"], @"中");
+    } @finally { tapSyncClient = nil; }
 }
 @end

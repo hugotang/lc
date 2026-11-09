@@ -6,7 +6,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Built only when input is rejected. Never retain the packet, coordinates or account identifiers.
 static inline NSString *LCTapSyncDiagnosticMode(LCTapSyncMode mode) {
-    return mode == LCTapSyncModeSingleFinger ? @"singleFinger" : mode == LCTapSyncModeTwoFingers ? @"twoFingers" : @"tapsOnly";
+    return mode == LCTapSyncModeText ? @"text" : mode == LCTapSyncModeSingleFinger ? @"singleFinger" : mode == LCTapSyncModeTwoFingers ? @"twoFingers" : @"tapsOnly";
 }
 
 static inline NSDictionary *LCTapSyncInputFailure(id _Nullable packet, LCTapSyncMode mode, uint64_t sequence,
@@ -14,9 +14,9 @@ static inline NSDictionary *LCTapSyncInputFailure(id _Nullable packet, LCTapSync
     LCTapSyncSample tap = {0};
     LCTouchSyncSample touch = {0};
     LCMultiTouchSyncFrame frame = {0};
-    BOOL decoded = mode == LCTapSyncModeTapsOnly ? LCTapSyncDecode(packet, &tap) :
+    BOOL decoded = mode == LCTapSyncModeText ? LCTextSyncPacketIsValid(packet) : mode == LCTapSyncModeTapsOnly ? LCTapSyncDecode(packet, &tap) :
         mode == LCTapSyncModeSingleFinger ? LCTouchSyncDecode(packet, &touch) : LCMultiTouchSyncDecode(packet, &frame);
-    NSTimeInterval timestamp = mode == LCTapSyncModeTapsOnly ? tap.timestamp :
+    NSTimeInterval timestamp = mode == LCTapSyncModeText ? (decoded ? [packet[@"timestamp"] doubleValue] : 0) : mode == LCTapSyncModeTapsOnly ? tap.timestamp :
         mode == LCTapSyncModeSingleFinger ? touch.timestamp : frame.timestamp;
     BOOL checksSequence = [stage isEqualToString:@"hostReceive"] || [stage isEqualToString:@"guestReceive"];
     NSString *reason;

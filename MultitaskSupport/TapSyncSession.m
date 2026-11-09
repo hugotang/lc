@@ -44,7 +44,7 @@
     return [self initWithSource:source targets:targets mode:LCTapSyncModeTapsOnly];
 }
 - (instancetype)initWithSource:(NSString *)source targets:(NSArray<NSString *> *)targets mode:(LCTapSyncMode)mode {
-    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers) return nil;
+    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers && mode != LCTapSyncModeText) return nil;
     if (![source isKindOfClass:NSString.class] || source.length == 0 || source.length > 1024 ||
         ![targets isKindOfClass:NSArray.class] || targets.count == 0 || targets.count > 63) return nil;
     NSMutableSet *seen = [NSMutableSet setWithObject:source];
@@ -67,6 +67,7 @@
 - (LCTapSyncResult)enqueueSourceReturn:(NSArray<NSDictionary *> *)packets fromSource:(NSString *)source
                               session:(NSString *)session now:(NSTimeInterval)now {
     if (!self.valid || ![session isEqualToString:self.identifier] || ![source isEqualToString:self.source]) return LCTapSyncResultStopped;
+    if (self.mode == LCTapSyncModeText) return LCTapSyncResultInvalidGesture;
     if (self.receivedSourceReturn || self.lastSequence || self.pendingCount) return LCTapSyncResultInvalidGesture;
     if (!isfinite(now) || now <= 0) return LCTapSyncResultExpired;
     if (![packets isKindOfClass:NSArray.class] || packets.count > 64) return LCTapSyncResultInvalidGesture;
@@ -189,6 +190,30 @@
     self.multiTouchStream = stream;
     return LCTapSyncResultAccepted;
 }
+- (LCTapSyncResult)enqueueTextEdit:(NSDictionary *)edit fromSource:(NSString *)source session:(NSString *)session
+                          sequence:(uint64_t)sequence now:(NSTimeInterval)now {
+    if (!self.valid || ![session isEqualToString:self.identifier] || ![source isEqualToString:self.source]) return LCTapSyncResultStopped;
+    if (self.mode != LCTapSyncModeText) return LCTapSyncResultInvalidGesture;
+    if (sequence == 0 || self.lastSequence == UINT64_MAX || sequence != self.lastSequence + 1) {
+        self.lastInputFailure = LCTapSyncInputFailure(edit, self.mode, sequence, self.lastSequence, now, @"hostReceive");
+        return LCTapSyncResultExpired;
+    }
+    if (!LCTextSyncPacketIsFresh(edit, now)) {
+        self.lastInputFailure = LCTapSyncInputFailure(edit, self.mode, sequence, self.lastSequence, now, @"hostReceive");
+        return LCTapSyncResultExpired;
+    }
+    // Every committed edit depends on its previous text. Never coalesce or drop an edit.
+    if (self.queue.count >= 4) return LCTapSyncResultBusy;
+    self.lastSequence = sequence;
+    NSDictionary *field = edit[@"field"];
+    NSDictionary *snapshot = @{@"timestamp": [edit[@"timestamp"] copy], @"before": [edit[@"before"] copy],
+        @"after": [edit[@"after"] copy], @"selectionLocation": [edit[@"selectionLocation"] copy],
+        @"selectionLength": [edit[@"selectionLength"] copy],
+        @"field": @{@"kind": [field[@"kind"] copy], @"path": [[NSArray alloc] initWithArray:field[@"path"] copyItems:YES],
+                    @"identifier": [field[@"identifier"] copy]}};
+    [self.queue addObject:@{@"text": snapshot, @"sequence": @(sequence)}];
+    return LCTapSyncResultAccepted;
+}
 - (NSDictionary *)takeNextAtTime:(NSTimeInterval)now result:(LCTapSyncResult *)result {
     *result = self.valid ? LCTapSyncResultAccepted : LCTapSyncResultStopped;
     if (!self.valid || self.pendingCount == 0) return nil;
@@ -197,13 +222,13 @@
     LCTapSyncSample tap;
     LCTouchSyncSample touch;
     LCMultiTouchSyncFrame frame;
-    BOOL fresh = self.mode == LCTapSyncModeTapsOnly ?
+    BOOL fresh = self.mode == LCTapSyncModeText ? LCTextSyncPacketIsFresh(next[@"text"], now) : self.mode == LCTapSyncModeTapsOnly ?
         LCTapSyncDecode(next[@"tap"], &tap) && LCTapSyncSampleIsFresh(tap, now) : self.mode == LCTapSyncModeSingleFinger ?
         LCTouchSyncDecode(next[@"touch"], &touch) && LCTouchSyncSampleIsFresh(touch, now) :
         LCMultiTouchSyncDecode(next[@"frame"], &frame) && LCMultiTouchSyncFrameIsFresh(frame, now);
     if (!fresh) {
         uint64_t sequence = [next[@"sequence"] unsignedLongLongValue];
-        self.lastInputFailure = LCTapSyncInputFailure(next[@"tap"] ?: next[@"touch"] ?: next[@"frame"],
+        self.lastInputFailure = LCTapSyncInputFailure(next[@"tap"] ?: next[@"touch"] ?: next[@"frame"] ?: next[@"text"],
             self.mode, sequence, sequence ? sequence - 1 : 0, now, @"hostQueue");
         *result = LCTapSyncResultExpired;
         [self invalidate];
