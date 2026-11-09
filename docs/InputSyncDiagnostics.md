@@ -24,6 +24,14 @@ Only rejection paths construct detailed input records. Copying performs one on-d
 
 The input-age limit remains **750 ms**, acknowledgment timeout **3 seconds**, and start preparation **5 seconds**. This feature does not retry rejected input or change automatic recovery. The existing combined `lc.tapSync.expiredInput` message remains; the JSON gives the more specific reason.
 
+## Text input readiness (3.8.41)
+
+Text Only failures also record `mode: text`, a fixed `reason`, `stage` and `observedAtUptime`. Preparation uses the incoming session identifier even when the guest has not activated the session, so a failed start can be inspected. Runtime records use `guestCapture` or `guestReplay`; preparation uses `guestPrepare`. These records never include text, field labels/identifiers, hierarchy paths, responder class names or exception details.
+
+Adapter reasons include `noFocusedInput`, `focusChanged`, `unsupportedResponder`, `ambiguousInput`, `notVisible`, `disabled`, `secure`, `composing`, `invalidSelection`, `invalidText`, `unsupportedHierarchy` and `wrongThread` and `sessionChanged`. Client reasons include `exception`, `windowUnavailable`, `noBoundInput`, `geometryChanged`, `outsideSelectedInput`, `localEdit`, `contentMismatch` and the generic `unavailable`. The settings panel groups these into actionable messages and retains affected window numbers. A no-focus result describes the observed state; it does not prove why focus was lost. `notVisible` can also mean a disabled ancestor or noninteractive hierarchy.
+
+The 3.8.40 Monster Strike search report was the generic readiness result, even after the user opened each account's search field and returned to the source. That message cannot establish which condition failed. The 3.8.41 additions identify the runtime condition without forcing focus, enabling hidden controls or bypassing app validators. Physical-device search synchronization remains unverified.
+
 ## Device evidence and validation
 
 On 2026-10-26, with LiveContainer **3.8.28**, iPad Pro M1 / iOS **27.0.1** and Japanese Monster Strike four-account **Single Finger** sync, the user reported an early workspace-restore pause attributed to window 3 with `lc.tapSync.expiredInput`, after 14 completed forwarded actions. Rapid source tapping after all four games loaded was normal. Follower → source recovery, landscape → portrait → landscape recovery, and manual Pause/Resume with the group/mode preserved also passed. USB confirmed the four LiveProcess guests; scoped system logs showed rotation-related UI status text consistent with those observations, but supplied no command ages or sequences. The loading-delay hypothesis is plausible; actual age expiry versus sequence rejection remains unconfirmed for that incident.

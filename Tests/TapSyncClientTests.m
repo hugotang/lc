@@ -516,6 +516,29 @@
 @end
 
 
+@interface LCTextSyncThrowingWindow : UIWindow
+@property(nonatomic) BOOL failRead;
+@end
+@implementation LCTextSyncThrowingWindow
+- (UIViewController *)rootViewController {
+    if (self.failRead) @throw [NSException exceptionWithName:@"private-exception" reason:@"private-message" userInfo:nil];
+    return [super rootViewController];
+}
+@end
+
+@interface LCTextSyncThrowingInput : LCTextSyncInput
+@property(nonatomic) BOOL failCapture;
+@end
+@implementation LCTextSyncThrowingInput
+- (LCTextSyncInputResult)validateCurrentInput {
+    if (!self.failCapture) @throw [NSException exceptionWithName:@"private-exception" reason:@"private-message" userInfo:nil];
+    return LCTextSyncInputResultReady;
+}
+- (NSDictionary *)captureEditAtTime:(NSTimeInterval)time result:(LCTextSyncInputResult *)result {
+    @throw [NSException exceptionWithName:@"private-exception" reason:@"private-message" userInfo:nil];
+}
+@end
+
 @interface TapSyncTextClientTests : XCTestCase
 @property(nonatomic) UIWindow *window;
 @property(nonatomic) UITextField *field;
@@ -617,13 +640,15 @@
     [self drainCapture];
     XCTAssertNil(self.client.session);
     XCTAssertEqual(self.host.textEdits.count, 0u);
-    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputUnavailable);
+    XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputNotFocused);
     XCTAssertTrue([self.field becomeFirstResponder]);
     [self bindSession];
     self.client.source = NO;
     [self changeText:@"local edit"];
     XCTAssertNil(self.client.session);
     XCTAssertEqual(self.host.reason, LCTapSyncResultTextInputMismatch);
+    XCTAssertEqualObjects(self.client.lastInputFailure[@"reason"], @"localEdit");
+    XCTAssertEqualObjects(self.client.lastInputFailure[@"stage"], @"guestReplay");
 }
 - (void)testReplayDoesNotEchoAndRejectsDuplicateExpiredOrWrongText {
     [self changeText:@"1234"];
@@ -644,10 +669,90 @@
     NSMutableDictionary *next = packet.mutableCopy;
     next[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
     XCTAssertEqual([self.client applyTextEdit:next session:session sequence:2], LCTapSyncResultTextInputMismatch);
+    NSDictionary *mismatch = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(mismatch[@"reason"], @"contentMismatch");
+    XCTAssertEqualObjects(mismatch[@"stage"], @"guestReplay");
+    XCTAssertEqualObjects(mismatch[@"mode"], @"text");
+    XCTAssertEqual(mismatch.count, 4u);
     next[@"before"] = @"1234"; next[@"after"] = @""; next[@"selectionLocation"] = @0;
     next[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime - 1);
     XCTAssertEqual([self.client applyTextEdit:next session:session sequence:2], LCTapSyncResultExpired);
     XCTAssertEqualObjects(self.field.text, @"1234");
+}
+- (void)testPreparationDiagnosticsBindIncomingSessionBeforeItBecomesActive {
+    NSString *oldSession = self.client.session;
+    self.client.session = nil;
+    [self.field resignFirstResponder];
+    NSString *attempt = NSUUID.UUID.UUIDString;
+    LCTapSyncResult result;
+    XCTAssertNil([self.client prepareTextInputForWindow:self.window session:attempt result:&result]);
+    XCTAssertEqual(result, LCTapSyncResultTextInputNotFocused);
+    NSDictionary *failure = [self.client inputDiagnosticsForSession:attempt][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"noFocusedInput");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestPrepare");
+    XCTAssertEqualObjects(failure[@"mode"], @"text");
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:oldSession], (@{@"available": @NO}));
+    XCTAssertNil(self.client.session);
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:attempt][@"lastInputFailure"], failure);
+    XCTAssertEqual(failure.count, 4u);
+    XCTAssertEqualObjects(LCTapSyncSanitizedInputFailure(failure), failure);
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    NSString *replacement = NSUUID.UUID.UUIDString;
+    self.client.session = replacement;
+    XCTAssertNotNil([self.client prepareTextInputForWindow:self.window session:replacement]);
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:replacement], (@{@"available": @NO}));
+    XCTAssertEqualObjects([self.client inputDiagnosticsForSession:attempt][@"lastInputFailure"], failure);
+}
+- (void)testCaptureAndReplayDiagnosticsDistinguishVisibilityFromFocusLoss {
+    NSString *session = self.client.session;
+    self.field.alpha = 0;
+    XCTAssertEqual([self.client validateTextInput], LCTapSyncResultTextInputNotVisible);
+    NSDictionary *failure = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"notVisible");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestCapture");
+    self.field.alpha = 1;
+    [self.field resignFirstResponder];
+    failure = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"focusChanged");
+    XCTAssertNil(self.client.session);
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    [self bindSession];
+    self.client.source = NO;
+    session = self.client.session;
+    self.field.alpha = 0;
+    XCTAssertEqual([self.client validateTextInputAtStage:@"guestReplay"], LCTapSyncResultTextInputNotVisible);
+    failure = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"notVisible");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestReplay");
+    self.field.alpha = 1;
+}
+- (void)testExceptionsRecordOnlyBoundedReasonAndKeepMatchingSession {
+    self.client.session = nil;
+    NSString *attempt = NSUUID.UUID.UUIDString;
+    LCTextSyncThrowingWindow *throwingWindow = [[LCTextSyncThrowingWindow alloc] initWithFrame:CGRectZero];
+    throwingWindow.failRead = YES;
+    XCTAssertNil([self.client prepareTextInputForWindow:throwingWindow session:attempt]);
+    throwingWindow.failRead = NO;
+    NSDictionary *failure = [self.client inputDiagnosticsForSession:attempt][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"exception");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestPrepare");
+    [self bindSession];
+    NSString *session = self.client.session;
+    self.client.textInput = [LCTextSyncThrowingInput new];
+    XCTAssertEqual([self.client validateTextInput], LCTapSyncResultTextInputUnavailable);
+    failure = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"exception");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestCapture");
+    ((LCTextSyncThrowingInput *)self.client.textInput).failCapture = YES;
+    [self.client scheduleTextCapture];
+    [self drainCapture];
+    XCTAssertNil(self.client.session);
+    failure = [self.client inputDiagnosticsForSession:session][@"lastInputFailure"];
+    XCTAssertEqualObjects(failure[@"reason"], @"exception");
+    XCTAssertEqualObjects(failure[@"stage"], @"guestCapture");
+    NSString *json = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:failure options:0 error:nil] encoding:NSUTF8StringEncoding];
+    XCTAssertFalse([json containsString:@"private-exception"] || [json containsString:@"private-message"] || [json containsString:session]);
+    XCTAssertEqual(failure.count, 4u);
 }
 - (void)testMarkedCompositionWaitsForUnmarkHookAndCancelsOnStop {
     LCTextSyncInstallCommitHooks();

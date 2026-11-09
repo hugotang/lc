@@ -14,6 +14,12 @@
 - (BOOL)isFirstResponder { return YES; }
 @end
 
+@interface LCTextSyncMissingSelectionField : LCTextSyncAdditionalFocusedField
+@end
+@implementation LCTextSyncMissingSelectionField
+- (UITextRange *)selectedTextRange { return nil; }
+@end
+
 @interface LCTextSyncTestDelegate : NSObject <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic) NSUInteger validations, changes, controls;
 @property(nonatomic) BOOL reject, transform;
@@ -245,6 +251,7 @@
     [self setSelection:NSMakeRange(6, 0) input:self.field];
     [self.field setMarkedText:@"x" selectedRange:NSMakeRange(1, 0)];
     XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonComposing);
     [self.field unmarkText];
     self.field.text = @"before";
     [self setSelection:NSMakeRange(6, 0) input:self.field];
@@ -253,6 +260,7 @@
     signature[@"identifier"] = @"another-field";
     wrong[@"field"] = signature;
     XCTAssertEqual([target applyPacket:wrong], LCTextSyncInputResultMismatch);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonNone);
     XCTAssertEqualObjects(self.field.text, @"before");
 }
 - (void)testPacketValidationBoundsUnicodeAndFreshness {
@@ -322,6 +330,7 @@
     XCTAssertEqual(delegate.validations, 1u);
     XCTAssertEqual(delegate.controls, 0u);
     XCTAssertEqual(self.field.delegate, delegate);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonSessionChanged);
 }
 - (void)testPrivateEditorIsPartOfFocusedFieldButSeparateFocusedFieldsAreRejected {
     XCTAssertTrue(self.field.isFirstResponder);
@@ -337,5 +346,79 @@
     [other removeFromSuperview];
     XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultReady);
     [editor removeFromSuperview];
+}
+- (void)testReadinessReasonsDistinguishFocusCompositionAndSecurity {
+    LCTextSyncUnavailableReason reason = LCTextSyncUnavailableReasonNoFocusedInput;
+    LCTextSyncInput *input = [LCTextSyncInput inputForWindow:self.window unavailableReason:&reason];
+    XCTAssertNotNil(input);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNone);
+    self.field.secureTextEntry = YES;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonSecure);
+    XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(input.lastUnavailableReason, LCTextSyncUnavailableReasonSecure);
+    self.field.secureTextEntry = NO;
+    [self.field setMarkedText:@"mi" selectedRange:NSMakeRange(2, 0)];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonComposing);
+    // Ongoing source composition remains allowed after a successful preparation.
+    XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultReady);
+    XCTAssertEqual(input.lastUnavailableReason, LCTextSyncUnavailableReasonNone);
+    [self.field unmarkText];
+    [self.window endEditing:YES];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNoFocusedInput);
+    XCTAssertEqual([input validateCurrentInput], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(input.lastUnavailableReason, LCTextSyncUnavailableReasonFocusChanged);
+}
+- (void)testReadinessReasonsDistinguishUnsupportedAmbiguousAndInvisibleResponders {
+    [self.window endEditing:YES];
+    LCTextSyncUnavailableReason reason;
+    LCTextSyncNestedResponderView *unsupported = [[LCTextSyncNestedResponderView alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:unsupported];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonUnsupportedResponder);
+    [unsupported removeFromSuperview];
+    LCTextSyncAdditionalFocusedField *proxy = [[LCTextSyncAdditionalFocusedField alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:proxy];
+    proxy.alpha = 0;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNotVisible);
+    proxy.alpha = 1;
+    proxy.enabled = NO;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonDisabled);
+    proxy.enabled = YES;
+    XCTAssertTrue([self.field becomeFirstResponder]);
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonAmbiguousInput);
+    [proxy removeFromSuperview];
+}
+- (void)testReadinessReasonsDistinguishSelectionTextAndStructureWithoutIncludingValues {
+    LCTextSyncUnavailableReason reason;
+    NSString *secret = @"private player field and text";
+    self.field.text = [secret stringByPaddingToLength:4097 withString:secret startingAtIndex:0];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonInvalidText);
+    XCTAssertEqualObjects(LCTextSyncUnavailableReasonName(reason), @"invalidText");
+    self.field.text = @"";
+    [self setSelection:NSMakeRange(0, 0) input:self.field];
+    self.field.accessibilityIdentifier = [secret stringByPaddingToLength:1025 withString:secret startingAtIndex:0];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonUnsupportedHierarchy);
+    [self.window endEditing:YES];
+    LCTextSyncMissingSelectionField *missing = [[LCTextSyncMissingSelectionField alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:missing];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonInvalidSelection);
+    [missing removeFromSuperview];
+    NSArray *names = @[@"none", @"noFocusedInput", @"unsupportedResponder", @"ambiguousInput", @"notVisible", @"disabled", @"secure", @"composing", @"invalidSelection", @"invalidText", @"unsupportedHierarchy", @"focusChanged", @"wrongThread", @"sessionChanged"];
+    for (NSInteger value = LCTextSyncUnavailableReasonNone; value <= LCTextSyncUnavailableReasonSessionChanged; value++) {
+        NSString *name = LCTextSyncUnavailableReasonName((LCTextSyncUnavailableReason)value);
+        XCTAssertEqualObjects(name, names[(NSUInteger)value]);
+        XCTAssertFalse([name containsString:secret]);
+        XCTAssertLessThan(name.length, 32u);
+    }
+    XCTAssertEqualObjects(LCTextSyncUnavailableReasonName((LCTextSyncUnavailableReason)NSIntegerMax), @"unknown");
 }
 @end

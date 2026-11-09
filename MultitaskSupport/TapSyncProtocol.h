@@ -35,6 +35,12 @@ typedef NS_ENUM(NSInteger, LCTapSyncResult) {
     LCTapSyncResultSuspended,
     LCTapSyncResultTextInputUnavailable,
     LCTapSyncResultTextInputMismatch,
+    LCTapSyncResultTextInputNotFocused,
+    LCTapSyncResultTextInputUnsupported,
+    LCTapSyncResultTextInputNotVisible,
+    LCTapSyncResultTextInputComposing,
+    LCTapSyncResultTextInputSelectionUnavailable,
+    LCTapSyncResultTextInputSecure,
 };
 
 @protocol LCTapSyncGuestProtocol

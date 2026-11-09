@@ -36141,12 +36141,60 @@
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "接收視窗未能及時處理，文字同步已暫停。請檢查所有輸入框後再繼續。" } }
       }
     },
+    "lc.tapSync.textInputNotFocused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this window has no active text field, or the field lost focus. Tap its input field, return to the source, then resume." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此窗口没有正在编辑的输入框，或输入框已失去焦点。请点按该输入框，返回来源窗口后再继续。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此視窗沒有正在編輯的輸入框，或輸入框已失去焦點。請點一下該輸入框，返回來源視窗後再繼續。" } }
+      }
+    },
+    "lc.tapSync.textInputUnsupported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this app's active input control is not supported by Text Only. Copy Sync Diagnostics to help check compatibility." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：仅文字模式不支持此 App 当前的输入控件。请复制同步诊断，以便检查兼容性。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：僅文字模式不支援此 App 目前的輸入控制項。請複製同步診斷，以便檢查相容性。" } }
+      }
+    },
+    "lc.tapSync.textInputNotVisible" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this input field is hidden or cannot be edited. Bring the field into view and enable editing, then resume." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此输入框不可见或无法编辑。请让输入框显示并处于可编辑状态后再继续。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此輸入框不可見或無法編輯。請讓輸入框顯示並處於可編輯狀態後再繼續。" } }
+      }
+    },
+    "lc.tapSync.textInputComposing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: character composition is still active in this window. Finish or cancel character selection, then resume." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此窗口仍在组字或选字。请完成或取消选字后再继续。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此視窗仍在組字或選字。請完成或取消選字後再繼續。" } }
+      }
+    },
+    "lc.tapSync.textInputSelectionUnavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this field's caret or selected range could not be read. Tap inside the field and try again. If it repeats, copy Sync Diagnostics." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：无法读取此输入框的光标或选取范围。请点按输入框后重试；若仍然发生，请复制同步诊断。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：無法讀取此輸入框的游標或選取範圍。請點一下輸入框後重試；若仍然發生，請複製同步診斷。" } }
+      }
+    },
+    "lc.tapSync.textInputSecure" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this field uses secure text entry. Password fields are excluded from text sync; use a non-password field." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此输入框使用安全文字输入。文字同步不包含密码框；请选择非密码输入框。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此輸入框使用安全文字輸入。文字同步不包含密碼框；請選擇非密碼輸入框。" } }
+      }
+    },
     "lc.tapSync.textInputUnavailable" : {
       "extractionState" : "manual",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: a supported text field is not ready. Open the same standard, non-password field in each account, finish choosing characters, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：输入框尚未就绪或不受支持。请在每个账号打开相同的标准非密码输入框，完成选字后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：輸入框尚未就緒或不受支援。請在每個帳號開啟相同的標準非密碼輸入框，完成選字後再繼續。" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: text input could not be prepared or checked. Try again; if it repeats, copy Sync Diagnostics from Input Sync settings." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：无法准备或检查文字输入。请重试；若仍然发生，请在输入同步设置中复制同步诊断。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：無法準備或檢查文字輸入。請重試；若仍然發生，請在輸入同步設定中複製同步診斷。" } }
       }
     },
     "lc.tapSync.textInputMismatch" : {

@@ -186,6 +186,10 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 - (void)textFocusChanged:(NSNotification *)notification;
 - (void)textControlChanged:(UIControl *)control;
 - (LCTapSyncResult)validateTextInput;
+- (LCTapSyncResult)validateTextInputAtStage:(NSString *)stage;
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session;
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session result:(LCTapSyncResult *)result;
+- (void)recordTextInputFailure:(NSString *)reason stage:(NSString *)stage session:(NSString *)session;
 - (LCTapSyncResult)applyTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence;
 - (void)interrupt:(LCTapSyncResult)reason;
 - (void)interruptAfterCurrentEvent:(LCTapSyncResult)reason;
@@ -203,6 +207,21 @@ static LCTapHIDEventRef LCTapCreateHID(UITouch *touch) {
 - (void)recordExpiredInput:(id)packet sequence:(uint64_t)sequence previousSequence:(uint64_t)previous atTime:(NSTimeInterval)now stage:(NSString *)stage;
 - (NSDictionary *)inputDiagnosticsForSession:(NSString *)session;
 @end
+
+static LCTapSyncResult LCTextSyncUnavailableResult(LCTextSyncUnavailableReason reason) {
+    switch (reason) {
+        case LCTextSyncUnavailableReasonNoFocusedInput:
+        case LCTextSyncUnavailableReasonFocusChanged: return LCTapSyncResultTextInputNotFocused;
+        case LCTextSyncUnavailableReasonUnsupportedResponder:
+        case LCTextSyncUnavailableReasonUnsupportedHierarchy: return LCTapSyncResultTextInputUnsupported;
+        case LCTextSyncUnavailableReasonNotVisible:
+        case LCTextSyncUnavailableReasonDisabled: return LCTapSyncResultTextInputNotVisible;
+        case LCTextSyncUnavailableReasonComposing: return LCTapSyncResultTextInputComposing;
+        case LCTextSyncUnavailableReasonInvalidSelection: return LCTapSyncResultTextInputSelectionUnavailable;
+        case LCTextSyncUnavailableReasonSecure: return LCTapSyncResultTextInputSecure;
+        default: return LCTapSyncResultTextInputUnavailable;
+    }
+}
 
 static LCTapSyncClient *tapSyncClient;
 
@@ -280,6 +299,33 @@ static LCTapSyncClient *tapSyncClient;
     self.lastInputFailure = LCTapSyncInputFailure(packet, self.mode, sequence, previous, now, stage);
     self.lastInputFailureSession = self.session;
 }
+- (void)recordTextInputFailure:(NSString *)reason stage:(NSString *)stage session:(NSString *)session {
+    if (!session.length) return;
+    // Only adapter-enumerated or call-site constants enter this record. Never include text, paths or class names.
+    self.lastInputFailure = @{@"reason": reason, @"stage": stage, @"mode": @"text",
+        @"observedAtUptime": @(NSProcessInfo.processInfo.systemUptime)};
+    self.lastInputFailureSession = session;
+}
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session {
+    return [self prepareTextInputForWindow:window session:session result:NULL];
+}
+- (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session result:(LCTapSyncResult *)result {
+    if (result) *result = LCTapSyncResultAccepted;
+    @try {
+        LCTextSyncUnavailableReason reason = LCTextSyncUnavailableReasonNone;
+        LCTextSyncInput *input = [LCTextSyncInput inputForWindow:window unavailableReason:&reason];
+        if (!input) {
+            [self recordTextInputFailure:reason ? LCTextSyncUnavailableReasonName(reason) : @"unavailable"
+                                  stage:@"guestPrepare" session:session];
+            if (result) *result = LCTextSyncUnavailableResult(reason);
+        }
+        return input;
+    } @catch (NSException *exception) {
+        [self recordTextInputFailure:@"exception" stage:@"guestPrepare" session:session];
+        if (result) *result = LCTapSyncResultTextInputUnavailable;
+        return nil;
+    }
+}
 - (NSDictionary *)inputDiagnosticsForSession:(NSString *)session {
     // Keep one rejection across stop/Resume, but never return another session's failure.
     NSDictionary *failure = [self.lastInputFailureSession isEqualToString:session] ? self.lastInputFailure : nil;
@@ -312,16 +358,23 @@ static LCTapSyncClient *tapSyncClient;
         LCTapSyncResult windowResult;
         UIWindow *window;
         LCTextSyncInput *textInput = nil;
+        LCTapSyncResult textResult = LCTapSyncResultTextInputUnavailable;
         @try {
             window = mode == LCTapSyncModeText ? LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &windowResult) : LCTapSyncGuestWindowWithResult(&windowResult);
-            if (window && mode == LCTapSyncModeText) textInput = [LCTextSyncInput inputForWindow:window];
-        } @catch (NSException *exception) { reply(LCTapSyncResultTextInputUnavailable); return; }
-        if (!window) { reply(windowResult); return; }
+            if (window && mode == LCTapSyncModeText) textInput = [self prepareTextInputForWindow:window session:session result:&textResult];
+        } @catch (NSException *exception) {
+            if (mode == LCTapSyncModeText) [self recordTextInputFailure:@"exception" stage:@"guestPrepare" session:session];
+            reply(LCTapSyncResultTextInputUnavailable); return;
+        }
+        if (!window) {
+            if (mode == LCTapSyncModeText) [self recordTextInputFailure:@"windowUnavailable" stage:@"guestPrepare" session:session];
+            reply(windowResult); return;
+        }
         if (window.bounds.size.width < 1 || window.bounds.size.height < 1 || window.windowScene.interfaceOrientation == UIInterfaceOrientationUnknown) {
             reply(LCTapSyncResultWindowNotReady); return;
         }
         if (!source && !self.supported && mode != LCTapSyncModeText) { reply(LCTapSyncResultUnsupported); return; }
-        if (mode == LCTapSyncModeText && !textInput) { reply(LCTapSyncResultTextInputUnavailable); return; }
+        if (mode == LCTapSyncModeText && !textInput) { reply(textResult); return; }
         @try {
             if (self.inputState.hasPhysicalTouches || ([UIApplication.sharedApplication respondsToSelector:@selector(_touchesEvent)] &&
                 LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState))) {
@@ -741,6 +794,7 @@ static LCTapSyncClient *tapSyncClient;
             UIView *view = touch.view;
             if (LCTapSyncIsSystemKeyboardWindow(touch.window)) continue;
             if (!view || (view != self.textInput.responder && ![view isDescendantOfView:self.textInput.responder])) {
+                [self recordTextInputFailure:@"outsideSelectedInput" stage:@"guestCapture" session:self.session];
                 [self interrupt:LCTapSyncResultTextInputUnavailable]; return;
             }
         }
@@ -788,20 +842,45 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
     }
 }
 - (LCTapSyncResult)validateTextInput {
+    return [self validateTextInputAtStage:@"guestCapture"];
+}
+- (LCTapSyncResult)validateTextInputAtStage:(NSString *)stage {
+    NSString *session = self.session;
     @try {
-    if (!self.textInput || !self.textWindow) return LCTapSyncResultTextInputUnavailable;
-    LCTapSyncResult result;
-    UIWindow *window = LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &result);
-    if (!window) return result;
-    if (window != self.textWindow || !CGRectEqualToRect(window.bounds, self.textBounds) ||
-        window.windowScene.interfaceOrientation != self.textOrientation) return LCTapSyncResultGeometryChanged;
-    return LCTextSyncResult([self.textInput validateCurrentInput]);
-    } @catch (NSException *exception) { return LCTapSyncResultTextInputUnavailable; }
+        if (!self.textInput || !self.textWindow) {
+            [self recordTextInputFailure:@"noBoundInput" stage:stage session:session];
+            return LCTapSyncResultTextInputUnavailable;
+        }
+        LCTapSyncResult result;
+        UIWindow *window = LCTapSyncFindTextGuestWindow(UIApplication.sharedApplication.connectedScenes, &result);
+        if (!window) {
+            [self recordTextInputFailure:@"windowUnavailable" stage:stage session:session];
+            return result;
+        }
+        if (window != self.textWindow || !CGRectEqualToRect(window.bounds, self.textBounds) ||
+            window.windowScene.interfaceOrientation != self.textOrientation) {
+            [self recordTextInputFailure:@"geometryChanged" stage:stage session:session];
+            return LCTapSyncResultGeometryChanged;
+        }
+        LCTextSyncInputResult inputResult = [self.textInput validateCurrentInput];
+        if (inputResult != LCTextSyncInputResultReady) {
+            LCTextSyncUnavailableReason reason = self.textInput.lastUnavailableReason;
+            [self recordTextInputFailure:reason ? LCTextSyncUnavailableReasonName(reason) : @"unavailable" stage:stage session:session];
+            if (inputResult == LCTextSyncInputResultUnavailable || reason != LCTextSyncUnavailableReasonNone) return LCTextSyncUnavailableResult(reason);
+        }
+        return LCTextSyncResult(inputResult);
+    } @catch (NSException *exception) {
+        [self recordTextInputFailure:@"exception" stage:stage session:session];
+        return LCTapSyncResultTextInputUnavailable;
+    }
 }
 - (void)textInputChanged:(NSNotification *)notification {
     if (!self.session || self.mode != LCTapSyncModeText || self.replaying || self.suspended) return;
     if (notification.object != self.textInput.responder) return;
-    if (!self.source) { [self interrupt:LCTapSyncResultTextInputMismatch]; return; }
+    if (!self.source) {
+        [self recordTextInputFailure:@"localEdit" stage:@"guestReplay" session:self.session];
+        [self interrupt:LCTapSyncResultTextInputMismatch]; return;
+    }
     [self scheduleTextCapture];
 }
 - (void)textControlChanged:(UIControl *)control {
@@ -812,7 +891,8 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
     UIView *view = [notification.object isKindOfClass:UIView.class] ? notification.object : nil;
     if (view == self.textInput.responder || view.window == self.textWindow) {
         // Even a field that resigns and regains focus before the next run loop requires a fresh session.
-        [self interrupt:LCTapSyncResultTextInputUnavailable];
+        [self recordTextInputFailure:@"focusChanged" stage:self.source ? @"guestCapture" : @"guestReplay" session:self.session];
+        [self interrupt:LCTapSyncResultTextInputNotFocused];
     }
 }
 - (void)scheduleTextCapture {
@@ -830,7 +910,11 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
         @try {
             LCTextSyncInputResult captured;
             NSDictionary *packet = [self.textInput captureEditAtTime:self.textCaptureTimestamp result:&captured];
-            if (captured != LCTextSyncInputResultReady) { [self interrupt:LCTextSyncResult(captured)]; return; }
+            if (captured != LCTextSyncInputResultReady) {
+                LCTextSyncUnavailableReason reason = self.textInput.lastUnavailableReason;
+                [self recordTextInputFailure:reason ? LCTextSyncUnavailableReasonName(reason) : @"unavailable" stage:@"guestCapture" session:session];
+                [self interrupt:reason ? LCTextSyncUnavailableResult(reason) : LCTextSyncResult(captured)]; return;
+            }
             if (!packet) return;
             NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
             if (self.sequence == UINT64_MAX || !LCTextSyncPacketIsFresh(packet, now)) {
@@ -843,7 +927,10 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
                 });
             }];
             [host submitTextEdit:packet session:session sequence:++self.sequence];
-        } @catch (NSException *exception) { [self interrupt:LCTapSyncResultTextInputUnavailable]; }
+        } @catch (NSException *exception) {
+            [self recordTextInputFailure:@"exception" stage:@"guestCapture" session:session];
+            [self interrupt:LCTapSyncResultTextInputUnavailable];
+        }
     });
 }
 - (LCTapSyncResult)applyTextEdit:(NSDictionary *)packet session:(NSString *)session sequence:(uint64_t)sequence {
@@ -855,7 +942,7 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
         [self recordExpiredInput:packet sequence:sequence previousSequence:self.sequence atTime:now stage:@"guestReceive"];
         return LCTapSyncResultExpired;
     }
-    LCTapSyncResult result = [self validateTextInput];
+    LCTapSyncResult result = [self validateTextInputAtStage:@"guestReplay"];
     if (result != LCTapSyncResultAccepted) return result;
     if (self.inputState.hasPhysicalTouches) return LCTapSyncResultPhysicalTouch;
     LCTextSyncInput *input = self.textInput;
@@ -869,8 +956,25 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
         if ([UIApplication.sharedApplication respondsToSelector:@selector(_touchesEvent)] &&
             LCTapHasRealTouches([UIApplication.sharedApplication _touchesEvent], self.inputState)) return LCTapSyncResultPhysicalTouch;
         self.replaying = YES;
-        result = LCTextSyncResult([input applyPacket:packet]);
-    } @catch (NSException *exception) { result = LCTapSyncResultTextInputUnavailable; }
+        LCTextSyncInputResult inputResult = [input applyPacket:packet];
+        BOOL unavailable = inputResult == LCTextSyncInputResultUnavailable || inputResult == LCTextSyncInputResultMismatch;
+        result = unavailable && input.lastUnavailableReason ? LCTextSyncUnavailableResult(input.lastUnavailableReason) : LCTextSyncResult(inputResult);
+        // A callback may have already stopped the session with the more specific focus reason.
+        if (result != LCTapSyncResultAccepted && [self.session isEqualToString:session]) {
+            if (result == LCTapSyncResultExpired) {
+                [self recordExpiredInput:packet sequence:sequence previousSequence:self.sequence
+                                  atTime:NSProcessInfo.processInfo.systemUptime stage:@"guestReplay"];
+            } else {
+                LCTextSyncUnavailableReason reason = input.lastUnavailableReason;
+                NSString *name = reason ? LCTextSyncUnavailableReasonName(reason) :
+                    inputResult == LCTextSyncInputResultMismatch ? @"contentMismatch" : @"unavailable";
+                [self recordTextInputFailure:name stage:@"guestReplay" session:session];
+            }
+        }
+    } @catch (NSException *exception) {
+        if ([self.session isEqualToString:session]) [self recordTextInputFailure:@"exception" stage:@"guestReplay" session:session];
+        result = LCTapSyncResultTextInputUnavailable;
+    }
     @finally { input.shouldContinue = nil; self.replaying = NO; }
     if (result == LCTapSyncResultAccepted) {
         if (![self.session isEqualToString:session]) return LCTapSyncResultStopped;

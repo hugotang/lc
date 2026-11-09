@@ -11,12 +11,34 @@ typedef NS_ENUM(NSInteger, LCTextSyncInputResult) {
     LCTextSyncInputResultExpired,
 };
 
+typedef NS_ENUM(NSInteger, LCTextSyncUnavailableReason) {
+    LCTextSyncUnavailableReasonNone = 0,
+    LCTextSyncUnavailableReasonNoFocusedInput,
+    LCTextSyncUnavailableReasonUnsupportedResponder,
+    LCTextSyncUnavailableReasonAmbiguousInput,
+    LCTextSyncUnavailableReasonNotVisible,
+    LCTextSyncUnavailableReasonDisabled,
+    LCTextSyncUnavailableReasonSecure,
+    LCTextSyncUnavailableReasonComposing,
+    LCTextSyncUnavailableReasonInvalidSelection,
+    LCTextSyncUnavailableReasonInvalidText,
+    LCTextSyncUnavailableReasonUnsupportedHierarchy,
+    LCTextSyncUnavailableReasonFocusChanged,
+    LCTextSyncUnavailableReasonWrongThread,
+    LCTextSyncUnavailableReasonSessionChanged,
+};
+
+// Bounded diagnostics only: never includes field text, labels, IDs or class names.
+FOUNDATION_EXPORT NSString *LCTextSyncUnavailableReasonName(LCTextSyncUnavailableReason reason);
+
 // Main-thread, session-owned adapter. It never changes focus or retains text on disk.
 @interface LCTextSyncInput : NSObject
 @property(nonatomic, weak, readonly) UIView<UITextInput> *responder;
+@property(nonatomic, readonly) LCTextSyncUnavailableReason lastUnavailableReason;
 // The session owner invalidates replay when guest callbacks stop or replace it.
 @property(nonatomic, copy, nullable) BOOL (^shouldContinue)(void);
 + (nullable instancetype)inputForWindow:(UIWindow *)window;
++ (nullable instancetype)inputForWindow:(UIWindow *)window unavailableReason:(LCTextSyncUnavailableReason * _Nullable)reason;
 // Allows an in-progress composition; does not advance the committed baseline.
 - (LCTextSyncInputResult)validateCurrentInput;
 // Ready with nil means unchanged text or an IME composition still in progress.

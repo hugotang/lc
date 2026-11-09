@@ -668,6 +668,42 @@
     XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.textInputUnavailable");
     XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"C"]));
 }
+- (void)testTextPreparationReasonsIdentifyEachAffectedWindow {
+    self.sync.mode = LCTapSyncModeText;
+    self.peers[1].preparationResult = LCTapSyncResultTextInputNotFocused;
+    self.peers[2].preparationResult = LCTapSyncResultTextInputUnsupported;
+    self.peers[3].preparationResult = LCTapSyncResultTextInputComposing;
+    [self.sync start];
+    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+    XCTAssertEqual(self.peers[0].prepares, 0u);
+    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.startFailed");
+    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"B", @"C", @"D"]));
+    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"B"], @"lc.tapSync.textInputNotFocused");
+    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"C"], @"lc.tapSync.textInputUnsupported");
+    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"D"], @"lc.tapSync.textInputComposing");
+}
+- (void)testTextReadinessReasonsRemainSpecificDuringReplay {
+    self.sync.mode = LCTapSyncModeText;
+    NSArray<NSNumber *> *reasons = @[@(LCTapSyncResultTextInputNotFocused), @(LCTapSyncResultTextInputUnsupported),
+        @(LCTapSyncResultTextInputNotVisible), @(LCTapSyncResultTextInputComposing),
+        @(LCTapSyncResultTextInputSelectionUnavailable), @(LCTapSyncResultTextInputSecure)];
+    NSArray<NSString *> *keys = @[@"lc.tapSync.textInputNotFocused", @"lc.tapSync.textInputUnsupported",
+        @"lc.tapSync.textInputNotVisible", @"lc.tapSync.textInputComposing",
+        @"lc.tapSync.textInputSelectionUnavailable", @"lc.tapSync.textInputSecure"];
+    for (NSUInteger index = 0; index < reasons.count; index++) {
+        self.peers[1].replayResult = reasons[index].integerValue;
+        [self.sync start];
+        XCTAssertTrue(self.sync.active);
+        NSUInteger laterReplays = self.peers[2].replays;
+        self.peers[0].didReceiveTextEdit([self textEditFrom:@"" to:@"a"], self.peers[0].session, 1);
+        XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
+        XCTAssertEqualObjects(self.sync.statusKey, keys[index]);
+        XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"B"]));
+        XCTAssertEqualObjects([self.sync statusKeyForContainer:@"B"], keys[index]);
+        XCTAssertEqual(self.peers[2].replays, laterReplays);
+        for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
+    }
+}
 - (void)testDelayedAcknowledgmentAfterOneSecondKeepsDeliveredInputActive {
     self.peers[3].holdReplay = YES;
     [self.sync start];
