@@ -83,6 +83,12 @@ jobs:
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation -framework CoreGraphics Tests/AppDisplaySettingsTests.m -o "$RUNNER_TEMP/app-display-tests"
           "$RUNNER_TEMP/app-display-tests"
+      - name: Test app replacement preferences
+        run: |
+          mkdir -p "$RUNNER_TEMP/app-replacement-tests"
+          cp Tests/AppReplacementPreferencesTests.swift "$RUNNER_TEMP/app-replacement-tests/main.swift"
+          swiftc -warnings-as-errors LiveContainerSwiftUI/Models/LCAppReplacementPreferences.swift "$RUNNER_TEMP/app-replacement-tests/main.swift" -o "$RUNNER_TEMP/app-replacement-tests/check"
+          "$RUNNER_TEMP/app-replacement-tests/check"
       - name: Test workspace persistence
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"

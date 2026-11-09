@@ -630,6 +630,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         var appRelativePath = "\(newAppInfo.bundleIdentifier()!.sanitizeNonACSII()).app"
         var outputFolder = LCPath.bundlePath.appendingPathComponent(appRelativePath)
         var appToReplace : LCAppModel? = nil
+        var replacementPreferences: [String: Any]?
         // Folder exist! show alert for user to choose which bundle to replace
         var sameBundleIdApp = sharedModel.apps.filter { app in
             return app.appInfo.bundleIdentifier()! == newAppInfo.bundleIdentifier()
@@ -680,11 +681,19 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             appRelativePath = installOptionChosen.nameOfFolderToInstall
             appToReplace = installOptionChosen.appToReplace
             if installOptionChosen.isReplace {
+                replacementPreferences = NSDictionary(contentsOf: outputFolder.appendingPathComponent("LCAppInfo.plist")) as? [String: Any] ?? [:]
                 try fm.removeItem(at: outputFolder)
             }
         }
         // Move it!
         try fm.moveItem(at: appFolderPath, to: outputFolder)
+        if let replacementPreferences {
+            let infoURL = outputFolder.appendingPathComponent("LCAppInfo.plist")
+            let incoming = NSDictionary(contentsOf: infoURL) as? [String: Any] ?? [:]
+            let preserved = LCAppReplacementPreferences.merging(replacementPreferences, into: incoming)
+            let data = try PropertyListSerialization.data(fromPropertyList: preserved, format: .binary, options: 0)
+            try data.write(to: infoURL, options: .atomic)
+        }
         let finalNewApp = LCAppInfo(bundlePath: outputFolder.path)
         finalNewApp?.relativeBundlePath = appRelativePath
         
@@ -721,31 +730,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         if let appToReplace {
-            // copy previous configration to new app
-            finalNewApp.autoSaveDisabled = true
-            finalNewApp.isLocked = appToReplace.appInfo.isLocked
-            finalNewApp.isHidden = appToReplace.appInfo.isHidden
-            finalNewApp.isJITNeeded = appToReplace.appInfo.isJITNeeded
-            finalNewApp.isShared = appToReplace.appInfo.isShared
-            finalNewApp.spoofSDKVersion = appToReplace.appInfo.spoofSDKVersion
-            finalNewApp.doSymlinkInbox = appToReplace.appInfo.doSymlinkInbox
-            finalNewApp.containerInfo = appToReplace.appInfo.containerInfo
-            finalNewApp.tweakFolder = appToReplace.appInfo.tweakFolder
-            finalNewApp.selectedLanguage = appToReplace.appInfo.selectedLanguage
-            finalNewApp.dataUUID = appToReplace.appInfo.dataUUID
-            finalNewApp.orientationLock = appToReplace.appInfo.orientationLock
-            finalNewApp.dontInjectTweakLoader = appToReplace.appInfo.dontInjectTweakLoader
-            finalNewApp.hideLiveContainer = appToReplace.appInfo.hideLiveContainer
-            finalNewApp.dontLoadTweakLoader = appToReplace.appInfo.dontLoadTweakLoader
-            finalNewApp.doUseLCBundleId = appToReplace.appInfo.doUseLCBundleId
-            finalNewApp.fixFilePickerNew = appToReplace.appInfo.fixFilePickerNew
-            finalNewApp.fixLocalNotification = appToReplace.appInfo.fixLocalNotification
-            finalNewApp.lastLaunched = appToReplace.appInfo.lastLaunched
-            finalNewApp.jitLaunchScriptJs = appToReplace.appInfo.jitLaunchScriptJs
-            finalNewApp.multitaskSpecified = appToReplace.appInfo.multitaskSpecified
-            finalNewApp.classicMode = appToReplace.appInfo.classicMode
-            finalNewApp.autoSaveDisabled = false
-            finalNewApp.save()
+            LCAppModel.copy(fromApp: appToReplace, toAppInfo: finalNewApp)
         } else {
             // enable SDK version spoof by defalut
             finalNewApp.spoofSDKVersion = true
