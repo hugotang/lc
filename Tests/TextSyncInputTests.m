@@ -5,14 +5,20 @@
 @interface LCTextSyncTestDelegate : NSObject <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic) NSUInteger validations, changes, controls;
 @property(nonatomic) BOOL reject, transform;
+@property(nonatomic) NSTimeInterval validationDelay;
+@property(nonatomic, copy) void (^onValidate)(void);
 @end
 @implementation LCTextSyncTestDelegate
 - (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string {
     self.validations++;
+    if (self.validationDelay > 0) [NSThread sleepForTimeInterval:self.validationDelay];
+    if (self.onValidate) self.onValidate();
     return !self.reject;
 }
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
     self.validations++;
+    if (self.validationDelay > 0) [NSThread sleepForTimeInterval:self.validationDelay];
+    if (self.onValidate) self.onValidate();
     return !self.reject;
 }
 - (void)textViewDidChange:(UITextView *)textView {
@@ -79,7 +85,7 @@
     else ((UITextView *)input).text = after;
     [self setSelection:NSMakeRange(after.length, 0) input:input];
     LCTextSyncInputResult result = LCTextSyncInputResultInvalid;
-    NSDictionary *packet = [source captureEditAtTime:10 result:&result];
+    NSDictionary *packet = [source captureEditAtTime:NSProcessInfo.processInfo.systemUptime result:&result];
     XCTAssertEqual(result, LCTextSyncInputResultReady);
     XCTAssertTrue(LCTextSyncPacketIsValid(packet));
     return packet;
@@ -236,9 +242,10 @@
 }
 - (void)testPacketValidationBoundsUnicodeAndFreshness {
     NSDictionary *packet = [self packetFrom:@"" to:@"😀" input:self.field];
-    XCTAssertTrue(LCTextSyncPacketIsFresh(packet, 10.75));
-    XCTAssertFalse(LCTextSyncPacketIsFresh(packet, 10.751));
-    XCTAssertFalse(LCTextSyncPacketIsFresh(packet, 9.99));
+    NSTimeInterval timestamp = [packet[@"timestamp"] doubleValue];
+    XCTAssertTrue(LCTextSyncPacketIsFresh(packet, timestamp + 0.75));
+    XCTAssertFalse(LCTextSyncPacketIsFresh(packet, timestamp + 0.751));
+    XCTAssertFalse(LCTextSyncPacketIsFresh(packet, timestamp - 0.01));
     XCTAssertFalse(LCTextSyncPacketIsFresh(packet, NAN));
     NSMutableDictionary *bad = packet.mutableCopy;
     bad[@"selectionLocation"] = @1;
@@ -260,5 +267,45 @@
     XCTAssertFalse(LCTextSyncPacketIsValid(bad));
     bad = packet.mutableCopy; bad[@"field"] = @{@"kind": @"field", @"path": @[@0.5], @"identifier": @""};
     XCTAssertFalse(LCTextSyncPacketIsValid(bad));
+}
+- (void)testExpiredPacketAndSlowDelegateNeverMutateTarget {
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self setSelection:NSMakeRange(1, 0) input:self.field];
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window];
+    LCTextSyncTestDelegate *delegate = [LCTextSyncTestDelegate new];
+    self.field.delegate = delegate;
+    [self.field addTarget:delegate action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+    NSMutableDictionary *expired = packet.mutableCopy;
+    expired[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime - 1);
+    XCTAssertEqual([target applyPacket:expired], LCTextSyncInputResultExpired);
+    XCTAssertEqualObjects(self.field.text, @"A");
+    XCTAssertEqual(delegate.validations, 0u);
+    XCTAssertEqual(delegate.controls, 0u);
+    NSMutableDictionary *fresh = packet.mutableCopy;
+    fresh[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    delegate.validationDelay = 0.8;
+    XCTAssertEqual([target applyPacket:fresh], LCTextSyncInputResultExpired);
+    XCTAssertEqualObjects(self.field.text, @"A");
+    XCTAssertEqual(delegate.validations, 1u);
+    XCTAssertEqual(delegate.controls, 0u);
+    XCTAssertEqual(self.field.delegate, delegate);
+}
+- (void)testDelegateInvalidatingSessionCannotApplyApprovedEdit {
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self setSelection:NSMakeRange(1, 0) input:self.field];
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window];
+    __block BOOL currentSession = YES;
+    target.shouldContinue = ^BOOL { return currentSession; };
+    LCTextSyncTestDelegate *delegate = [LCTextSyncTestDelegate new];
+    delegate.onValidate = ^{ currentSession = NO; };
+    self.field.delegate = delegate;
+    [self.field addTarget:delegate action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertEqualObjects(self.field.text, @"A");
+    XCTAssertEqual(delegate.validations, 1u);
+    XCTAssertEqual(delegate.controls, 0u);
+    XCTAssertEqual(self.field.delegate, delegate);
 }
 @end

@@ -8,11 +8,14 @@ typedef NS_ENUM(NSInteger, LCTextSyncInputResult) {
     LCTextSyncInputResultUnavailable,
     LCTextSyncInputResultMismatch,
     LCTextSyncInputResultInvalid,
+    LCTextSyncInputResultExpired,
 };
 
 // Main-thread, session-owned adapter. It never changes focus or retains text on disk.
 @interface LCTextSyncInput : NSObject
 @property(nonatomic, weak, readonly) UIView<UITextInput> *responder;
+// The session owner invalidates replay when guest callbacks stop or replace it.
+@property(nonatomic, copy, nullable) BOOL (^shouldContinue)(void);
 + (nullable instancetype)inputForWindow:(UIWindow *)window;
 // Allows an in-progress composition; does not advance the committed baseline.
 - (LCTextSyncInputResult)validateCurrentInput;

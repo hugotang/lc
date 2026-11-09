@@ -145,6 +145,8 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
 }
 - (LCTextSyncInputResult)applyPacket:(NSDictionary *)packet {
     if (!LCTextSyncPacketIsValid(packet)) return LCTextSyncInputResultInvalid;
+    if (self.shouldContinue && !self.shouldContinue()) return LCTextSyncInputResultUnavailable;
+    if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
     LCTextSyncInputResult status = [self validateCurrentInput];
     if (status != LCTextSyncInputResultReady) return status;
     UIView<UITextInput> *input = self.responder;
@@ -161,16 +163,18 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     NSString *replacement = [after substringWithRange:NSMakeRange(prefix, after.length - prefix - suffix)];
     UITextField *field = [input isKindOfClass:UITextField.class] ? (UITextField *)input : nil;
     UITextView *view = [input isKindOfClass:UITextView.class] ? (UITextView *)input : nil;
-    id delegate = field ? field.delegate : view.delegate;
+    id delegate = field ? (id)field.delegate : (id)view.delegate;
     if (field && [delegate respondsToSelector:@selector(textField:shouldChangeCharactersInRange:replacementString:)] &&
         ![delegate textField:field shouldChangeCharactersInRange:replacementRange replacementString:replacement]) return LCTextSyncInputResultMismatch;
     if (view && [delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)] &&
         ![delegate textView:view shouldChangeTextInRange:replacementRange replacementText:replacement]) return LCTextSyncInputResultMismatch;
     // A validator can change text, focus, or delegate. Never overwrite that work.
+    if (self.shouldContinue && !self.shouldContinue()) return LCTextSyncInputResultUnavailable;
     if ([self validateCurrentInput] != LCTextSyncInputResultReady || input.markedTextRange || ![LCTextSyncText(input) isEqual:before]) return LCTextSyncInputResultMismatch;
-    delegate = field ? field.delegate : view.delegate;
+    if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
+    delegate = field ? (id)field.delegate : (id)view.delegate;
     UITextPosition *start = [input positionFromPosition:input.beginningOfDocument offset:(NSInteger)replacementRange.location];
-    UITextPosition *end = [input positionFromPosition:start offset:(NSInteger)replacementRange.length];
+    UITextPosition *end = start ? [input positionFromPosition:start offset:(NSInteger)replacementRange.length] : nil;
     UITextRange *range = start && end ? [input textRangeFromPosition:start toPosition:end] : nil;
     if (!range) return LCTextSyncInputResultUnavailable;
     LCTextSyncEditObserver *observer = [LCTextSyncEditObserver new];
@@ -182,6 +186,10 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     if (field) { [field addTarget:observer action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged]; field.delegate = observer; }
     else view.delegate = observer;
     @try {
+        // Delegate validation and custom UITextInput methods run guest code.
+        // Recheck immediately before mutation, not only on packet arrival.
+        if (self.shouldContinue && !self.shouldContinue()) return LCTextSyncInputResultUnavailable;
+        if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
         [input replaceRange:range withText:replacement];
         if (field && observer.controlEvents == 0) [field sendActionsForControlEvents:UIControlEventEditingChanged];
         if (view && observer.delegateChanges == 0) {
@@ -196,13 +204,15 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
             if (field.delegate == observer) field.delegate = observer.originalDelegate;
         } else if (view.delegate == observer) view.delegate = observer.originalDelegate;
     }
+    if (self.shouldContinue && !self.shouldContinue()) return LCTextSyncInputResultUnavailable;
     if ([self validateCurrentInput] != LCTextSyncInputResultReady || input.markedTextRange || ![LCTextSyncText(input) isEqual:after]) return LCTextSyncInputResultMismatch;
     NSUInteger location = [packet[@"selectionLocation"] unsignedIntegerValue], length = [packet[@"selectionLength"] unsignedIntegerValue];
     start = [input positionFromPosition:input.beginningOfDocument offset:(NSInteger)location];
-    end = [input positionFromPosition:start offset:(NSInteger)length];
+    end = start ? [input positionFromPosition:start offset:(NSInteger)length] : nil;
     if (!start || !end) return LCTextSyncInputResultUnavailable;
     input.selectedTextRange = [input textRangeFromPosition:start toPosition:end];
     NSRange actual;
+    if (self.shouldContinue && !self.shouldContinue()) return LCTextSyncInputResultUnavailable;
     if (!LCTextSyncSelection(input, after, &actual) || !NSEqualRanges(actual, NSMakeRange(location, length)) ||
         ![LCTextSyncText(input) isEqual:after]) return LCTextSyncInputResultMismatch;
     self.baseline = after;
