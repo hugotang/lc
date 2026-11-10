@@ -1,6 +1,1432 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "lc.location.moveControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Joystick"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动摇杆浮窗"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動搖桿浮窗"
+          }
+        }
+      }
+    },
+    "lc.location.controls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定位設定"
+          }
+        }
+      }
+    },
+    "lc.location.returnSaved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to Saved Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回已保存位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到已儲存位置"
+          }
+        }
+      }
+    },
+    "lc.location.returnCurrent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to Current Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回当前生效位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到目前生效位置"
+          }
+        }
+      }
+    },
+    "lc.location.pending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待应用位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待套用位置"
+          }
+        }
+      }
+    },
+    "lc.location.current" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前生效位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前生效位置"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.advanced" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進階"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.compatibilityAutomatic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window size compatibility is applied automatically with a fixed aspect ratio."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定比例会自动应用窗口尺寸兼容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定比例會自動套用視窗尺寸相容。"
+          }
+        }
+      }
+    },
+    "lc.location.changeSign" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Sign"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换正负号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換正負號"
+          }
+        }
+      }
+    },
+    "lc.location.pastePairHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Example: 22.3193, 114.1694. Use a dot for decimal places when pasting a pair."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示例：22.3193, 114.1694。整组坐标请使用小数点。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範例：22.3193, 114.1694。整組座標請使用小數點。"
+          }
+        }
+      }
+    },
+    "lc.location.pastePair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste latitude, longitude"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴纬度, 经度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "貼上緯度, 經度"
+          }
+        }
+      }
+    },
+    "lc.location.otherController" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another account is controlling movement. Stop it there before using this joystick."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一账号正在控制移动，请先在该账号停止。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一帳號正在控制移動，請先在該帳號停止。"
+          }
+        }
+      }
+    },
+    "lc.location.saveFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save the location. Try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存位置，请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存位置，請重試。"
+          }
+        }
+      }
+    },
+    "lc.location.stepWest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move West for One Second"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向西移动一秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向西移動一秒"
+          }
+        }
+      }
+    },
+    "lc.location.stepEast" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move East for One Second"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向东移动一秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向東移動一秒"
+          }
+        }
+      }
+    },
+    "lc.location.stepSouth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move South for One Second"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向南移动一秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向南移動一秒"
+          }
+        }
+      }
+    },
+    "lc.location.stepNorth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move North for One Second"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向北移动一秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向北移動一秒"
+          }
+        }
+      }
+    },
+    "lc.location.restoreRealConfirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use system location for all accounts of this app?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有账号恢复使用系统定位？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有帳號恢復使用系統定位？"
+          }
+        }
+      }
+    },
+    "lc.location.restoreReal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use System Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复系统定位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢復系統定位"
+          }
+        }
+      }
+    },
+    "lc.location.stopMoving" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Moving"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止移动"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止移動"
+          }
+        }
+      }
+    },
+    "lc.location.holdToMove" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to move; release to stay here. Up is north. Closing controls or leaving the app stops movement."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住移动，松手停在当前位置。上方为北。收起控制或离开 App 会停止移动。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按住移動，放手停在目前位置。上方為北。收合控制或離開 App 會停止移動。"
+          }
+        }
+      }
+    },
+    "lc.location.cycle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycle · 6 m/s"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骑行 · 6 m/s"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "騎行 · 6 m/s"
+          }
+        }
+      }
+    },
+    "lc.location.run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run · 3 m/s"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跑步 · 3 m/s"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跑步 · 3 m/s"
+          }
+        }
+      }
+    },
+    "lc.location.walk" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Walk · 1.4 m/s"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行 · 1.4 m/s"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步行 · 1.4 m/s"
+          }
+        }
+      }
+    },
+    "lc.location.speed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Movement Speed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动速度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動速度"
+          }
+        }
+      }
+    },
+    "lc.location.joystick" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joystick"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摇杆"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搖桿"
+          }
+        }
+      }
+    },
+    "lc.location.removeFavorite" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Saved Place"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除常用地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除常用地點"
+          }
+        }
+      }
+    },
+    "lc.location.addFavorite" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Current Place"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存当前位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存目前位置"
+          }
+        }
+      }
+    },
+    "lc.location.favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Places"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用地點"
+          }
+        }
+      }
+    },
+    "lc.location.realLocation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using system location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用系统定位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用系統定位"
+          }
+        }
+      }
+    },
+    "lc.location.stationary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom location · stationary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义定位 · 已停止移动"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂定位 · 已停止移動"
+          }
+        }
+      }
+    },
+    "lc.location.moving" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moving"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動中"
+          }
+        }
+      }
+    },
+    "lc.location.collapse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse Location Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起定位控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收合定位控制"
+          }
+        }
+      }
+    },
+    "lc.location.allAccounts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to all accounts of this app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用于此 App 的所有账号。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "套用至此 App 的所有帳號。"
+          }
+        }
+      }
+    },
+    "lc.location.openControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Location Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开定位控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟定位控制"
+          }
+        }
+      }
+    },
+    "lc.location.quickControlHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies immediately. Shows a movable shortcut for this app; turning it off closes its floating controls and stops movement. In multitasking, Location also stays available from the window or Dock menu."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即生效。显示此 App 的可移动快捷按钮；关闭会收起浮动控制并停止移动。多任务中仍可从窗口或 Dock 菜单打开定位。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即生效。顯示此 App 的可移動快捷按鈕；關閉會收起浮動控制並停止移動。多工中仍可從視窗或 Dock 選單開啟定位。"
+          }
+        }
+      }
+    },
+    "lc.location.quickControl" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Location Shortcut"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示定位快捷按钮"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示定位快捷按鈕"
+          }
+        }
+      }
+    },
+    "lc.location.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义定位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂定位"
+          }
+        }
+      }
+    },
+    "lc.location.enable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Custom Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用自定义定位"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用自訂定位"
+          }
+        }
+      }
+    },
+    "lc.location.on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开启"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已開啟"
+          }
+        }
+      }
+    },
+    "lc.location.off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关闭"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已關閉"
+          }
+        }
+      }
+    },
+    "lc.location.scope" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses one fixed location for all accounts of this app, in ordinary launches and multitasking. Location permission is still controlled by iOS."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此应用的所有账号共用一个固定位置，支持普通启动和多任务。定位权限仍由 iOS 管理。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 App 的所有帳號共用一個固定位置，支援普通啟動和多工。定位權限仍由 iOS 管理。"
+          }
+        }
+      }
+    },
+    "lc.location.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable TweakLoader injection to use custom location. 32-bit apps are not supported."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请启用 TweakLoader 注入以使用自定义定位。不支持 32 位应用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請啟用 TweakLoader 注入以使用自訂定位。不支援 32 位 App。"
+          }
+        }
+      }
+    },
+    "lc.location.choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇位置"
+          }
+        }
+      }
+    },
+    "lc.location.change" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改位置"
+          }
+        }
+      }
+    },
+    "lc.location.saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的位置"
+          }
+        }
+      }
+    },
+    "lc.location.restart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes apply to running accounts without restarting. Disabling keeps the saved point."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改实时应用于运行中的账号，无需重启。关闭后保留已保存的位置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改即時套用至執行中的帳號，無需重開。關閉後保留已儲存的位置。"
+          }
+        }
+      }
+    },
+    "lc.location.coverage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supports standard app location requests and updates. Webpage location, region alerts, visits and newer location APIs are not covered. IP-based location is unchanged."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支持应用的常规定位请求和更新。暂不支持网页定位、区域提醒、到访记录和较新的定位接口。通过 IP 推算的位置不会改变。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支援 App 的一般定位請求和更新。暫不支援網頁定位、區域提醒、到訪記錄和較新的定位介面。透過 IP 推算的位置不會改變。"
+          }
+        }
+      }
+    },
+    "lc.location.searchPlaceholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search address or place"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索地址或地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋地址或地點"
+          }
+        }
+      }
+    },
+    "lc.location.search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋"
+          }
+        }
+      }
+    },
+    "lc.location.searchFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search is unavailable. Check your connection or enter coordinates."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索暂时不可用。请检查网络，或直接输入坐标。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋暫時無法使用。請檢查網路，或直接輸入座標。"
+          }
+        }
+      }
+    },
+    "lc.location.noResults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No places found. Try a more specific address."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到地点，请尝试更详细的地址。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到地點，請嘗試更詳細的地址。"
+          }
+        }
+      }
+    },
+    "lc.location.selected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已選位置"
+          }
+        }
+      }
+    },
+    "lc.location.mapHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move the map and choose its center, or long-press to drop a pin. You can also search or enter coordinates."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动地图后选取中心，或长按放置标记。也可以搜索或输入坐标。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動地圖後選取中心，或長按放置標記。也可以搜尋或輸入座標。"
+          }
+        }
+      }
+    },
+    "lc.location.useCenter" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Center"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选取中心"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選取中心"
+          }
+        }
+      }
+    },
+    "lc.location.coordinates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coordinates"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经纬度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "經緯度"
+          }
+        }
+      }
+    },
+    "lc.location.useLocation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use This Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用此位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用此位置"
+          }
+        }
+      }
+    },
+    "lc.location.latitude" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latitude"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纬度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "緯度"
+          }
+        }
+      }
+    },
+    "lc.location.longitude" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Longitude"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "經度"
+          }
+        }
+      }
+    },
+    "lc.location.coordinateHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decimal degrees (WGS 84). Latitude: −90 to 90; longitude: −180 to 180. South and west use negative values."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "十进制度数（WGS 84）。纬度：−90 至 90；经度：−180 至 180。南纬和西经使用负数。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "十進制度數（WGS 84）。緯度：−90 至 90；經度：−180 至 180。南緯和西經使用負數。"
+          }
+        }
+      }
+    },
+    "lc.location.invalidCoordinate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a valid latitude and longitude within these ranges."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入上述范围内的有效经纬度。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入上述範圍內的有效經緯度。"
+          }
+        }
+      }
+    },
+    "lc.location.showOnMap" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show on Map"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地图上显示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地圖上顯示"
+          }
+        }
+      }
+    },
     "lc.appBanner.addToHomeScreen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6609,6 +8035,29 @@
         }
       }
     },
+    "lc.appSettings.fixBackgroundTaskIdentifiers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix Background Processing Tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修复后台处理任务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修復后台處理任務"
+          }
+        }
+      }
+    },
     "lc.appSettings.fixes" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7402,6 +8851,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "偽裝 SDK 版本使系統庫以應用程式建置時的 SDK 版本運行。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.helperProcessesSupport" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper Process Support"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "启用应用辅助进程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "啟用 App 輔助處理程序"
           }
         }
       }
@@ -9579,6 +11051,259 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "補丁資料夾"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display & Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示与布局"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示與版面"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aspect Ratio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面比例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "畫面比例"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填满窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填滿視窗"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.custom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Ratio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义比例"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自訂比例"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.width" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Width"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寬"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.height" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.customHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter width and height from 1 to 10000. Decimals are allowed. The ratio must be between 1:10 and 10:1."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽和高可输入 1 至 10000，支持小数。比例须介于 1:10 与 10:1 之间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寬和高可輸入 1 至 10000，支援小數。比例須介於 1:10 與 10:1 之間。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.aspectRatio.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keeps this width:height after rotation or resizing, with margins where needed. A fixed ratio also makes the app read its window size as its screen size."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转或调整窗口大小后仍保持此宽高比，必要时留边。固定比例也会让应用以窗口大小作为屏幕大小。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋轉或調整視窗大小後仍保持此寬高比，必要時留邊。固定比例也會讓 App 以視窗大小作為螢幕大小。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.displaySettings.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies only to virtual multitasking windows, including a single app window. Ordinary launches and native windows use their normal layout. Close and reopen all accounts after changing the ratio. Requires TweakLoader injection."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅适用于虚拟多任务窗口，只有一个 App 窗口时也可使用。普通启动和原生窗口使用原有布局。更改比例后请关闭并重新启动所有账号。需要启用 TweakLoader 注入。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅適用於虛擬多工視窗，只有一個 App 視窗時也可使用。普通啟動和原生視窗使用原有版面。更改比例後請關閉並重新啟動所有帳號。需要啟用 TweakLoader 注入。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.useWindowScreenSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Window Size as Screen Size (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以窗口尺寸作为屏幕尺寸（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以視窗尺寸作為螢幕尺寸（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.useWindowScreenSizeDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For ads or popups that use the whole device screen instead of this app’s window. Applies to this app’s virtual windows only; off by default. Close and relaunch every running account after changing it. Some ads choose orientation separately and may still need a fix."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适用于按整个设备屏幕而非当前应用窗口显示的广告或弹出界面。仅用于此应用的虚拟窗口，默认关闭。更改后请关闭并重新启动所有运行中的账号。部分广告会独立选择方向，仍可能需要修复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "適用於按整部裝置螢幕而非目前 App 視窗顯示的廣告或彈出介面。僅用於此 App 的虛擬視窗，預設關閉。更改後請關閉並重新啟動所有執行中的帳號。部分廣告會獨立選擇方向，仍可能需要修正。"
           }
         }
       }
@@ -18649,6 +20374,75 @@
         }
       }
     },
+    "lc.multitask.landscapeReservedAreas" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landscape Reserved Areas"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横屏预留区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "橫向預留區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeTop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Top Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留上方區域"
+          }
+        }
+      }
+    },
+    "lc.multitask.reserveLandscapeBottom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reserve Bottom Area"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留下方區域"
+          }
+        }
+      }
+    },
     "lc.multitask.portraitReservedAreas" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19822,6 +21616,29 @@
         }
       }
     },
+    "lc.settings.landscapeReservedAreasDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose whether landscape grids leave space above and below content. Turning an area off extends content behind the status bar or home indicator. Left and right keep system safe areas. Save or update a workspace to remember these choices."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择横屏网格是否保留上下方空间。关闭后，内容可延伸至状态栏或主屏幕指示条后方。左右仍保留系统安全区域。保存或更新工作区可记住选择。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇橫向網格是否保留上下方空間。關閉後，內容可延伸至狀態列或主畫面指示條後方。左右仍保留系統安全區域。儲存或更新工作區可記住選擇。"
+          }
+        }
+      }
+    },
     "lc.settings.portraitReservedAreasDesc" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20071,6 +21888,107 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤銷上次交換"
+          }
+        }
+      }
+    },
+    "lc.multitask.copyWindowGeometry": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نسخ تشخيص أبعاد النافذة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnose der Fenstergröße kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Window Size Diagnostics"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar diagnóstico del tamaño de la ventana"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le diagnostic de taille de la fenêtre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia diagnostica delle dimensioni della finestra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウサイズの診断をコピー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "윈도우 크기 진단 복사"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiuj diagnostykę rozmiaru okna"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar diagnóstico do tamanho da janela"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать диагностику размера окна"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiera diagnostik för fönsterstorlek"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pencere boyutu tanılamasını kopyala"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép chẩn đoán kích thước cửa sổ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制窗口尺寸诊断"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複製視窗尺寸診斷"
           }
         }
       }
@@ -20444,6 +22362,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最小化視窗"
+          }
+        }
+      }
+    },
+    "lc.multitask.restoreAllMinimized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore All Minimized Windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原所有最小化窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "還原所有最小化視窗"
           }
         }
       }
@@ -33661,25 +35602,94 @@
         }
       }
     },
+    "lc.tapSync.autoResumeAfterRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume After Screen Rotation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "屏幕旋转后自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "螢幕旋轉後自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic Resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動恢復"
+          }
+        }
+      }
+    },
+    "lc.tapSync.automaticResumeHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Returning to Source: operating a follower pauses the group. Touch the source to resume. By default, the first gesture stays local until all fingers lift. Sync the First Returning Gesture includes it after followers are ready. Rotation resumes after all fingers lift and the windows settle. These three options are remembered. After leaving the app or opening system panels, align the screens and tap Resume Sync. Manual Pause, keyboard, dialogs, timeout and disconnection also need Resume. Relaunch stays paused."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源：操作跟随窗口时暂停整组，触碰来源后继续。默认第一次手势只在来源生效，所有手指放开后继续。「同步返回来源的第一次手势」可在跟随窗口准备好后同步这次手势。旋转后等所有手指离开、窗口稳定再继续。这三个选项都会记住。离开 App 或打开系统面板后，请对齐画面并点按「继续同步」。手动暂停、键盘、对话框、超时或断开连接也需手动继续；重新打开 App 保持暂停。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源：操作跟隨視窗時暫停整組，觸碰來源後繼續。預設第一個手勢只在來源生效，所有手指放開後繼續。「同步返回來源的第一個手勢」可在跟隨視窗準備好後同步這個手勢。旋轉後等所有手指離開、視窗穩定再繼續。這三個選項都會記住。離開 App 或開啟系統面板後，請對齊畫面並點按「繼續同步」。手動暫停、鍵盤、對話框、逾時或中斷連線也需手動繼續；重新開啟 App 保持暫停。"
+          }
+        }
+      }
+    },
     "lc.tapSync.backgroundPaused" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused when LiveContainer left the foreground."
+            "value" : "Paused when LiveContainer left the foreground. Align the screens, then tap Resume Sync."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 离开前台，已暂停同步。"
+            "value" : "LiveContainer 离开前台，已暂停同步。请对齐画面，再点按「继续同步」。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LiveContainer 離開前景，已暫停同步。"
+            "value" : "LiveContainer 離開前景，已暫停同步。請對齊畫面，再點按「繼續同步」。"
           }
         }
       }
@@ -33736,19 +35746,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compact Controls"
+            "value" : "Icons Only"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精简显示"
+            "value" : "仅显示图标"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "精簡顯示"
+            "value" : "僅顯示圖示"
           }
         }
       }
@@ -33782,21 +35792,45 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap to pause or resume, and use the gear for settings. Drag the controls to dock at an edge. Portrait and landscape positions are remembered separately. If sync cannot start or is interrupted, the reason stays visible even with Compact Controls on. Open the gear for each affected window's details."
+            "value" : "Tap the main icon to pause or resume. An hourglass means connecting or waiting; a warning means sync needs attention. Open the gear for the full reason and affected windows. Icons Only is the default while a synced window is small, such as on iPhone or with four windows on iPad. Drag the controls to an edge; portrait and landscape positions are remembered separately."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暂停或继续，齿轮打开设置。拖动后会停靠边缘，竖屏和横屏分别记住位置。同步无法开始或中断时，即使开启精简显示也会保留原因；点击齿轮可查看各个受影响窗口的详情。"
+            "value" : "短按主图标暂停或继续。沙漏表示正在连接或等待，警告图标表示同步需要处理。点击齿轮查看完整原因和受影响窗口。同步窗口较小时（例如 iPhone，或 iPad 同时开四个窗口）默认仅显示图标。拖动控制可停靠边缘，竖屏和横屏分别记住位置。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "短按暫停或繼續，齒輪開啟設定。拖動後會停靠邊緣，直屏和橫屏分別記住位置。同步無法開始或中斷時，即使開啟精簡顯示也會保留原因；點擊齒輪可查看各個受影響視窗的詳情。"
+            "value" : "短按主圖示暫停或繼續。沙漏表示正在連接或等待，警告圖示表示同步需要處理。點擊齒輪查看完整原因和受影響視窗。同步視窗較小時（例如 iPhone，或 iPad 同時開四個視窗）預設僅顯示圖示。拖動控制可停靠邊緣，直屏和橫屏分別記住位置。"
           }
         }
+      }
+    },
+    "lc.tapSync.copyDiagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy Sync Diagnostics" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制同步诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製同步診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsCopied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Diagnostics Copied" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已复制诊断" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已複製診斷" } }
+      }
+    },
+    "lc.tapSync.diagnosticsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copies the latest pause and input rejection details to help diagnose a problem. Uses window numbers and keeps the report on this device until you share it." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制最近一次暂停与输入拒收的详情，帮助诊断问题。报告使用窗口编号，分享前只保留在本机。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "複製最近一次暫停與輸入拒收的詳情，協助診斷問題。報告使用視窗編號，分享前只保留在本機。" } }
       }
     },
     "lc.tapSync.description" : {
@@ -33841,6 +35875,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拖動可移動控制項，也可使用輔助使用動作選擇角落。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.expiredInput" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused: input arrived too late or out of order and was discarded. Wait for all windows to finish loading, align the screens, then resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暂停：输入延迟过久或顺序异常，已丢弃。请等所有窗口加载完毕，对齐画面后再继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已暫停：輸入延遲過久或順序異常，已丟棄。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -34650,6 +36707,29 @@
         }
       }
     },
+    "lc.tapSync.resumeOnSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume When Returning to Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到来源时自动继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回到來源時自動恢復"
+          }
+        }
+      }
+    },
     "lc.tapSync.saveGroup" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34995,6 +37075,29 @@
         }
       }
     },
+    "lc.tapSync.syncReturnGesture" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync the First Returning Gesture"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回来源的第一次手势"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步返回來源的第一個手勢"
+          }
+        }
+      }
+    },
     "lc.tapSync.tapsOnlyHelp" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35116,19 +37219,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused: a window did not respond in time. Align the screens before restarting."
+            "value" : "Paused: a window did not acknowledge input within 3 seconds. Wait for all windows to finish loading, align the screens, then resume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暂停：有窗口未及时响应。请对齐画面后再启动。"
+            "value" : "已暂停：有窗口超过 3 秒未确认输入。请等所有窗口加载完毕，对齐画面后再继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已暫停：有視窗未及時回應。請對齊畫面後再啟動。"
+            "value" : "已暫停：有視窗超過 3 秒未確認輸入。請等所有視窗載入完畢，對齊畫面後再繼續。"
           }
         }
       }
@@ -35221,6 +37324,75 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設為同步來源"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForFirstReturn" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source to resume and sync that gesture."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源后自动继续，并同步这次手势。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源後自動恢復，並同步這個手勢。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForRotation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused for rotation. Lift all fingers; sync resumes when the windows settle."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转期间整组已暂停。请抬起所有手指，窗口稳定后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋轉期間整組已暫停。請抬起所有手指，視窗穩定後自動恢復。"
+          }
+        }
+      }
+    },
+    "lc.tapSync.waitingForSource" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group paused. Touch the source, then lift all fingers to resume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整组已暂停。触碰来源并抬起所有手指后自动继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整組已暫停。觸碰來源並抬起所有手指後自動恢復。"
           }
         }
       }
@@ -37823,6 +39995,443 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 未開啟可用的虛擬視窗。請檢查啟動設定後再試。"
+          }
+        }
+      }
+    },
+    "lc.dock.account" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號"
+          }
+        }
+      }
+    },
+    "lc.dock.collapse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起 Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收合 Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.globalControls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multitask Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多任务控制"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "多工控制"
+          }
+        }
+      }
+    },
+    "lc.dock.drag" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动 Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移動 Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.dragHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag this handle to move the Dock. Swipe outward below the handle or use the Dock menu to hide it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动此把手移动 Dock。在把手下方向外滑动或使用 Dock 菜单可隐藏。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖動此把手移動 Dock。在把手下方向外滑動或使用 Dock 選單可隱藏。"
+          }
+        }
+      }
+    },
+    "lc.dock.showAccountLabels" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Account Names in Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Dock 显示账号名称"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Dock 顯示帳號名稱"
+          }
+        }
+      }
+    },
+    "lc.dock.resetPosition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Dock Positions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重设 Dock 位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設 Dock 位置"
+          }
+        }
+      }
+    },
+    "lc.dock.position" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock Position"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock 位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock 位置"
+          }
+        }
+      }
+    },
+    "lc.dock.hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Dock to Edge"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 Dock 隐藏到边缘"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將 Dock 隱藏到邊緣"
+          }
+        }
+      }
+    },
+    "lc.dock.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dock"
+          }
+        }
+      }
+    },
+    "lc.dock.settingsHelp" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account numbers stay with each container. Names use your existing container names. Drag the top handle to move the Dock; portrait and landscape positions are saved separately. Swipe outward below the handle or use the Dock menu to hide it. Tap the edge tab or swipe inward to show it again. Hide Collapsed Dock hides the arrow. Enable Swipe Only When Arrow Is Hidden to ignore taps in its invisible touch area; swipe inward near the original arrow position to reveal it. VoiceOver activation and Reset Dock Positions still reveal a hidden Dock. Account buttons scroll when space is limited."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号编号固定对应各个容器，名称使用现有容器名称。拖动顶部把手移动 Dock；横屏和竖屏位置分别保存。在把手下方向外滑动或使用 Dock 菜单隐藏，再点按边缘标签或向内滑动显示。「隐藏折叠 Dock」会隐藏箭头。开启「隐藏箭头时仅滑动唤回」后，隐形触控区忽略点按；从原箭头附近向内滑动显示。VoiceOver 激活和「重设 Dock 位置」仍可恢复隐藏的 Dock。空间不足时可滚动账号按钮。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號編號固定對應各個容器，名稱使用現有容器名稱。拖動頂部把手移動 Dock；橫屏和直屏位置分別保存。在把手下方向外滑動或使用 Dock 選單隱藏，再點按邊緣標籤或向內滑動顯示。「隱藏摺疊 Dock」會隱藏箭頭。開啟「隱藏箭頭時只用滑動喚回」後，隱形觸控區忽略點按；從原箭頭附近向內滑動顯示。VoiceOver 啟用和「重設 Dock 位置」仍可恢復隱藏的 Dock。空間不足時可捲動帳號按鈕。"
+          }
+        }
+      }
+    },
+    "lc.dock.swipeToRevealOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe Only When Arrow Is Hidden"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏箭头时仅滑动唤回"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏箭頭時只用滑動喚回"
+          }
+        }
+      }
+    },
+    "lc.dock.diagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "诊断"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診斷"
+          }
+        }
+      }
+    },
+    "lc.settings.multitaskOverlay" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overlay Fullscreen Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全屏控制列覆盖模式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全螢幕控制列覆蓋模式"
+          }
+        }
+      }
+    },
+    "lc.settings.multitaskOverlayDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show the control bar over a fullscreen app without changing its size when the Dock expands or collapses. The controls cover a small part of the app while visible. Applies to fullscreen virtual windows; off by default."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在全屏应用上覆盖显示控制列，展开或收起 Dock 时不会改变应用尺寸。控制列显示时会覆盖应用的一小部分。仅适用于全屏虚拟窗口，默认关闭。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在全螢幕 App 上覆蓋顯示控制列，展開或收合 Dock 時不會改變 App 尺寸。控制列顯示時會覆蓋 App 的一小部分。僅適用於全螢幕虛擬視窗，預設關閉。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.forceAmbientAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient Audio (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音频（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ambient 音訊（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.forceAmbientAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep playback audio mixable across this app's multitasking accounts. Close all accounts and reopen them after changing this option. Ambient honours the device's silent switch and allows other music to keep playing. Use the app's own sound settings to mute the other accounts. Recording audio keeps its original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让此应用的多开账号播放音频时允许混音。更改后请关闭所有账号再重新打开。Ambient 遵从设备的静音设置，并允许其他音乐继续播放。请在游戏内的声音设置中静音其他账号。录音保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讓此應用的多開帳號播放音訊時允許混音。更改後請關閉所有帳號再重新開啟。Ambient 遵從裝置的靜音設定，並允許其他音樂繼續播放。請在遊戲內的聲音設定中靜音其他帳號。錄音保持原有行為。"
+          }
+        }
+      }
+    },
+    "lc.appSettings.keepBackgroundAudio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Background Music (Experimental)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音乐（实验性）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留背景音樂（實驗性）"
+          }
+        }
+      }
+    },
+    "lc.appSettings.keepBackgroundAudioDesc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep music from stopping when this app detects audio from another account. Music may also mix with external music or ads. Close all accounts and reopen them after changing this option. Use the app's own sound settings to mute the other accounts. Recording and real system interruptions keep their original behavior."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此应用因检测到其他账号的音频而停止音乐。音乐也可能与外部音乐或广告混播。更改后请关闭所有账号再重新打开。请在游戏内的声音设置中静音其他账号。录音和真正的系统音频中断保持原有行为。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免此應用因偵測到其他帳號的音訊而停止音樂。音樂也可能與外部音樂或廣告混播。更改後請關閉所有帳號再重新開啟。請在遊戲內的聲音設定中靜音其他帳號。錄音和真正的系統音訊中斷保持原有行為。"
           }
         }
       }

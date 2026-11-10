@@ -15,12 +15,16 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic, readonly) BOOL maintainsGridLayout;
 @property(nonatomic, readonly) BOOL shouldHideGridWindowBars;
 @property(nonatomic, readonly) BOOL hasVisibleGridWindows;
+@property(nonatomic, readonly) BOOL hasRestorableMinimizedWindows;
 @property(nonatomic, readonly) BOOL canAdjustGridDividers;
 @property(nonatomic, readonly) BOOL isAdjustingGridDividers;
 @property(nonatomic, readonly) BOOL isChoosingGridSwap;
 @property(nonatomic, readonly) BOOL canUndoGridSwap;
 @property(nonatomic, copy, readonly) NSArray<DecoratedAppSceneViewController *> *tapSyncWindows;
+// The Icons Only default for the current synced windows, before a saved choice.
+@property(nonatomic, readonly) BOOL prefersCompactTapSyncControls;
 - (void)arrangeWindowsInGrid;
+- (NSUInteger)restoreAllMinimizedWindows;
 - (void)setNeedsGridLayout;
 - (void)toggleGridDividerAdjustment;
 - (void)finishGridDividerAdjustment;
@@ -31,6 +35,9 @@ API_AVAILABLE(ios(16.0))
 - (void)undoLastGridWindowSwap;
 - (void)finishGridEditing;
 - (LCWindowWorkspace * _Nullable)captureWorkspace NS_SWIFT_NAME(captureWorkspace());
+- (void)prepareWorkspaceForLaunch:(LCWindowWorkspace * _Nonnull)workspace NS_SWIFT_NAME(prepareWorkspaceForLaunch(_:));
+- (void)finishWorkspaceLaunch;
+- (void)prepareWindowForLaunch:(DecoratedAppSceneViewController * _Nonnull)window;
 - (void)applyWorkspace:(LCWindowWorkspace * _Nonnull)workspace NS_SWIFT_NAME(applyWorkspace(_:));
 - (DecoratedAppSceneViewController * _Nullable)windowForContainer:(NSString * _Nonnull)dataUUID NS_SWIFT_NAME(window(forContainer:));
 - (CGRect)frameByAvoidingKeyboard:(CGRect)frame forWindow:(DecoratedAppSceneViewController * _Nonnull)window;

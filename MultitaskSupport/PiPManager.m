@@ -4,6 +4,7 @@
 #import "../LiveContainer/utils.h"
 
 static void *LCPiPBoundsContext = &LCPiPBoundsContext;
+static PiPManager *LCPiPManagerInstance;
 
 API_AVAILABLE(ios(16.0))
 @interface PiPManager ()
@@ -17,10 +18,15 @@ API_AVAILABLE(ios(16.0))
 
 @implementation PiPManager
 + (instancetype)shared {
-    static PiPManager *instance;
     static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ instance = [[self alloc] init]; });
-    return instance;
+    dispatch_once(&onceToken, ^{ LCPiPManagerInstance = [[self alloc] init]; });
+    return LCPiPManagerInstance;
+}
+
++ (BOOL)hasSessionForVC:(AppSceneViewController *)vc {
+    PiPManager *manager = LCPiPManagerInstance;
+    return manager && (manager.pendingVC == vc || (manager.displayingVC == vc &&
+        (manager.isPiP || manager.starting || manager.stopping || manager.contentMoved)));
 }
 
 - (instancetype)init {

@@ -1,4 +1,5 @@
 #include <Foundation/Foundation.h>
+#include <TargetConditionals.h>
 
 @interface NSBundle(private)
 - (id)_cfBundle;
@@ -16,18 +17,33 @@
 @interface NSExtension : NSObject
 @property (nonatomic, strong, readwrite) NSArray *preferredLanguages;
 + (instancetype)extensionWithIdentifier:(NSString *)identifier error:(NSError **)error;
++ (instancetype)extensionWithIdentifier:(NSString *)identifier excludingDisabledExtensions:(BOOL)exclude error:(NSError **)error;
+- (NSUUID *)beginExtensionRequestWithInputItems:(NSArray *)items error:(NSError **)error;
 - (void)beginExtensionRequestWithInputItems:(NSArray *)items completion:(void(^)(NSUUID *))callback;
+- (void)cancelExtensionRequestWithIdentifier:(NSUUID *)identifier;
+- (NSExtensionContext *)_extensionContextForUUID:(NSUUID *)identifier;
+- (id)_plugIn;
 - (int)pidForRequestIdentifier:(NSUUID *)identifier;
 - (void)_kill:(int)arg1;
 - (void)setRequestCancellationBlock:(void(^)(NSUUID *uuid, NSError *error))callback;
 - (void)setRequestInterruptionBlock:(void(^)(NSUUID *))callback;
+- (void)setRequestCompletionBlock:(void(^)(NSUUID *uuid, NSArray *items))callback;
 - (void)_hostDidEnterBackgroundNote:(NSNotification *)note;
 - (void)_hostWillResignActiveNote:(NSNotification *)note;
 @end
 
+@interface NSExtensionContext (LCAuxiliaryConnection)
++ (NSXPCInterface *)_extensionAuxiliaryHostProtocol;
++ (NSXPCInterface *)_extensionAuxiliaryVendorProtocol;
+@end
+
+#if TARGET_OS_OSX
+#include <Security/SecTask.h>
+#else
 void* SecTaskCreateFromSelf(CFAllocatorRef allocator);
-NSString *SecTaskCopyTeamIdentifier(void *task, NSError **error);
 CFTypeRef SecTaskCopyValueForEntitlement(void *task, CFStringRef key, CFErrorRef *error);
+#endif
+NSString *SecTaskCopyTeamIdentifier(void *task, NSError **error);
 
 
 @interface _CFXPreferences2 : NSObject

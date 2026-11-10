@@ -102,6 +102,135 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
     return group.copy;
 }
 
+static const LCWorkspaceLayoutPreference LCGridLayoutPreferences[] = {
+    LCWorkspaceLayoutPreferenceSingleRowInLandscape,
+    LCWorkspaceLayoutPreferenceReservePortraitTop,
+    LCWorkspaceLayoutPreferenceReservePortraitBottom,
+    LCWorkspaceLayoutPreferenceReserveLandscapeTop,
+    LCWorkspaceLayoutPreferenceReserveLandscapeBottom,
+};
+static const size_t LCGridLayoutPreferenceCount = sizeof(LCGridLayoutPreferences) / sizeof(LCGridLayoutPreferences[0]);
+
+// Saved workspaces use these property-list keys; the live preferences use the
+// userDefaultsKeyForPreference: keys.
+static NSString *LCGridLayoutPropertyListKey(LCWorkspaceLayoutPreference preference) {
+    switch (preference) {
+        case LCWorkspaceLayoutPreferenceSingleRowInLandscape: return @"singleRowInLandscape";
+        case LCWorkspaceLayoutPreferenceReservePortraitTop: return @"reservePortraitTop";
+        case LCWorkspaceLayoutPreferenceReservePortraitBottom: return @"reservePortraitBottom";
+        case LCWorkspaceLayoutPreferenceReserveLandscapeTop: return @"reserveLandscapeTop";
+        case LCWorkspaceLayoutPreferenceReserveLandscapeBottom: return @"reserveLandscapeBottom";
+    }
+    return nil;
+}
+
+static bool *LCGridReservedArea(LCWindowGridReservedAreas *areas, LCWorkspaceLayoutPreference preference) {
+    switch (preference) {
+        case LCWorkspaceLayoutPreferenceReservePortraitTop: return &areas->portraitTop;
+        case LCWorkspaceLayoutPreferenceReservePortraitBottom: return &areas->portraitBottom;
+        case LCWorkspaceLayoutPreferenceReserveLandscapeTop: return &areas->landscapeTop;
+        case LCWorkspaceLayoutPreferenceReserveLandscapeBottom: return &areas->landscapeBottom;
+        default: return NULL;
+    }
+}
+
+@interface LCGridLayoutOptions ()
+- (instancetype)initWithPropertyList:(NSDictionary *)propertyList;
+@property(nonatomic, copy, readonly) NSDictionary<NSString *, NSNumber *> *propertyListEntries;
+@end
+
+@implementation LCGridLayoutOptions
++ (LCGridLayoutOptions *)defaultOptions {
+    return [[self alloc] initWithSingleRowInLandscape:NO reservedAreas:LCWindowGridReservedAreasDefault()];
+}
++ (NSString *)userDefaultsKeyForPreference:(LCWorkspaceLayoutPreference)preference {
+    switch (preference) {
+        case LCWorkspaceLayoutPreferenceSingleRowInLandscape: return @"LCGridSingleRowInLandscape";
+        case LCWorkspaceLayoutPreferenceReservePortraitTop: return @"LCGridReservePortraitTop";
+        case LCWorkspaceLayoutPreferenceReservePortraitBottom: return @"LCGridReservePortraitBottom";
+        case LCWorkspaceLayoutPreferenceReserveLandscapeTop: return @"LCGridReserveLandscapeTop";
+        case LCWorkspaceLayoutPreferenceReserveLandscapeBottom: return @"LCGridReserveLandscapeBottom";
+    }
+    [NSException raise:NSInvalidArgumentException format:@"Unknown grid layout preference %ld", (long)preference];
+    return @"";
+}
++ (BOOL)defaultValueForPreference:(LCWorkspaceLayoutPreference)preference {
+    return [self.defaultOptions valueForPreference:preference];
+}
+- (instancetype)initWithSingleRowInLandscape:(BOOL)singleRowInLandscape reservedAreas:(LCWindowGridReservedAreas)reservedAreas {
+    if ((self = [super init])) {
+        _singleRowInLandscape = singleRowInLandscape;
+        _reservedAreas = reservedAreas;
+    }
+    return self;
+}
+// Each preference starts at its default; value() may keep or replace it.
+- (instancetype)initWithValues:(BOOL (^)(LCWorkspaceLayoutPreference preference, BOOL fallback))value {
+    LCGridLayoutOptions *defaults = LCGridLayoutOptions.defaultOptions;
+    LCWindowGridReservedAreas areas = defaults.reservedAreas;
+    for (size_t index = 0; index < LCGridLayoutPreferenceCount; index++) {
+        bool *area = LCGridReservedArea(&areas, LCGridLayoutPreferences[index]);
+        if (area) *area = value(LCGridLayoutPreferences[index], *area);
+    }
+    return [self initWithSingleRowInLandscape:value(LCWorkspaceLayoutPreferenceSingleRowInLandscape, defaults.singleRowInLandscape)
+                                reservedAreas:areas];
+}
+- (instancetype)initWithUserDefaults:(NSUserDefaults *)defaults {
+    return [self initWithValues:^BOOL(LCWorkspaceLayoutPreference preference, BOOL fallback) {
+        NSString *key = [LCGridLayoutOptions userDefaultsKeyForPreference:preference];
+        return [defaults objectForKey:key] ? [defaults boolForKey:key] : fallback;
+    }];
+}
+// Optional v1 fields preserve the original layout for older or malformed saves.
+- (instancetype)initWithPropertyList:(NSDictionary *)propertyList {
+    return [self initWithValues:^BOOL(LCWorkspaceLayoutPreference preference, BOOL fallback) {
+        return LCWorkspaceBoolean(propertyList[LCGridLayoutPropertyListKey(preference)], fallback);
+    }];
+}
+- (void)writeToUserDefaults:(NSUserDefaults *)defaults {
+    for (size_t index = 0; index < LCGridLayoutPreferenceCount; index++) {
+        LCWorkspaceLayoutPreference preference = LCGridLayoutPreferences[index];
+        [defaults setBool:[self valueForPreference:preference] forKey:[LCGridLayoutOptions userDefaultsKeyForPreference:preference]];
+    }
+}
+- (NSDictionary<NSString *, NSNumber *> *)propertyListEntries {
+    NSMutableDictionary *entries = [NSMutableDictionary dictionary];
+    for (size_t index = 0; index < LCGridLayoutPreferenceCount; index++) {
+        LCWorkspaceLayoutPreference preference = LCGridLayoutPreferences[index];
+        entries[LCGridLayoutPropertyListKey(preference)] = @([self valueForPreference:preference]);
+    }
+    return entries.copy;
+}
+- (BOOL)valueForPreference:(LCWorkspaceLayoutPreference)preference {
+    if (preference == LCWorkspaceLayoutPreferenceSingleRowInLandscape) return self.singleRowInLandscape;
+    LCWindowGridReservedAreas areas = self.reservedAreas;
+    bool *area = LCGridReservedArea(&areas, preference);
+    return area && *area;
+}
+- (LCGridLayoutOptions *)optionsBySettingPreference:(LCWorkspaceLayoutPreference)preference enabled:(BOOL)enabled {
+    if (preference == LCWorkspaceLayoutPreferenceSingleRowInLandscape) {
+        return [[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:enabled reservedAreas:self.reservedAreas];
+    }
+    LCWindowGridReservedAreas areas = self.reservedAreas;
+    bool *area = LCGridReservedArea(&areas, preference);
+    if (!area) return nil;
+    *area = enabled;
+    return [[LCGridLayoutOptions alloc] initWithSingleRowInLandscape:self.singleRowInLandscape reservedAreas:areas];
+}
+- (BOOL)isEqual:(id)object {
+    if (object == self) return YES;
+    if (![object isKindOfClass:LCGridLayoutOptions.class]) return NO;
+    LCGridLayoutOptions *other = object;
+    return self.singleRowInLandscape == other.singleRowInLandscape &&
+        LCWindowGridReservedAreasEqual(self.reservedAreas, other.reservedAreas);
+}
+- (NSUInteger)hash {
+    LCWindowGridReservedAreas areas = self.reservedAreas;
+    return (NSUInteger)self.singleRowInLandscape | ((NSUInteger)areas.portraitTop << 1) | ((NSUInteger)areas.portraitBottom << 2) |
+        ((NSUInteger)areas.landscapeTop << 3) | ((NSUInteger)areas.landscapeBottom << 4);
+}
+@end
+
 @implementation LCWindowWorkspace
 - (instancetype)initWithPropertyList:(id)propertyList {
     if (![propertyList isKindOfClass:NSDictionary.class] || ![propertyList[@"version"] isEqual:@1]) return nil;
@@ -121,35 +250,29 @@ static NSDictionary *LCWorkspaceTapSyncGroup(id value, NSArray<LCWorkspaceWindow
     if (self) {
         _windows = windows.copy;
         _proportions = LCWorkspaceProportions(propertyList[@"proportions"]);
-        // Optional v1 fields preserve the original layout for older or malformed saves.
-        _singleRowInLandscape = LCWorkspaceBoolean(propertyList[@"singleRowInLandscape"], NO);
-        _reservePortraitTop = LCWorkspaceBoolean(propertyList[@"reservePortraitTop"], YES);
-        _reservePortraitBottom = LCWorkspaceBoolean(propertyList[@"reservePortraitBottom"], NO);
+        _layoutOptions = [[LCGridLayoutOptions alloc] initWithPropertyList:propertyList];
         _tapSyncGroup = LCWorkspaceTapSyncGroup(propertyList[@"tapSync"], _windows);
     }
     return self;
 }
 - (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
-          singleRowInLandscape:(BOOL)singleRowInLandscape {
-    return [self initWithWindows:windows proportions:proportions singleRowInLandscape:singleRowInLandscape
-             reservePortraitTop:YES reservePortraitBottom:NO];
-}
-- (instancetype)initWithWindows:(NSArray<LCWorkspaceWindow *> *)windows proportions:(NSDictionary *)proportions
-          singleRowInLandscape:(BOOL)singleRowInLandscape reservePortraitTop:(BOOL)reservePortraitTop
-         reservePortraitBottom:(BOOL)reservePortraitBottom {
+                 layoutOptions:(LCGridLayoutOptions *)layoutOptions {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in windows) [entries addObject:window.propertyList];
-    return [self initWithPropertyList:@{@"version": @1, @"windows": entries, @"proportions": proportions,
-                                       @"singleRowInLandscape": @(singleRowInLandscape),
-                                       @"reservePortraitTop": @(reservePortraitTop),
-                                       @"reservePortraitBottom": @(reservePortraitBottom)}];
+    NSMutableDictionary *propertyList = [@{@"version": @1, @"windows": entries, @"proportions": proportions} mutableCopy];
+    [propertyList addEntriesFromDictionary:layoutOptions.propertyListEntries];
+    return [self initWithPropertyList:propertyList];
 }
+- (BOOL)singleRowInLandscape { return self.layoutOptions.singleRowInLandscape; }
+- (BOOL)reservePortraitTop { return self.layoutOptions.reservedAreas.portraitTop; }
+- (BOOL)reservePortraitBottom { return self.layoutOptions.reservedAreas.portraitBottom; }
+- (BOOL)reserveLandscapeTop { return self.layoutOptions.reservedAreas.landscapeTop; }
+- (BOOL)reserveLandscapeBottom { return self.layoutOptions.reservedAreas.landscapeBottom; }
 - (NSDictionary *)propertyList {
     NSMutableArray *entries = [NSMutableArray array];
     for (LCWorkspaceWindow *window in self.windows) [entries addObject:window.propertyList];
-    NSMutableDictionary *result = [@{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions,
-             @"singleRowInLandscape": @(self.singleRowInLandscape),
-             @"reservePortraitTop": @(self.reservePortraitTop), @"reservePortraitBottom": @(self.reservePortraitBottom)} mutableCopy];
+    NSMutableDictionary *result = [@{@"version": @1, @"windows": entries.copy, @"proportions": self.proportions} mutableCopy];
+    [result addEntriesFromDictionary:self.layoutOptions.propertyListEntries];
     if (self.tapSyncGroup.count) result[@"tapSync"] = self.tapSyncGroup;
     return result.copy;
 }
@@ -296,18 +419,11 @@ static NSString *LCWorkspaceDisplayName(id value) {
     LCNamedWorkspace *existing = [self workspaceWithIdentifier:identifier];
     if (!identifier || !existing) return NO;
     LCWindowWorkspace *current = existing.snapshot;
-    BOOL singleRow = current.singleRowInLandscape, top = current.reservePortraitTop, bottom = current.reservePortraitBottom;
-    switch (preference) {
-        case LCWorkspaceLayoutPreferenceSingleRowInLandscape: singleRow = enabled; break;
-        case LCWorkspaceLayoutPreferenceReservePortraitTop: top = enabled; break;
-        case LCWorkspaceLayoutPreferenceReservePortraitBottom: bottom = enabled; break;
-        default: return NO;
-    }
-    if (singleRow == current.singleRowInLandscape && top == current.reservePortraitTop && bottom == current.reservePortraitBottom) return YES;
+    LCGridLayoutOptions *options = [current.layoutOptions optionsBySettingPreference:preference enabled:enabled];
+    if (!options) return NO;
+    if ([options isEqual:current.layoutOptions]) return YES;
     NSMutableDictionary *propertyList = current.propertyList.mutableCopy;
-    propertyList[@"singleRowInLandscape"] = @(singleRow);
-    propertyList[@"reservePortraitTop"] = @(top);
-    propertyList[@"reservePortraitBottom"] = @(bottom);
+    [propertyList addEntriesFromDictionary:options.propertyListEntries];
     LCWindowWorkspace *snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:propertyList];
     LCNamedWorkspace *updated = [[LCNamedWorkspace alloc] initWithIdentifier:existing.identifier name:existing.name snapshot:snapshot];
     if (!updated) return NO;

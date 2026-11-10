@@ -8,13 +8,18 @@
 void swizzle(Class class, SEL originalAction, SEL swizzledAction);
 bool performHookDyldApi(const char* functionName, uint32_t adrpOffset, void** origFunction, void* hookFunction);
 
-void NUDGuestHooksInit(void);
+// Helpers pass their parent guest container so nonstandard suites stay shared.
+void NUDGuestHooksInit(NSString *parentContainerPath);
 void SecItemGuestHooksInit(void);
 void DyldHooksInit(bool hideLiveContainer, bool hookDlopen, uint32_t spoofSDKVersion);
 void NSFMGuestHooksInit(void);
+void NSFMGuestExtensionHooksInit(NSString *parentContainerPath);
 void NSURLSCGuestHooksInit(void);
 void initDead10ccFix(void);
 void IDFVHookInit(NSUUID* uuid);
+void NSExtensionGuestHooksInit(NSURL *appURL, NSURL *containerURL);
+int LCRunGuestExtension(NSDictionary *request, NSExtensionContext *context);
+NSString *LCPrepareGuestExtension(NSDictionary *request);
 
 @interface NSBundle(LiveContainer)
 - (instancetype)initWithPathForMainBundle:(NSString *)path;

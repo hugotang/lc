@@ -9,6 +9,7 @@
 #import "LCAppLanguage.h"
 #import "LCMachOUtils.h"
 #import "LCSharedUtils.h"
+#import "GuestPreferencesRouting.h"
 #import "utils.h"
 #import "../../litehook/src/litehook.h"
 #include "Tweaks.h"
@@ -27,10 +28,14 @@ void swizzle2(Class class, SEL originalAction, Class class2, SEL swizzledAction)
 
 NSURL* appContainerURL = 0;
 NSString* appContainerPath = 0;
+static NSString *preferencesParentContainerPath;
+static NSString *preferencesGuestIdentifier;
 
-void NUDGuestHooksInit(void) {
+void NUDGuestHooksInit(NSString *parentContainerPath) {
     appContainerPath = [NSString stringWithUTF8String:getenv("HOME")];
     appContainerURL = [NSURL URLWithString:appContainerPath];
+    preferencesParentContainerPath = parentContainerPath.length ? parentContainerPath.copy : nil;
+    preferencesGuestIdentifier = NSUserDefaults.lcGuestAppId.copy;
     
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
@@ -112,30 +117,18 @@ void NUDGuestHooksInit(void) {
     
 }
 
-NSArray* appleIdentifierPrefixes = @[
-    @"com.apple.",
-    @"group.com.apple.",
-    @"systemgroup.com.apple."
-];
-
-bool isAppleIdentifier(NSString* identifier) {
-    for(NSString* cur in appleIdentifierPrefixes) {
-        if([identifier hasPrefix:cur]) {
-            return true;
-        }
-    }
-    return false;
-}
-
-
 @implementation CFPrefsPlistSource2
 -(id)hook_initWithDomain:(CFStringRef)domain user:(CFStringRef)user byHost:(bool)host containerPath:(CFStringRef)containerPath containingPreferences:(id)arg5 {
-    if(isAppleIdentifier((__bridge NSString*)domain)) {
+    LCGuestPreferencesContainer destination = LCGuestPreferencesContainerForDomain(
+        [(__bridge NSString *)domain UTF8String], preferencesGuestIdentifier.UTF8String,
+        preferencesParentContainerPath != nil);
+    if(destination == LCGuestPreferencesOriginalContainer) {
         return [self hook_initWithDomain:domain user:user byHost:host containerPath:containerPath containingPreferences:arg5];
     }
     if(user == kCFPreferencesAnyUser) {
         user = kCFPreferencesCurrentUser;
     }
-    return [self hook_initWithDomain:domain user:user byHost:host containerPath:(__bridge CFStringRef)appContainerPath containingPreferences:arg5];
+    NSString *destinationPath = destination == LCGuestPreferencesParentContainer ? preferencesParentContainerPath : appContainerPath;
+    return [self hook_initWithDomain:domain user:user byHost:host containerPath:(__bridge CFStringRef)destinationPath containingPreferences:arg5];
 }
 @end
