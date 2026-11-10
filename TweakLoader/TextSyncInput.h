@@ -30,6 +30,8 @@ typedef NS_ENUM(NSInteger, LCTextSyncUnavailableReason) {
 
 // Bounded diagnostics only: never includes field text, labels, IDs or class names.
 FOUNDATION_EXPORT NSString *LCTextSyncUnavailableReasonName(LCTextSyncUnavailableReason reason);
+// Resolve only this adapter's temporary delegate proxy during replay.
+FOUNDATION_EXPORT id _Nullable LCTextSyncOriginalDelegate(UITextField *field) NS_RETURNS_RETAINED;
 
 // Main-thread, session-owned adapter. It never changes focus or retains text on disk.
 @interface LCTextSyncInput : NSObject
@@ -41,6 +43,7 @@ FOUNDATION_EXPORT NSString *LCTextSyncUnavailableReasonName(LCTextSyncUnavailabl
 + (nullable instancetype)inputForWindow:(UIWindow *)window unavailableReason:(LCTextSyncUnavailableReason * _Nullable)reason;
 // Sources require focus. Followers can bind one unambiguous visible editable
 // field after the keyboard moves to another account, without acquiring focus.
+// A verified game bridge may bind a previously selected engine-owned field.
 + (nullable instancetype)inputForWindow:(UIWindow *)window source:(BOOL)source unavailableReason:(LCTextSyncUnavailableReason * _Nullable)reason;
 // Allows an in-progress composition; does not advance the committed baseline.
 - (LCTextSyncInputResult)validateCurrentInput;

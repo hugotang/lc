@@ -10,6 +10,7 @@
 #import "TapSyncReturnGesture.h"
 #import "TapSyncWindow.h"
 #import "TextSyncInput.h"
+#import "MonsterStrikeTextInput.h"
 #import "WindowGeometryDiagnostics.h"
 
 // These setters are used only inside the selected guest process. No system-wide HID injection is used.
@@ -275,6 +276,7 @@ static LCTapSyncClient *tapSyncClient;
 - (void)connectionDidDisconnect:(NSXPCConnection *)connection {
     // An old connection can report invalidation after its replacement is already ready.
     if (!connection || self.connection != connection) return;
+    [LCMonsterStrikeTextInput discard];
     self.connection = nil;
     self.session = nil;
     [self discardCapture];
@@ -303,8 +305,11 @@ static LCTapSyncClient *tapSyncClient;
 - (void)recordTextInputFailure:(NSString *)reason stage:(NSString *)stage session:(NSString *)session {
     if (!session.length) return;
     // Only adapter-enumerated or call-site constants enter this record. Never include text, paths or class names.
-    self.lastInputFailure = @{@"reason": reason, @"stage": stage, @"mode": @"text",
-        @"observedAtUptime": @(NSProcessInfo.processInfo.systemUptime)};
+    NSMutableDictionary *failure = [@{@"reason": reason, @"stage": stage, @"mode": @"text",
+        @"observedAtUptime": @(NSProcessInfo.processInfo.systemUptime)} mutableCopy];
+    NSString *gameState = [LCMonsterStrikeTextInput diagnosticState];
+    if (gameState) failure[@"gameTextState"] = gameState;
+    self.lastInputFailure = failure.copy;
     self.lastInputFailureSession = session;
 }
 - (LCTextSyncInput *)prepareTextInputForWindow:(UIWindow *)window session:(NSString *)session {
@@ -786,6 +791,7 @@ static LCTapSyncClient *tapSyncClient;
     });
 }
 - (void)observeEvent:(UIEvent *)event {
+    if (!self.replaying) [LCMonsterStrikeTextInput observeEvent:event];
     if (self.session && self.mode == LCTapSyncModeText && !self.replaying) {
         if (event.type == UIEventTypeTouches) [self observePhysicalInput:event];
         if (self.suspended) return;
@@ -891,6 +897,10 @@ static LCTapSyncResult LCTextSyncResult(LCTextSyncInputResult result) {
     [self textInputChanged:[NSNotification notificationWithName:UITextFieldTextDidChangeNotification object:control]];
 }
 - (void)textFocusChanged:(NSNotification *)notification {
+    if ([notification.name isEqual:UITextFieldTextDidBeginEditingNotification] ||
+        [notification.name isEqual:UITextViewTextDidBeginEditingNotification]) {
+        [LCMonsterStrikeTextInput didBeginEditing:notification.object];
+    }
     if (!self.session || self.mode != LCTapSyncModeText || self.suspended) return;
     UIView *view = [notification.object isKindOfClass:UIView.class] ? notification.object : nil;
     if (view == self.textInput.responder || view.window == self.textWindow) {
@@ -1591,6 +1601,7 @@ static void LCTapSyncClientInit(void) {
         for (NSString *name in @[UIApplicationWillResignActiveNotification, UIApplicationDidEnterBackgroundNotification]) {
             [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
                 if ([note.name isEqualToString:UIApplicationDidEnterBackgroundNotification]) {
+                    [LCMonsterStrikeTextInput discard];
                     tapSyncClient.keyboardVisible = NO;
                     [tapSyncClient.inputState clearPhysicalTouches];
                 }

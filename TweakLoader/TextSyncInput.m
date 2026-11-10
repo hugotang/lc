@@ -1,4 +1,5 @@
 #import "TextSyncInput.h"
+#import "MonsterStrikeTextInput.h"
 
 NSString *LCTextSyncUnavailableReasonName(LCTextSyncUnavailableReason reason) {
     switch (reason) {
@@ -131,13 +132,19 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
 // delivers. Forward all optional delegate methods and cache only the one edit
 // already approved by the app, so its validator is never consulted twice.
 @interface LCTextSyncEditObserver : NSObject <UITextFieldDelegate, UITextViewDelegate>
-@property(nonatomic, strong) id originalDelegate;
+@property(nonatomic, weak) id originalDelegate;
+@property(nonatomic, strong) id retainedDelegate;
 @property(nonatomic) NSRange range;
 @property(nonatomic, copy) NSString *replacement;
 @property(nonatomic) NSUInteger controlEvents, delegateChanges, notifications;
 @end
 @implementation LCTextSyncEditObserver
 - (BOOL)respondsToSelector:(SEL)selector {
+    if (selector == @selector(textFieldShouldBeginEditing:) || selector == @selector(textFieldShouldEndEditing:) ||
+        selector == @selector(textFieldShouldClear:) || selector == @selector(textFieldShouldReturn:) ||
+        selector == @selector(textFieldDidBeginEditing:) || selector == @selector(textFieldDidEndEditing:) ||
+        selector == @selector(textFieldDidEndEditing:reason:) || selector == @selector(textFieldDidChangeSelection:))
+        return [self.originalDelegate respondsToSelector:selector];
     return [super respondsToSelector:selector] || [self.originalDelegate respondsToSelector:selector];
 }
 - (id)forwardingTargetForSelector:(SEL)selector { return self.originalDelegate; }
@@ -153,8 +160,45 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     self.delegateChanges++;
     if ([self.originalDelegate respondsToSelector:_cmd]) [self.originalDelegate textViewDidChange:view];
 }
+- (BOOL)textFieldShouldBeginEditing:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    return ![delegate respondsToSelector:_cmd] || [delegate textFieldShouldBeginEditing:field];
+}
+- (BOOL)textFieldShouldEndEditing:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    return ![delegate respondsToSelector:_cmd] || [delegate textFieldShouldEndEditing:field];
+}
+- (BOOL)textFieldShouldClear:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    return ![delegate respondsToSelector:_cmd] || [delegate textFieldShouldClear:field];
+}
+- (BOOL)textFieldShouldReturn:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    return ![delegate respondsToSelector:_cmd] || [delegate textFieldShouldReturn:field];
+}
+- (void)textFieldDidBeginEditing:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    if ([delegate respondsToSelector:_cmd]) [delegate textFieldDidBeginEditing:field];
+}
+- (void)textFieldDidEndEditing:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    if ([delegate respondsToSelector:_cmd]) [delegate textFieldDidEndEditing:field];
+}
+- (void)textFieldDidEndEditing:(UITextField *)field reason:(UITextFieldDidEndEditingReason)reason {
+    id delegate = self.originalDelegate;
+    if ([delegate respondsToSelector:_cmd]) [delegate textFieldDidEndEditing:field reason:reason];
+}
+- (void)textFieldDidChangeSelection:(UITextField *)field {
+    id delegate = self.originalDelegate;
+    if ([delegate respondsToSelector:_cmd]) [delegate textFieldDidChangeSelection:field];
+}
 - (void)editingChanged:(UITextField *)field { self.controlEvents++; }
 @end
+
+id LCTextSyncOriginalDelegate(UITextField *field) {
+    id delegate = field.delegate;
+    return [delegate isKindOfClass:LCTextSyncEditObserver.class] ? ((LCTextSyncEditObserver *)delegate).originalDelegate : delegate;
+}
 
 @interface LCTextSyncInput ()
 @property(nonatomic, weak, readwrite) UIView<UITextInput> *responder;
@@ -163,6 +207,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
 @property(nonatomic, copy) NSDictionary *field;
 @property(nonatomic, copy) NSString *baseline;
 @property(nonatomic) BOOL source;
+@property(nonatomic, strong) LCMonsterStrikeTextBinding *gameBinding;
 @end
 
 @implementation LCTextSyncInput
@@ -178,13 +223,22 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     *reason = LCTextSyncUnavailableReasonNone;
     if (!NSThread.isMainThread) { *reason = LCTextSyncUnavailableReasonWrongThread; return nil; }
     UIView<UITextInput> *input = LCTextSyncInputForRole(window, source, reason);
+    LCMonsterStrikeTextBinding *binding = nil;
+    if ([input isKindOfClass:UITextField.class]) {
+        binding = [LCMonsterStrikeTextInput bindingForWindow:window field:(UITextField *)input];
+    } else if (!input && !source && *reason == LCTextSyncUnavailableReasonNoFocusedInput) {
+        binding = [LCMonsterStrikeTextInput bindingForWindow:window field:nil];
+        input = (UIView<UITextInput> *)binding.field;
+    }
     if (!input) return nil;
+    if (binding && (binding.field != input || ![binding validate])) { *reason = LCTextSyncUnavailableReasonFocusChanged; return nil; }
+    if ([input isKindOfClass:UITextField.class] && !((UITextField *)input).enabled) { *reason = LCTextSyncUnavailableReasonDisabled; return nil; }
     if (input.isSecureTextEntry) { *reason = LCTextSyncUnavailableReasonSecure; return nil; }
     if (input.markedTextRange) { *reason = LCTextSyncUnavailableReasonComposing; return nil; }
     NSString *text = LCTextSyncText(input);
-    NSDictionary *field = LCTextSyncField(input, window);
+    NSDictionary *field = binding ? binding.signature : LCTextSyncField(input, window);
     if (!LCTextSyncStringIsValid(text, LCTextSyncMaximumLength)) { *reason = LCTextSyncUnavailableReasonInvalidText; return nil; }
-    if (!field) { *reason = LCTextSyncUnavailableReasonUnsupportedHierarchy; return nil; }
+    if (!LCTextSyncFieldIsValid(field)) { *reason = LCTextSyncUnavailableReasonUnsupportedHierarchy; return nil; }
     if ((source || input.isFirstResponder) && !LCTextSyncSelection(input, text, NULL)) { *reason = LCTextSyncUnavailableReasonInvalidSelection; return nil; }
     LCTextSyncInput *adapter = [self new];
     adapter.responder = input;
@@ -192,6 +246,8 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     adapter.field = field;
     adapter.baseline = text;
     adapter.source = source;
+    adapter.gameBinding = binding;
+    *reason = LCTextSyncUnavailableReasonNone;
     return adapter;
 }
 - (LCTextSyncInputResult)validateCurrentInput {
@@ -200,13 +256,20 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     if (!NSThread.isMainThread) { self.lastUnavailableReason = LCTextSyncUnavailableReasonWrongThread; return LCTextSyncInputResultUnavailable; }
     if (!input || !self.window) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultUnavailable; }
     if (input.isSecureTextEntry) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSecure; return LCTextSyncInputResultUnavailable; }
+    if ([input isKindOfClass:UITextField.class] && !((UITextField *)input).enabled) { self.lastUnavailableReason = LCTextSyncUnavailableReasonDisabled; return LCTextSyncInputResultUnavailable; }
     LCTextSyncUnavailableReason failure;
     UIView<UITextInput> *focused = LCTextSyncInputForRole(self.window, self.source, &failure);
-    if (focused != input) {
+    BOOL hiddenFollower = self.gameBinding && !self.source && !focused && failure == LCTextSyncUnavailableReasonNoFocusedInput;
+    if (focused != input && !hiddenFollower) {
         self.lastUnavailableReason = !focused && failure != LCTextSyncUnavailableReasonNoFocusedInput ? failure : LCTextSyncUnavailableReasonFocusChanged;
         return LCTextSyncInputResultUnavailable;
     }
-    if (![LCTextSyncField(input, self.window) isEqual:self.field]) {
+    if (self.gameBinding && (self.gameBinding.field != input || ![self.gameBinding validate])) {
+        self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged;
+        return LCTextSyncInputResultUnavailable;
+    }
+    NSDictionary *field = self.gameBinding ? self.gameBinding.signature : LCTextSyncField(input, self.window);
+    if (![field isEqual:self.field]) {
         self.lastUnavailableReason = LCTextSyncUnavailableReasonUnsupportedHierarchy;
         return LCTextSyncInputResultMismatch;
     }
@@ -235,6 +298,28 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     self.baseline = text;
     return packet;
 }
+- (LCTextSyncInputResult)validateReplayForInput:(UIView<UITextInput> *)input passive:(BOOL)passive text:(NSString *)text {
+    if (self.shouldContinue && !self.shouldContinue()) {
+        self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged;
+        return LCTextSyncInputResultUnavailable;
+    }
+    LCTextSyncInputResult result = [self validateCurrentInput];
+    if (result != LCTextSyncInputResultReady) return result;
+    if (passive && input.isFirstResponder) {
+        self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged;
+        return LCTextSyncInputResultMismatch;
+    }
+    if (input.markedTextRange) {
+        self.lastUnavailableReason = LCTextSyncUnavailableReasonComposing;
+        return LCTextSyncInputResultMismatch;
+    }
+    if (![LCTextSyncText(input) isEqual:text]) return LCTextSyncInputResultMismatch;
+    if (self.shouldContinue && !self.shouldContinue()) {
+        self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged;
+        return LCTextSyncInputResultUnavailable;
+    }
+    return LCTextSyncInputResultReady;
+}
 - (LCTextSyncInputResult)applyPacket:(NSDictionary *)packet {
     self.lastUnavailableReason = LCTextSyncUnavailableReasonNone;
     if (!LCTextSyncPacketIsValid(packet)) return LCTextSyncInputResultInvalid;
@@ -257,7 +342,10 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     NSString *replacement = [after substringWithRange:NSMakeRange(prefix, after.length - prefix - suffix)];
     UITextField *field = [input isKindOfClass:UITextField.class] ? (UITextField *)input : nil;
     UITextView *view = [input isKindOfClass:UITextView.class] ? (UITextView *)input : nil;
-    id delegate = field ? (id)field.delegate : (id)view.delegate;
+    // Game-owned delegates contain an unmanaged engine pointer. Keeping one
+    // alive across an app callback could outlive that engine allocation.
+    id ordinaryDelegate = self.gameBinding ? nil : (field ? (id)field.delegate : (id)view.delegate);
+    __weak id delegate = ordinaryDelegate ?: (field ? (id)field.delegate : (id)view.delegate);
     if (field && [delegate respondsToSelector:@selector(textField:shouldChangeCharactersInRange:replacementString:)] &&
         ![delegate textField:field shouldChangeCharactersInRange:replacementRange replacementString:replacement]) return LCTextSyncInputResultMismatch;
     if (view && [delegate respondsToSelector:@selector(textView:shouldChangeTextInRange:replacementText:)] &&
@@ -276,6 +364,7 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     if (!range) { self.lastUnavailableReason = LCTextSyncUnavailableReasonInvalidSelection; return LCTextSyncInputResultUnavailable; }
     LCTextSyncEditObserver *observer = [LCTextSyncEditObserver new];
     observer.originalDelegate = delegate;
+    if (!self.gameBinding) observer.retainedDelegate = delegate;
     observer.range = replacementRange;
     observer.replacement = replacement;
     NSString *notificationName = field ? UITextFieldTextDidChangeNotification : UITextViewTextDidChangeNotification;
@@ -285,15 +374,21 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
     @try {
         // Delegate validation and custom UITextInput methods run guest code.
         // Recheck immediately before mutation, not only on packet arrival.
-        if (self.shouldContinue && !self.shouldContinue()) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged; return LCTextSyncInputResultUnavailable; }
-        if (passive && input.isFirstResponder) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultMismatch; }
+        status = [self validateReplayForInput:input passive:passive text:before];
+        if (status != LCTextSyncInputResultReady) return status;
         if (!LCTextSyncPacketIsFresh(packet, NSProcessInfo.processInfo.systemUptime)) return LCTextSyncInputResultExpired;
         [input replaceRange:range withText:replacement];
+        status = [self validateReplayForInput:input passive:passive text:after];
+        if (status != LCTextSyncInputResultReady) return status;
         if (field && observer.controlEvents == 0) [field sendActionsForControlEvents:UIControlEventEditingChanged];
+        status = [self validateReplayForInput:input passive:passive text:after];
+        if (status != LCTextSyncInputResultReady) return status;
         if (view && observer.delegateChanges == 0) {
             id current = view.delegate;
             if ([current respondsToSelector:@selector(textViewDidChange:)]) [current textViewDidChange:view];
         }
+        status = [self validateReplayForInput:input passive:passive text:after];
+        if (status != LCTextSyncInputResultReady) return status;
         if (observer.notifications == 0) [NSNotificationCenter.defaultCenter postNotificationName:notificationName object:input];
     } @finally {
         [NSNotificationCenter.defaultCenter removeObserver:token];
@@ -302,11 +397,16 @@ static BOOL LCTextSyncComposedBoundary(NSString *text, NSUInteger offset) {
             if (field.delegate == observer) field.delegate = observer.originalDelegate;
         } else if (view.delegate == observer) view.delegate = observer.originalDelegate;
     }
-    if (self.shouldContinue && !self.shouldContinue()) { self.lastUnavailableReason = LCTextSyncUnavailableReasonSessionChanged; return LCTextSyncInputResultUnavailable; }
-    if ([self validateCurrentInput] != LCTextSyncInputResultReady) return LCTextSyncInputResultMismatch;
-    if (passive && input.isFirstResponder) { self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged; return LCTextSyncInputResultMismatch; }
-    if (input.markedTextRange) { self.lastUnavailableReason = LCTextSyncUnavailableReasonComposing; return LCTextSyncInputResultMismatch; }
-    if (![LCTextSyncText(input) isEqual:after]) return LCTextSyncInputResultMismatch;
+    status = [self validateReplayForInput:input passive:passive text:after];
+    if (status != LCTextSyncInputResultReady) return status;
+    if (self.gameBinding) {
+        if (![self.gameBinding refreshRenderedText]) {
+            self.lastUnavailableReason = LCTextSyncUnavailableReasonFocusChanged;
+            return LCTextSyncInputResultUnavailable;
+        }
+        status = [self validateReplayForInput:input passive:passive text:after];
+        if (status != LCTextSyncInputResultReady) return status;
+    }
     // Unfocused followers need no caret. Setting a selection can acquire the
     // keyboard in custom controls; replay only the validated document edit.
     if (passive) {

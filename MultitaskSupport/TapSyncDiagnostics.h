@@ -51,6 +51,9 @@ static inline NSDictionary * _Nullable LCTapSyncSanitizedInputFailure(id _Nullab
         record[key] = item;
     }
     id sequenceCheck = value[@"sequenceCheck"];
+    id gameState = value[@"gameTextState"];
+    if ([gameState isKindOfClass:NSString.class] && [@[@"imageUnsupported", @"noRememberedField", @"bindingInvalidated",
+        @"fieldChanged", @"geometryChanged", @"ownerChanged", @"sceneChanged", @"nodeChanged", @"ready", @"selectionRejected"] containsObject:gameState]) record[@"gameTextState"] = gameState;
     if ([sequenceCheck isKindOfClass:NSString.class] && [sequenceCheck length] <= 32) record[@"sequenceCheck"] = sequenceCheck;
     for (NSString *key in @[@"receivedSequence", @"previousSequence", @"expectedSequence", @"ageLimitMs", @"observedAtUptime", @"inputAgeMs", @"phase"]) {
         id item = value[key];

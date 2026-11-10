@@ -1,6 +1,8 @@
 #import <XCTest/XCTest.h>
 #import "../TweakLoader/TextSyncInput.h"
+#import "../TweakLoader/MonsterStrikeTextInput.h"
 #import "TapSyncTestWindow.h"
+#import <objc/runtime.h>
 
 @interface LCTextSyncNestedResponderView : UIView
 @end
@@ -28,11 +30,28 @@
 - (UITextRange *)selectedTextRange { return self.isFirstResponder ? [super selectedTextRange] : nil; }
 @end
 
+@interface LCTextSyncCallbackField : LCTextSyncPassiveField
+@property(nonatomic, copy) void (^onReplace)(void);
+@property(nonatomic) BOOL suppressUIKitCallbacks;
+@end
+@implementation LCTextSyncCallbackField
+- (void)replaceRange:(UITextRange *)range withText:(NSString *)text {
+    if (self.suppressUIKitCallbacks) {
+        NSInteger start = [self offsetFromPosition:self.beginningOfDocument toPosition:range.start];
+        NSInteger end = [self offsetFromPosition:self.beginningOfDocument toPosition:range.end];
+        self.text = [self.text stringByReplacingCharactersInRange:NSMakeRange((NSUInteger)start, (NSUInteger)(end - start)) withString:text];
+    } else [super replaceRange:range withText:text];
+    if (self.onReplace) self.onReplace();
+}
+@end
+
 @interface LCTextSyncTestDelegate : NSObject <UITextFieldDelegate, UITextViewDelegate>
 @property(nonatomic) NSUInteger validations, changes, controls;
 @property(nonatomic) BOOL reject, transform;
 @property(nonatomic) NSTimeInterval validationDelay;
 @property(nonatomic, copy) void (^onValidate)(void);
+@property(nonatomic, copy) void (^onControl)(void);
+@property(nonatomic) BOOL hideAfterEditing, removeAfterEditing;
 @end
 @implementation LCTextSyncTestDelegate
 - (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string {
@@ -54,8 +73,52 @@
 - (void)editingChanged:(UITextField *)field {
     self.controls++;
     if (self.transform) field.text = @"Changed by app";
+    if (self.onControl) self.onControl();
+}
+- (void)textFieldDidEndEditing:(UITextField *)field {
+    if (self.hideAfterEditing) field.hidden = YES;
+    if (self.removeAfterEditing) [field removeFromSuperview];
 }
 @end
+
+// Adapter integration fixture. The bridge's binary/version and engine graph
+// checks have separate tests; this exercises the real UIKit replay pipeline.
+@interface LCTextSyncGameBindingFixture : LCMonsterStrikeTextBinding
+@property(nonatomic, weak) UITextField *testField;
+@property(nonatomic, weak) UIWindow *testWindow;
+@property(nonatomic, weak) id testOwner;
+@property(nonatomic, copy) NSDictionary *testSignature;
+@property(nonatomic, copy) NSString *renderedText;
+@property(nonatomic, copy) void (^onRefresh)(void);
+@property(nonatomic) BOOL valid;
+@property(nonatomic) BOOL requiresOwner;
+@property(nonatomic) NSUInteger refreshes;
+@end
+@implementation LCTextSyncGameBindingFixture
+- (UITextField *)field { return self.testField; }
+- (NSDictionary *)signature { return self.testSignature; }
+- (BOOL)validate {
+    id owner = self.testOwner;
+    return self.valid && self.testField && self.testWindow &&
+        (!self.requiresOwner || (owner && LCTextSyncOriginalDelegate(self.testField) == owner));
+}
+- (BOOL)refreshRenderedText {
+    if (![self validate]) return NO;
+    self.refreshes++;
+    self.renderedText = self.testField.text;
+    if (self.onRefresh) self.onRefresh();
+    return [self validate];
+}
+@end
+
+static NSMutableArray<LCTextSyncGameBindingFixture *> *LCTextSyncGameFixtures;
+static IMP LCTextSyncOriginalBindingResolver;
+static LCMonsterStrikeTextBinding *LCTextSyncFixtureBinding(id receiver, SEL selector, UIWindow *window, UITextField *field) {
+    for (LCTextSyncGameBindingFixture *binding in LCTextSyncGameFixtures) {
+        if (binding.testWindow == window && (!field || binding.testField == field) && [binding validate]) return binding;
+    }
+    return nil;
+}
 
 @interface TextSyncInputTests : XCTestCase
 @property(nonatomic) UIView *surface;
@@ -86,6 +149,11 @@
     [self setSelection:NSMakeRange(0, 0) input:self.field];
 }
 - (void)tearDown {
+    if (LCTextSyncOriginalBindingResolver) {
+        method_setImplementation(class_getClassMethod(LCMonsterStrikeTextInput.class, @selector(bindingForWindow:field:)), LCTextSyncOriginalBindingResolver);
+        LCTextSyncOriginalBindingResolver = NULL;
+        LCTextSyncGameFixtures = nil;
+    }
     [self.window endEditing:YES];
     [self.surface removeFromSuperview];
     self.surface = nil;
@@ -93,6 +161,22 @@
     self.textView = nil;
     self.window = nil;
     [super tearDown];
+}
+- (LCTextSyncGameBindingFixture *)bindGameField:(UITextField *)field window:(UIWindow *)window owner:(id)owner {
+    if (!LCTextSyncOriginalBindingResolver) {
+        LCTextSyncGameFixtures = [NSMutableArray array];
+        LCTextSyncOriginalBindingResolver = method_setImplementation(class_getClassMethod(LCMonsterStrikeTextInput.class, @selector(bindingForWindow:field:)), (IMP)LCTextSyncFixtureBinding);
+    }
+    LCTextSyncGameBindingFixture *binding = [LCTextSyncGameBindingFixture new];
+    binding.testField = field;
+    binding.testWindow = window;
+    binding.testOwner = owner;
+    binding.requiresOwner = owner != nil;
+    binding.testSignature = @{@"kind": @"field", @"path": @[@1, @2], @"identifier": @"monster-strike-test-search"};
+    binding.renderedText = field.text;
+    binding.valid = YES;
+    [LCTextSyncGameFixtures addObject:binding];
+    return binding;
 }
 - (void)setSelection:(NSRange)selection input:(UIView<UITextInput> *)input {
     UITextPosition *start = [input positionFromPosition:input.beginningOfDocument offset:(NSInteger)selection.location];
@@ -565,5 +649,252 @@
     XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonUnsupportedHierarchy);
     [self.field removeFromSuperview];
     XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+}
+- (void)testGameFieldsReplayAcrossFourWindowsAfterNativeFieldsHideOrDetach {
+    self.textView.hidden = YES;
+    LCTextSyncTestDelegate *sourceOwner = [LCTextSyncTestDelegate new];
+    self.field.delegate = sourceOwner;
+    [self bindGameField:self.field window:self.window owner:sourceOwner];
+    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
+    NSMutableArray<UITextField *> *fields = [NSMutableArray array];
+    NSMutableArray<LCTextSyncTestDelegate *> *owners = [NSMutableArray array];
+    NSMutableArray<LCTextSyncGameBindingFixture *> *bindings = [NSMutableArray array];
+    NSMutableArray<LCTextSyncInput *> *followers = [NSMutableArray array];
+    @try {
+        for (NSUInteger i = 0; i < 3; i++) {
+            UIWindow *window = [[UIWindow alloc] initWithWindowScene:self.window.windowScene];
+            [windows addObject:window];
+            window.frame = self.window.bounds;
+            window.rootViewController = [UIViewController new];
+            LCTextSyncPassiveField *field = [[LCTextSyncPassiveField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
+            field.text = @"";
+            field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+            LCTextSyncTestDelegate *owner = [LCTextSyncTestDelegate new];
+            owner.hideAfterEditing = YES;
+            owner.removeAfterEditing = i == 1;
+            field.delegate = owner;
+            [field addTarget:owner action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+            [window.rootViewController.view addSubview:field];
+            [window makeKeyAndVisible];
+            XCTAssertTrue([field becomeFirstResponder]);
+            [fields addObject:field];
+            [owners addObject:owner];
+            [bindings addObject:[self bindGameField:field window:window owner:owner]];
+            XCTAssertTrue([field resignFirstResponder]);
+            XCTAssertTrue(field.hidden);
+            XCTAssertFalse(field.isFirstResponder);
+        }
+        [self.window makeKeyWindow];
+        XCTAssertTrue([self.field becomeFirstResponder]);
+        [self setSelection:NSMakeRange(0, 0) input:self.field];
+        LCTextSyncInput *source = [LCTextSyncInput inputForWindow:self.window];
+        XCTAssertNotNil(source);
+        XCTAssertEqual(self.field.delegate, sourceOwner);
+        for (NSUInteger i = 0; i < windows.count; i++) {
+            LCTextSyncUnavailableReason reason;
+            LCTextSyncInput *follower = [LCTextSyncInput inputForWindow:windows[i] source:NO unavailableReason:&reason];
+            XCTAssertNotNil(follower);
+            XCTAssertEqual(reason, LCTextSyncUnavailableReasonNone);
+            [followers addObject:follower];
+            ((LCTextSyncPassiveField *)fields[i]).focusRequests = 0;
+        }
+        for (NSString *text in @[@"搜尋", @"検索😀", @"検索", @""]) {
+            self.field.text = text;
+            [self setSelection:NSMakeRange(text.length, 0) input:self.field];
+            LCTextSyncInputResult result;
+            NSDictionary *packet = [source captureEditAtTime:NSProcessInfo.processInfo.systemUptime result:&result];
+            XCTAssertEqual(result, LCTextSyncInputResultReady);
+            XCTAssertNotNil(packet);
+            for (NSUInteger i = 0; i < followers.count; i++) {
+                XCTAssertEqual([followers[i] applyPacket:packet], LCTextSyncInputResultReady);
+                XCTAssertEqualObjects(fields[i].text, text);
+                XCTAssertEqualObjects(bindings[i].renderedText, text);
+                XCTAssertTrue(fields[i].hidden);
+                XCTAssertFalse(fields[i].isFirstResponder);
+                XCTAssertEqual(((LCTextSyncPassiveField *)fields[i]).focusRequests, 0u);
+                XCTAssertTrue(self.field.isFirstResponder);
+            }
+        }
+        XCTAssertNil(fields[1].superview);
+        for (NSUInteger i = 0; i < owners.count; i++) {
+            XCTAssertEqual(owners[i].validations, 4u);
+            XCTAssertEqual(owners[i].controls, 4u);
+            XCTAssertEqual(bindings[i].refreshes, 4u);
+        }
+    } @finally {
+        for (UIWindow *window in windows) {
+            [window endEditing:YES];
+            window.hidden = YES;
+            window.windowScene = nil;
+            window.rootViewController = nil;
+        }
+        [self.window makeKeyWindow];
+    }
+}
+- (void)testGameBindingCannotBypassSourceFocusOrCompetingInputs {
+    self.textView.hidden = YES;
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:self.field window:self.window owner:nil];
+    [self.field resignFirstResponder];
+    self.field.hidden = YES;
+    LCTextSyncUnavailableReason reason;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:YES unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonNoFocusedInput);
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason];
+    XCTAssertNotNil(target);
+    self.textView.hidden = NO;
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+    LCTextSyncInput *other = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason];
+    XCTAssertEqual(other.responder, self.textView);
+    self.textView.hidden = YES;
+    LCTextSyncNestedResponderView *unsupported = [[LCTextSyncNestedResponderView alloc] initWithFrame:CGRectMake(10, 210, 260, 44)];
+    [self.surface addSubview:unsupported];
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonUnsupportedResponder);
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+    [unsupported removeFromSuperview];
+    self.field.secureTextEntry = YES;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonSecure);
+    self.field.secureTextEntry = NO;
+    self.field.enabled = NO;
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+    XCTAssertEqual(reason, LCTextSyncUnavailableReasonDisabled);
+    self.field.enabled = YES;
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultReady);
+    binding.valid = NO;
+    XCTAssertEqual([target validateCurrentInput], LCTextSyncInputResultUnavailable);
+    XCTAssertNil([LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:&reason]);
+}
+- (void)testGameBindingReplacementAndLocalChangesRejectWithoutRefreshing {
+    self.textView.hidden = YES;
+    LCTextSyncTestDelegate *owner = [LCTextSyncTestDelegate new];
+    self.field.delegate = owner;
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:self.field window:self.window owner:owner];
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self.field resignFirstResponder];
+    self.field.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    self.field.text = @"local";
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultMismatch);
+    XCTAssertEqualObjects(self.field.text, @"local");
+    XCTAssertEqual(binding.refreshes, 0u);
+    self.field.text = @"A";
+    LCTextSyncTestDelegate *replacementOwner = [LCTextSyncTestDelegate new];
+    self.field.delegate = replacementOwner;
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertEqualObjects(self.field.text, @"A");
+    XCTAssertEqual(binding.refreshes, 0u);
+    self.field.delegate = owner;
+    UITextField *replacement = [[UITextField alloc] initWithFrame:self.field.frame];
+    binding.testField = replacement;
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(binding.refreshes, 0u);
+}
+- (void)testReplacementCallbackCancellingSessionStopsLaterNotificationsAndRefresh {
+    [self.window endEditing:YES];
+    [self.field removeFromSuperview];
+    LCTextSyncCallbackField *field = [[LCTextSyncCallbackField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
+    self.field = field;
+    [self.surface insertSubview:field atIndex:0];
+    self.textView.hidden = YES;
+    field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+    XCTAssertTrue([field becomeFirstResponder]);
+    LCTextSyncTestDelegate *owner = [LCTextSyncTestDelegate new];
+    field.delegate = owner;
+    [field addTarget:owner action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:field window:self.window owner:owner];
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:field];
+    field.text = @"A";
+    [field resignFirstResponder];
+    field.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    __block BOOL current = YES;
+    target.shouldContinue = ^BOOL { return current; };
+    field.suppressUIKitCallbacks = YES;
+    field.onReplace = ^{ current = NO; };
+    __block NSUInteger notifications = 0;
+    id token = [NSNotificationCenter.defaultCenter addObserverForName:UITextFieldTextDidChangeNotification object:field queue:nil usingBlock:^(NSNotification *note) { notifications++; }];
+    @try {
+        XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+        XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonSessionChanged);
+        XCTAssertEqualObjects(field.text, @"AB");
+        XCTAssertEqual(owner.controls, 0u);
+        XCTAssertEqual(notifications, 0u);
+        XCTAssertEqual(binding.refreshes, 0u);
+        XCTAssertEqual(field.delegate, owner);
+    } @finally {
+        [NSNotificationCenter.defaultCenter removeObserver:token];
+    }
+}
+- (void)testGameControlCallbackInvalidationPreventsRenderedRefresh {
+    self.textView.hidden = YES;
+    LCTextSyncTestDelegate *owner = [LCTextSyncTestDelegate new];
+    self.field.delegate = owner;
+    [self.field addTarget:owner action:@selector(editingChanged:) forControlEvents:UIControlEventEditingChanged];
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:self.field window:self.window owner:owner];
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self.field resignFirstResponder];
+    self.field.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    owner.onControl = ^{ binding.valid = NO; };
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(owner.controls, 1u);
+    XCTAssertEqual(binding.refreshes, 0u);
+    XCTAssertEqual(self.field.delegate, owner);
+}
+- (void)testGameDelegateIsNotKeptAliveAfterEngineOwnerReleasesItDuringEdit {
+    [self.window endEditing:YES];
+    [self.field removeFromSuperview];
+    LCTextSyncCallbackField *field = [[LCTextSyncCallbackField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
+    self.field = field;
+    [self.surface insertSubview:field atIndex:0];
+    self.textView.hidden = YES;
+    field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
+    XCTAssertTrue([field becomeFirstResponder]);
+    __block LCTextSyncTestDelegate *engineOwner = [LCTextSyncTestDelegate new];
+    __weak LCTextSyncTestDelegate *weakOwner = engineOwner;
+    field.delegate = engineOwner;
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:field window:self.window owner:engineOwner];
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:field];
+    field.text = @"A";
+    [field resignFirstResponder];
+    field.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    field.suppressUIKitCallbacks = YES;
+    field.onReplace = ^{ engineOwner = nil; };
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    XCTAssertNil(weakOwner);
+    XCTAssertNil(field.delegate);
+    XCTAssertEqual(binding.refreshes, 0u);
+}
+- (void)testGameRefreshRechecksTextAndSessionBeforeAdvancingBaseline {
+    self.textView.hidden = YES;
+    LCTextSyncGameBindingFixture *binding = [self bindGameField:self.field window:self.window owner:nil];
+    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:self.field];
+    self.field.text = @"A";
+    [self.field resignFirstResponder];
+    self.field.hidden = YES;
+    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+    XCTAssertNotNil(target);
+    __weak UITextField *weakField = self.field;
+    binding.onRefresh = ^{ weakField.text = @"game correction"; };
+    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultMismatch);
+    XCTAssertEqualObjects(self.field.text, @"game correction");
+    XCTAssertEqual(binding.refreshes, 1u);
+    self.field.text = @"A";
+    __block BOOL current = YES;
+    target.shouldContinue = ^BOOL { return current; };
+    binding.onRefresh = ^{ current = NO; };
+    NSMutableDictionary *fresh = packet.mutableCopy;
+    fresh[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime);
+    XCTAssertEqual([target applyPacket:fresh], LCTextSyncInputResultUnavailable);
+    XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonSessionChanged);
+    XCTAssertEqual(binding.refreshes, 2u);
 }
 @end
