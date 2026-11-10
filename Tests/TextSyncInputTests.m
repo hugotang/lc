@@ -847,7 +847,7 @@ static LCMonsterStrikeTextBinding *LCTextSyncFixtureBinding(id receiver, SEL sel
     XCTAssertEqual(binding.refreshes, 0u);
     XCTAssertEqual(self.field.delegate, owner);
 }
-- (void)testGameDelegateIsNotKeptAliveAfterEngineOwnerReleasesItDuringEdit {
+- (void)testGameEngineInvalidationRejectsEvenWhileObjectiveCDelegateRemainsAlive {
     [self.window endEditing:YES];
     [self.field removeFromSuperview];
     LCTextSyncCallbackField *field = [[LCTextSyncCallbackField alloc] initWithFrame:CGRectMake(10, 20, 260, 44)];
@@ -856,22 +856,36 @@ static LCMonsterStrikeTextBinding *LCTextSyncFixtureBinding(id receiver, SEL sel
     self.textView.hidden = YES;
     field.inputView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 300, 40)];
     XCTAssertTrue([field becomeFirstResponder]);
-    __block LCTextSyncTestDelegate *engineOwner = [LCTextSyncTestDelegate new];
-    __weak LCTextSyncTestDelegate *weakOwner = engineOwner;
-    field.delegate = engineOwner;
-    LCTextSyncGameBindingFixture *binding = [self bindGameField:field window:self.window owner:engineOwner];
-    NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:field];
-    field.text = @"A";
-    [field resignFirstResponder];
-    field.hidden = YES;
-    LCTextSyncInput *target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
-    XCTAssertNotNil(target);
-    field.suppressUIKitCallbacks = YES;
-    field.onReplace = ^{ engineOwner = nil; };
-    XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+    __weak LCTextSyncTestDelegate *weakOwner;
+    LCTextSyncInput *target;
+    @autoreleasepool {
+        // UIKit and Objective-C getters may keep the wrapper alive until the
+        // pool drains. Engine liveness must be checked independently of weak
+        // zeroing because the game's destructor does not clear its raw pointer.
+        LCTextSyncTestDelegate *retainedWrapper = [LCTextSyncTestDelegate new];
+        weakOwner = retainedWrapper;
+        field.delegate = retainedWrapper;
+        LCTextSyncGameBindingFixture *binding = [self bindGameField:field window:self.window owner:retainedWrapper];
+        NSDictionary *packet = [self packetFrom:@"A" to:@"AB" input:field];
+        field.text = @"A";
+        [field resignFirstResponder];
+        field.hidden = YES;
+        target = [LCTextSyncInput inputForWindow:self.window source:NO unavailableReason:NULL];
+        XCTAssertNotNil(target);
+        field.suppressUIKitCallbacks = YES;
+        field.onReplace = ^{ binding.valid = NO; };
+        XCTAssertEqual([target applyPacket:packet], LCTextSyncInputResultUnavailable);
+        XCTAssertEqual(target.lastUnavailableReason, LCTextSyncUnavailableReasonFocusChanged);
+        XCTAssertEqual(field.delegate, retainedWrapper);
+        XCTAssertNotNil(weakOwner);
+        XCTAssertEqual(binding.refreshes, 0u);
+        XCTAssertEqualObjects(field.text, @"AB");
+    }
+    // Keep the adapter and field alive while proving neither its binding nor
+    // replay proxy prolonged the wrapper's lifetime beyond UIKit temporaries.
+    XCTAssertNotNil(target.responder);
     XCTAssertNil(weakOwner);
     XCTAssertNil(field.delegate);
-    XCTAssertEqual(binding.refreshes, 0u);
 }
 - (void)testGameRefreshRechecksTextAndSessionBeforeAdvancingBaseline {
     self.textView.hidden = YES;
