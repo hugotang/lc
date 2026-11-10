@@ -298,7 +298,7 @@ NSString *LCPrepareGuestExtension(NSDictionary *request) {
     const char *executablePath = strdup(bundle.executablePath.fileSystemRepresentation);
     *_CFGetProcessPath() = executablePath;
     overwriteExecPath(executablePath);
-    NUDGuestHooksInit();
+    NUDGuestHooksInit(request[@"parentContainerPath"]);
     NSFMGuestExtensionHooksInit(request[@"parentContainerPath"]);
     NSURLSCGuestHooksInit();
 
@@ -586,7 +586,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     // hook NSUserDefault before running libraries' initializers
-    NUDGuestHooksInit();
+    NUDGuestHooksInit(nil);
     if (!isLiveProcess && [guestAppInfo[@"helperProcessesSupport"] boolValue]) {
         NSExtensionGuestHooksInit(appBundle.bundleURL, [NSURL fileURLWithPath:newHomePath isDirectory:YES]);
     }

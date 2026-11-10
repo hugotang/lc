@@ -20,7 +20,7 @@ static NSError *LCGuestExtensionError(NSString *message) {
 // Subclass the app's declared context rather than replacing it: vendor methods
 // and protocol interfaces remain available, including isKindOfClass checks.
 @protocol LCGuestExtensionHostHandshake
-- (void)lcConnectWithEndpoint:(NSXPCListenerEndpoint *)endpoint completion:(void (^)(void))completion;
+- (void)lcConnectWithEndpoint:(NSXPCListenerEndpoint *)endpoint completion:(void (^)(NSXPCListenerEndpoint *))completion;
 @end
 
 @interface LCGuestExtensionContextState : NSObject <NSXPCListenerDelegate, LCGuestExtensionHostHandshake>
@@ -28,12 +28,15 @@ static NSError *LCGuestExtensionError(NSString *message) {
 @property(nonatomic, strong) NSExtensionContext *context;
 @property(nonatomic, strong) NSExtensionContext *systemContext;
 @property(nonatomic, strong) NSXPCListener *listener;
+@property(nonatomic, strong) NSXPCListener *auxiliaryListener;
 @property(nonatomic, strong) NSXPCConnection *connection;
+@property(nonatomic, strong) NSXPCConnection *incomingConnection;
 @property(nonatomic, strong) NSXPCConnection *controlConnection;
 @property(nonatomic) BOOL usesHandshake;
 @property(nonatomic) BOOL vendorListener;
 @property(nonatomic) NSUInteger generation;
 @property(nonatomic) BOOL cancelled;
+@property(nonatomic) BOOL invalidated;
 - (void)invalidate;
 @end
 
@@ -86,70 +89,135 @@ static NSXPCInterface *LCAuxiliaryInterface(Class contextClass, BOOL host) {
     return [contextClass respondsToSelector:selector] ? ((id (*)(id, SEL))objc_msgSend)(contextClass, selector) : nil;
 }
 
-static void LCConnectGuestContext(LCGuestExtensionContextState *state, Class contextClass, NSDictionary *request) {
+static NSError *LCConnectGuestContextWithTimeout(LCGuestExtensionContextState *state, Class contextClass, NSDictionary *request, NSTimeInterval timeout) {
     NSXPCListenerEndpoint *endpoint = request[@"auxiliaryEndpoint"];
-    if (!endpoint) return;
+    if (!endpoint) return nil;
     state.usesHandshake = [request[@"auxiliaryHandshake"] boolValue];
     if (state.usesHandshake) {
-        // NSXPC connects lazily. Publish a vendor listener over a separate LC
-        // control channel so the host can initiate calls even for a silent
-        // donor. Keep the app's interfaces (and their class/proxy rules) intact.
+        // Exchange listeners over a separate control channel. Each side owns
+        // an outgoing auxiliary connection, so either can send the first RPC.
+        // Do not add control selectors to the app's custom XPC interfaces.
         state.vendorListener = YES;
         state.listener = NSXPCListener.anonymousListener;
         state.listener.delegate = state;
         [state.listener resume];
         state.controlConnection = [[NSXPCConnection alloc] initWithListenerEndpoint:endpoint];
         state.controlConnection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(LCGuestExtensionHostHandshake)];
+        dispatch_semaphore_t ready = dispatch_semaphore_create(0);
+        __block BOOL finished = NO;
+        __block NSError *connectionError;
+        void (^finish)(NSXPCListenerEndpoint *, NSError *) = ^(NSXPCListenerEndpoint *hostEndpoint, NSError *error) {
+            @synchronized (state) {
+                if (finished) return;
+                finished = YES;
+                if (error || state.invalidated || !hostEndpoint) {
+                    connectionError = error ?: LCGuestExtensionError(@"The helper connection was cancelled before it became ready");
+                } else {
+                    state.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:hostEndpoint];
+                    state.connection.remoteObjectInterface = LCAuxiliaryInterface(contextClass, YES);
+                    state.connection.exportedInterface = LCAuxiliaryInterface(contextClass, NO);
+                    state.connection.exportedObject = state.context;
+                    [state.connection resume];
+                    // The host can send immediately after publishing its
+                    // endpoint. Deliver those calls only once the vendor can
+                    // also call back through its own auxiliary connection.
+                    [state.incomingConnection resume];
+                }
+            }
+            dispatch_semaphore_signal(ready);
+        };
+        state.controlConnection.interruptionHandler = ^{
+            finish(nil, LCGuestExtensionError(@"The helper connection was interrupted while starting"));
+        };
+        state.controlConnection.invalidationHandler = ^{
+            finish(nil, LCGuestExtensionError(@"The helper connection was invalidated while starting"));
+        };
         [state.controlConnection resume];
-        [(id<LCGuestExtensionHostHandshake>)state.controlConnection.remoteObjectProxy lcConnectWithEndpoint:state.listener.endpoint completion:^{}];
-        return;
+        id<LCGuestExtensionHostHandshake> proxy = [state.controlConnection remoteObjectProxyWithErrorHandler:^(NSError *error) {
+            finish(nil, error);
+        }];
+        [proxy lcConnectWithEndpoint:state.listener.endpoint completion:^(NSXPCListenerEndpoint *hostEndpoint) {
+            finish(hostEndpoint, nil);
+        }];
+        // NSXPC replies run on its own queue. Keep the guest handler on this
+        // thread, without waiting for a main-queue callback or a first app RPC.
+        long result = dispatch_semaphore_wait(ready, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)));
+        @synchronized (state) {
+            if (result != 0) {
+                finished = YES;
+                connectionError = LCGuestExtensionError(@"Timed out connecting the guest helper");
+            }
+            state.controlConnection.interruptionHandler = nil;
+            state.controlConnection.invalidationHandler = nil;
+        }
+        if (connectionError) [state invalidate];
+        return connectionError;
     }
     state.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:endpoint];
     state.connection.remoteObjectInterface = LCAuxiliaryInterface(contextClass, YES);
     state.connection.exportedInterface = LCAuxiliaryInterface(contextClass, NO);
     state.connection.exportedObject = state.context;
     [state.connection resume];
+    return nil;
+}
+
+static NSError *LCConnectGuestContext(LCGuestExtensionContextState *state, Class contextClass, NSDictionary *request) {
+    return LCConnectGuestContextWithTimeout(state, contextClass, request, 15.0);
 }
 
 @implementation LCGuestExtensionContextState
 - (BOOL)listener:(NSXPCListener *)listener shouldAcceptNewConnection:(NSXPCConnection *)connection {
     @synchronized (self) {
-        if (self.listener != listener) return NO;
-        if (self.vendorListener) {
-            if (self.connection) return NO;
-            connection.exportedInterface = LCAuxiliaryInterface(self.context.class, NO);
-            connection.remoteObjectInterface = LCAuxiliaryInterface(self.context.class, YES);
+        if (self.invalidated) return NO;
+        if ((self.vendorListener && self.listener == listener) || self.auxiliaryListener == listener) {
+            if (self.incomingConnection) return NO;
+            connection.exportedInterface = LCAuxiliaryInterface(self.context.class, !self.vendorListener);
+            connection.remoteObjectInterface = LCAuxiliaryInterface(self.context.class, self.vendorListener);
             connection.exportedObject = self.context;
-            self.connection = connection;
-        } else {
+            self.incomingConnection = connection;
+        } else if (self.listener == listener) {
             if (self.controlConnection) return NO;
             connection.exportedInterface = [NSXPCInterface interfaceWithProtocol:@protocol(LCGuestExtensionHostHandshake)];
             connection.exportedObject = self;
             self.controlConnection = connection;
+        } else {
+            return NO;
         }
-        [connection resume];
+        if (!self.vendorListener || self.connection) [connection resume];
         return YES;
     }
 }
-- (void)lcConnectWithEndpoint:(NSXPCListenerEndpoint *)endpoint completion:(void (^)(void))completion {
+- (void)lcConnectWithEndpoint:(NSXPCListenerEndpoint *)endpoint completion:(void (^)(NSXPCListenerEndpoint *))completion {
+    NSXPCListenerEndpoint *hostEndpoint;
     @synchronized (self) {
-        if (self.listener && !self.vendorListener && !self.connection) {
+        if (!self.invalidated && endpoint && self.listener && !self.vendorListener && !self.connection) {
+            self.auxiliaryListener = NSXPCListener.anonymousListener;
+            self.auxiliaryListener.delegate = self;
+            [self.auxiliaryListener resume];
             self.connection = [[NSXPCConnection alloc] initWithListenerEndpoint:endpoint];
             self.connection.exportedInterface = LCAuxiliaryInterface(self.context.class, YES);
             self.connection.remoteObjectInterface = LCAuxiliaryInterface(self.context.class, NO);
             self.connection.exportedObject = self.context;
             [self.connection resume];
+            hostEndpoint = self.auxiliaryListener.endpoint;
         }
     }
-    completion();
+    completion(hostEndpoint);
 }
 - (void)invalidate {
     @synchronized (self) {
+        self.invalidated = YES;
+        self.controlConnection.interruptionHandler = nil;
+        self.controlConnection.invalidationHandler = nil;
         [self.listener invalidate];
+        [self.auxiliaryListener invalidate];
         [self.connection invalidate];
+        [self.incomingConnection invalidate];
         [self.controlConnection invalidate];
         self.listener = nil;
+        self.auxiliaryListener = nil;
         self.connection = nil;
+        self.incomingConnection = nil;
         self.controlConnection = nil;
         self.context = nil;
     }
@@ -233,13 +301,15 @@ static void LCConnectGuestContext(LCGuestExtensionContextState *state, Class con
     }
     if (!error) [fm createDirectoryAtPath:appGroupPath withIntermediateDirectories:YES attributes:nil error:&error];
     if (!error) {
-        for (NSURL *url in @[guestExtensionsAppURL, containerURL, [NSURL fileURLWithPath:appGroupPath isDirectory:YES]]) {
+        // Shared preference suites use the parent's container, just as they do
+        // in the app. Passing its path alone does not grant sandbox access.
+        for (NSURL *url in @[guestExtensionsAppURL, containerURL, [NSURL fileURLWithPath:appGroupPath isDirectory:YES], guestExtensionsContainerURL]) {
             NSData *bookmark = [url bookmarkDataWithOptions:(1 << 11) includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
             if (!bookmark) break;
             [bookmarks addObject:bookmark];
         }
     }
-    if (error || bookmarks.count != 3) {
+    if (error || bookmarks.count != 4) {
         if (errorOut) *errorOut = error ?: LCGuestExtensionError(@"Unable to share the extension container");
         return nil;
     }
@@ -518,7 +588,12 @@ int LCRunGuestExtension(NSDictionary *request, NSExtensionContext *context) {
         CFRunLoopRun();
         return 1;
     }
-    LCConnectGuestContext(state, contextClass, request);
+    NSError *connectionError = LCConnectGuestContext(state, contextClass, request);
+    if (connectionError) {
+        [context cancelRequestWithError:connectionError];
+        CFRunLoopRun();
+        return 1;
+    }
     [handler beginRequestWithExtensionContext:guestContext];
     CFRunLoopRun();
     return 0;

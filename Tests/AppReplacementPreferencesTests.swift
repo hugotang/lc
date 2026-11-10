@@ -7,6 +7,7 @@ let saved: [String: Any] = [
     "LCLocationRevision": "saved-position", "LCLocationQuickControl": true,
     "LCLocationFavorites": [["latitude": 23.0, "longitude": 115.0]],
     "LCPatchRevision": 7, "LCGuestExtensionPatchRevision": 1, "LCGuestExtensionSignPending": true,
+    "LCGuestExtensionSignRevision": 1,
     "LCJITLessSignID": "old-signature"
 ]
 let incoming: [String: Any] = [
@@ -22,6 +23,7 @@ precondition(restored["LCPatchRevision"] as? Int == 0)
 precondition(restored["LCJITLessSignID"] as? String == "new-signature")
 precondition(restored["LCGuestExtensionPatchRevision"] == nil)
 precondition(restored["LCGuestExtensionSignPending"] == nil)
+precondition(restored["LCGuestExtensionSignRevision"] == nil)
 precondition(restored["newBundleValue"] as? String == "keep")
 let encoded = try PropertyListSerialization.data(fromPropertyList: restored, format: .binary, options: 0)
 let decoded = try PropertyListSerialization.propertyList(from: encoded, options: [], format: nil) as! [String: Any]

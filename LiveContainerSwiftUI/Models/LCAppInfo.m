@@ -4,6 +4,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import "LCAppInfo.h"
+#import "LCGuestExtensionSigning.h"
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
 #import "../../LiveContainer/Tweaks/LocationSession.h"
@@ -317,9 +318,10 @@
         completetionHandler(NO, @"Info.plist not found");
         return;
     }
-    // A previous helper-only signing failure may leave the main executable's
-    // signature valid. Keep retrying until the complete bundle is signed.
-    forceSign |= [info[@"LCGuestExtensionSignPending"] boolValue];
+    // Include older prepared helpers that predate the pending-sign flag. Only
+    // successful bundle signing advances their independent signing revision.
+    BOOL signingAllowed = LCSharedUtils.certificatePassword && !self.is32bit && !self.dontSign;
+    forceSign |= LCGuestExtensionSigningRequired(info, self.helperProcessesSupport, signingAllowed);
     NSFileManager* fm = NSFileManager.defaultManager;
     NSString *execPath = [NSString stringWithFormat:@"%@/%@", appPath, _infoPlist[@"CFBundleExecutable"]];
     
@@ -422,12 +424,12 @@
             void (^signCompletionHandler)(BOOL success, NSError *error)  = ^(BOOL success, NSError *_Nullable error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [NSUserDefaults.standardUserDefaults removeObjectForKey:@"SigningInProgress"];
+                    bool signatureValid = success && checkCodeSignature(executablePath.UTF8String);
+                    LCGuestExtensionSigningDidComplete(info, success, signatureValid);
                     if(!success) {
                         completetionHandler(NO, error.localizedDescription);
                     } else {
-                        bool signatureValid = checkCodeSignature(executablePath.UTF8String);
                         if(signatureValid) {
-                            [info removeObjectForKey:@"LCGuestExtensionSignPending"];
                             [self save];
                             completetionHandler(YES, [error localizedDescription]);
                         } else {

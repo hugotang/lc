@@ -89,6 +89,16 @@ jobs:
           cp Tests/AppReplacementPreferencesTests.swift "$RUNNER_TEMP/app-replacement-tests/main.swift"
           swiftc -warnings-as-errors LiveContainerSwiftUI/Models/LCAppReplacementPreferences.swift "$RUNNER_TEMP/app-replacement-tests/main.swift" -o "$RUNNER_TEMP/app-replacement-tests/check"
           "$RUNNER_TEMP/app-replacement-tests/check"
+      - name: Test guest helper preferences and signing
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/GuestPreferencesRoutingTests.c -o "$RUNNER_TEMP/guest-preferences-routing-tests"
+          "$RUNNER_TEMP/guest-preferences-routing-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/GuestExtensionSigningTests.m -o "$RUNNER_TEMP/guest-extension-signing-tests"
+          "$RUNNER_TEMP/guest-extension-signing-tests"
+      - name: Test guest helper XPC connections
+        run: |
+          clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter -framework Foundation Tests/GuestExtensionConnectionTests.m -o "$RUNNER_TEMP/guest-extension-connection-tests"
+          "$RUNNER_TEMP/guest-extension-connection-tests"
       - name: Test workspace persistence
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
