@@ -221,8 +221,6 @@
 			membershipExceptions = (
 				BackgroundTasks.m,
 				DocumentPicker.m,
-				MonsterStrikeTextInput.h,
-				MonsterStrikeTextInput.m,
 				Notification.m,
 				TapSyncClient.m,
 				TapSyncClientState.h,
@@ -231,8 +229,6 @@
 				TapSyncReturnGesture.m,
 				TapSyncWindow.h,
 				TapSyncWindow.m,
-				TextSyncInput.h,
-				TextSyncInput.m,
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
 				WindowScreen.h,

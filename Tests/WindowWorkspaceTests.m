@@ -165,19 +165,6 @@ static void testTapSyncGroup(void) {
     assert([multiCopy.tapSyncGroup isEqual:snapshot.tapSyncGroup]);
     copy = [[LCWindowWorkspace alloc] initWithPropertyList:snapshot.propertyList];
     assert([copy.tapSyncGroup isEqual:snapshot.tapSyncGroup]);
-    // Text mode survives serialization, but live text and field state do not.
-    gestureGroup[@"mode"] = @"text";
-    gestureGroup[@"before"] = @"private input";
-    gestureGroup[@"field"] = @{@"path": @"0.1"};
-    plist[@"tapSync"] = gestureGroup;
-    snapshot = [[LCWindowWorkspace alloc] initWithPropertyList:plist];
-    NSDictionary *textGroup = @{@"source": @"B", @"targets": @[@"C", @"A"], @"mode": @"text"};
-    assert([snapshot.tapSyncGroup isEqual:textGroup]);
-    NSData *textData = [NSPropertyListSerialization dataWithPropertyList:snapshot.propertyList
-        format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
-    copy = [[LCWindowWorkspace alloc] initWithPropertyList:
-        [NSPropertyListSerialization propertyListWithData:textData options:0 format:NULL error:nil]];
-    assert([copy.tapSyncGroup isEqual:textGroup]);
     for (id mode in @[@"tapsOnly", @"unknown-mode", @1, NSNull.null, @[]]) {
         gestureGroup[@"mode"] = mode;
         plist[@"tapSync"] = gestureGroup;
@@ -200,27 +187,6 @@ static void testTapSyncGroup(void) {
     plist[@"tapSync"] = @{@"source": @"A", @"targets": @[@"B"]};
     assert([[LCWindowWorkspace alloc] initWithPropertyList:plist].tapSyncGroup.count == 0);
     assert(decode(@[window(@"A")], @{}).tapSyncGroup.count == 0);
-}
-
-static void testSavedTextGroupEdit(void) {
-    NSString *suite = [@"lc-tests.text-workspace." stringByAppendingString:NSUUID.UUID.UUIDString];
-    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
-    LCWorkspaceLibrary *library = [[LCWorkspaceLibrary alloc] initWithDefaults:defaults legacyName:@"Legacy"];
-    LCNamedWorkspace *saved = [library saveWorkspace:decode(@[window(@"A"), window(@"B")], @{})
-                                               name:@"Text workspace" replacingIdentifier:nil];
-    assert(saved);
-    NSDictionary *textGroup = @{@"source": @"A", @"targets": @[@"B"], @"mode": @"text"};
-    assert([library setTapSyncGroup:textGroup forWorkspace:saved.identifier]);
-    LCWorkspaceLibrary *reopened = [[LCWorkspaceLibrary alloc] initWithDefaults:defaults legacyName:@"Legacy"];
-    LCNamedWorkspace *restored = [reopened workspaceWithIdentifier:saved.identifier];
-    assert([restored.snapshot.tapSyncGroup isEqual:textGroup]);
-    assert([restored.name isEqual:saved.name]);
-    assert([[restored.snapshot.windows valueForKey:@"propertyList"] isEqual:[saved.snapshot.windows valueForKey:@"propertyList"]]);
-    assert(([reopened setTapSyncGroup:@{@"source": @"A", @"targets": @[@"B"], @"mode": @"singleFinger"}
-                        forWorkspace:saved.identifier]));
-    assert([library reload]);
-    assert([[library workspaceWithIdentifier:saved.identifier].snapshot.tapSyncGroup[@"mode"] isEqual:@"singleFinger"]);
-    [defaults removePersistentDomainForName:suite];
 }
 
 static void testGridLayoutOptions(void) {
@@ -283,7 +249,6 @@ int main(void) {
         testPortraitReservations();
         testIndependentReservedAreas();
         testTapSyncGroup();
-        testSavedTextGroupEdit();
         NSDictionary *validGrid = @{@"rows": @[@0.4], @"columns": @[@0.65], @"lastRowColumns": @[]};
         LCWindowWorkspace *workspace = decode(@[window(@"A"), window(@"B")], @{@"3:2:2:1": validGrid});
         assert(workspace.windows.count == 2);

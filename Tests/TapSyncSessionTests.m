@@ -15,63 +15,6 @@ static LCTapSyncResult enqueueTouch(LCTapSyncSession *session, uint64_t sequence
     return [session enqueueTouch:touch(contact, phase, time) fromSource:@"A" session:session.identifier sequence:sequence now:time];
 }
 
-static NSDictionary *textEdit(NSString *before, NSString *after, NSTimeInterval timestamp) {
-    return @{@"timestamp": @(timestamp), @"before": before, @"after": after,
-        @"selectionLocation": @(after.length), @"selectionLength": @0,
-        @"field": @{@"kind": @"field", @"path": @[@0], @"identifier": @"name"}};
-}
-
-static void testTextSessions(void) {
-    LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeText];
-    assert(session && session.mode == LCTapSyncModeText);
-    assert([session enqueueSourceReturn:@[] fromSource:@"A" session:session.identifier now:100] == LCTapSyncResultInvalidGesture);
-    assert([session enqueue:tap(100) fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultInvalidGesture);
-    assert([session enqueueTextEdit:textEdit(@"", @"a", 100) fromSource:@"B" session:session.identifier sequence:1 now:100] == LCTapSyncResultStopped);
-    assert([session enqueueTextEdit:textEdit(@"", @"a", 100) fromSource:@"A" session:@"old-session" sequence:1 now:100] == LCTapSyncResultStopped);
-    assert([session enqueueTextEdit:textEdit(@"", @"a", 100) fromSource:@"A" session:session.identifier sequence:2 now:100] == LCTapSyncResultExpired);
-    assert([session.lastInputFailure[@"mode"] isEqual:@"text"]);
-    assert([session.lastInputFailure[@"reason"] isEqual:@"sequenceMismatch"]);
-    assert([session enqueueTextEdit:textEdit(@"", @"private-input", 100) fromSource:@"A" session:session.identifier sequence:1 now:100.76] == LCTapSyncResultExpired);
-    assert([session.lastInputFailure[@"reason"] isEqual:@"inputTooOld"]);
-    assert(![[session.lastInputFailure description] containsString:@"private-input"]);
-    assert(!session.lastInputFailure[@"before"] && !session.lastInputFailure[@"after"] && !session.lastInputFailure[@"field"]);
-    assert([session enqueueTextEdit:textEdit(@"", @"a", 101) fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultExpired);
-    assert([session.lastInputFailure[@"reason"] isEqual:@"timestampAhead"]);
-    assert([session enqueueTextEdit:@{} fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultExpired);
-    assert([session.lastInputFailure[@"reason"] isEqual:@"invalidPacket"]);
-
-    NSArray *values = @[@"", @"a", @"ab", @"a", @"abc"];
-    for (NSUInteger index = 1; index <= 4; index++) {
-        assert([session enqueueTextEdit:textEdit(values[index - 1], values[index], 100) fromSource:@"A" session:session.identifier sequence:index now:100] == LCTapSyncResultAccepted);
-    }
-    assert(session.pendingCount == 4 && session.coalescedMoveCount == 0);
-    assert([session enqueueTextEdit:textEdit(@"abc", @"abcd", 100) fromSource:@"A" session:session.identifier sequence:5 now:100] == LCTapSyncResultBusy);
-    LCTapSyncResult result;
-    for (NSUInteger index = 1; index <= 4; index++) {
-        NSDictionary *packet = [session takeNextAtTime:100.1 result:&result];
-        assert(result == LCTapSyncResultAccepted && [packet[@"sequence"] unsignedIntegerValue] == index);
-        assert([packet[@"text"][@"before"] isEqual:values[index - 1]] && [packet[@"text"][@"after"] isEqual:values[index]]);
-    }
-    assert(!session.pendingCount);
-    // A caller cannot mutate a queued snapshot after its validation.
-    NSMutableString *after = [@"abcd" mutableCopy];
-    NSMutableArray *path = [@[@0] mutableCopy];
-    NSMutableDictionary *edit = [textEdit(@"abc", after, 100.2) mutableCopy];
-    edit[@"field"] = [@{@"kind": @"field", @"path": path, @"identifier": @"name"} mutableCopy];
-    assert([session enqueueTextEdit:edit fromSource:@"A" session:session.identifier sequence:5 now:100.2] == LCTapSyncResultAccepted);
-    [after appendString:@"changed"];
-    [path addObject:@1];
-    NSDictionary *snapshot = [session takeNextAtTime:100.2 result:&result][@"text"];
-    assert([snapshot[@"after"] isEqual:@"abcd"] && [snapshot[@"field"][@"path"] isEqual:@[@0]]);
-    assert([session enqueueTextEdit:textEdit(@"abcd", @"abcde", 101) fromSource:@"A" session:session.identifier sequence:6 now:101] == LCTapSyncResultAccepted);
-    assert(![session takeNextAtTime:101.76 result:&result] && result == LCTapSyncResultExpired);
-    assert(!session.valid && !session.pendingCount);
-    assert([session.lastInputFailure[@"mode"] isEqual:@"text"] && [session.lastInputFailure[@"stage"] isEqual:@"hostQueue"]);
-    assert([session enqueueTextEdit:textEdit(@"abcde", @"abc", 102) fromSource:@"A" session:session.identifier sequence:7 now:102] == LCTapSyncResultStopped);
-    LCTapSyncSession *touchSession = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"]];
-    assert([touchSession enqueueTextEdit:textEdit(@"", @"a", 100) fromSource:@"A" session:touchSession.identifier sequence:1 now:100] == LCTapSyncResultInvalidGesture);
-}
-
 static void testInputFailureDiagnostics(void) {
     LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeSingleFinger];
     assert(!session.lastInputFailure);
@@ -116,7 +59,7 @@ static void testInputFailureDiagnostics(void) {
 }
 
 static void testSingleFingerSessions(void) {
-    assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:(LCTapSyncMode)4] == nil);
+    assert([[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:(LCTapSyncMode)3] == nil);
     LCTapSyncSession *session = [[LCTapSyncSession alloc] initWithSource:@"A" targets:@[@"B"] mode:LCTapSyncModeSingleFinger];
     assert(session.mode == LCTapSyncModeSingleFinger);
     assert([session enqueue:tap(100) fromSource:@"A" session:session.identifier sequence:1 now:100] == LCTapSyncResultInvalidGesture);
@@ -373,7 +316,6 @@ static void testAtomicTwoFingerReturnRetainsMoreThanFourBoundaries(void) {
 int main(void) {
     @autoreleasepool {
         testInputFailureDiagnostics();
-        testTextSessions();
         testSingleFingerSessions();
         testTwoFingerSessions();
         testAtomicFirstReturnAndLiveContinuation();
@@ -421,7 +363,7 @@ int main(void) {
         [nextSession invalidate];
         assert(nextSession.pendingCount == 0 && !nextSession.valid);
         assert([nextSession takeNextAtTime:101 result:&result] == nil && result == LCTapSyncResultStopped);
-        puts("Input sync session tests passed (identity, modes, malformed input, ordering, coalescing, contact boundaries, bounded text edits, queues, holds, expiry and stopped sessions).");
+        puts("Input sync session tests passed (identity, modes, malformed input, ordering, coalescing, contact boundaries, bounded queues, holds, expiry and stopped sessions).");
     }
     return 0;
 }

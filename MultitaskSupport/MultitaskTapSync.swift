@@ -154,7 +154,7 @@ private struct MultitaskTapSyncPanel: View {
             Form {
                 Section {
                     Label(manager.coordinator.statusKey.loc, systemImage: manager.coordinator.hasInterruption ? "exclamationmark.triangle" :
-                          manager.coordinator.mode == .text ? "keyboard" : manager.coordinator.mode == .tapsOnly ? "hand.tap" : "hand.draw")
+                          manager.coordinator.mode == .tapsOnly ? "hand.tap" : "hand.draw")
                     ForEach(manager.coordinator.interruptedContainers, id: \.self) { container in
                         VStack(alignment: .leading, spacing: 8) {
                             if let window = manager.windows.first(where: { $0.dataUUID == container }) {
@@ -186,23 +186,21 @@ private struct MultitaskTapSyncPanel: View {
                     .disabled(!manager.coordinator.canStart)
                 } footer: {
                     Text(manager.source != nil && !manager.targets.isEmpty && !manager.coordinator.canStart
-                         ? "lc.tapSync.alignWindows".loc : (manager.coordinator.mode == .text ? "lc.tapSync.textSetup" : "lc.tapSync.description").loc)
+                         ? "lc.tapSync.alignWindows".loc : "lc.tapSync.description".loc)
                 }
                 MultitaskTapSyncModeSection(mode: Binding(get: { manager.coordinator.mode }, set: { manager.coordinator.mode = $0 }))
-                if manager.coordinator.mode != .text {
-                    Section {
-                        Toggle("lc.tapSync.resumeOnSource".loc, isOn: Binding(
-                            get: { manager.coordinator.resumeOnSource }, set: { manager.coordinator.resumeOnSource = $0 }))
-                        Toggle("lc.tapSync.syncReturnGesture".loc, isOn: Binding(
-                            get: { manager.coordinator.syncReturnGesture }, set: { manager.coordinator.syncReturnGesture = $0 }))
-                            .disabled(!manager.coordinator.resumeOnSource)
-                        Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
-                            get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
-                    } header: {
-                        Text("lc.tapSync.automaticResume".loc)
-                    } footer: {
-                        Text("lc.tapSync.automaticResumeHelp".loc)
-                    }
+                Section {
+                    Toggle("lc.tapSync.resumeOnSource".loc, isOn: Binding(
+                        get: { manager.coordinator.resumeOnSource }, set: { manager.coordinator.resumeOnSource = $0 }))
+                    Toggle("lc.tapSync.syncReturnGesture".loc, isOn: Binding(
+                        get: { manager.coordinator.syncReturnGesture }, set: { manager.coordinator.syncReturnGesture = $0 }))
+                        .disabled(!manager.coordinator.resumeOnSource)
+                    Toggle("lc.tapSync.autoResumeAfterRotation".loc, isOn: Binding(
+                        get: { manager.coordinator.autoResumeAfterRotation }, set: { manager.coordinator.autoResumeAfterRotation = $0 }))
+                } header: {
+                    Text("lc.tapSync.automaticResume".loc)
+                } footer: {
+                    Text("lc.tapSync.automaticResumeHelp".loc)
                 }
                 Section {
                     if manager.windows.isEmpty {
@@ -337,13 +335,12 @@ private struct MultitaskTapSyncModeSection: View {
                 Text("lc.tapSync.mode.tapsOnly".loc).tag(LCTapSyncMode.tapsOnly)
                 Text("lc.tapSync.mode.singleFinger".loc).tag(LCTapSyncMode.singleFinger)
                 Text("lc.tapSync.mode.twoFingers".loc).tag(LCTapSyncMode.twoFingers)
-                Text("lc.tapSync.mode.text".loc).tag(LCTapSyncMode.text)
             }
             .pickerStyle(.menu)
         } header: {
             Text("lc.tapSync.mode".loc)
         } footer: {
-            Text((mode == .text ? "lc.tapSync.textHelp" : mode == .twoFingers ? "lc.tapSync.twoFingersHelp" : mode == .singleFinger ? "lc.tapSync.singleFingerHelp" : "lc.tapSync.tapsOnlyHelp").loc)
+            Text((mode == .twoFingers ? "lc.tapSync.twoFingersHelp" : mode == .singleFinger ? "lc.tapSync.singleFingerHelp" : "lc.tapSync.tapsOnlyHelp").loc)
         }
     }
 }
@@ -430,7 +427,7 @@ struct MultitaskSavedTapSyncEditor: View {
             let group = snapshot?.tapSyncGroup ?? [:]
             source = group["source"] as? String
             targets = group["targets"] as? [String] ?? []
-            mode = group["mode"] as? String == "text" ? .text : group["mode"] as? String == "twoFingers" ? .twoFingers : group["mode"] as? String == "singleFinger" ? .singleFinger : .tapsOnly
+            mode = group["mode"] as? String == "twoFingers" ? .twoFingers : group["mode"] as? String == "singleFinger" ? .singleFinger : .tapsOnly
             loaded = true
         }
     }
@@ -464,7 +461,6 @@ struct MultitaskSavedTapSyncEditor: View {
             group = ["source": source, "targets": targets]
             if mode == .singleFinger { group["mode"] = "singleFinger" }
             if mode == .twoFingers { group["mode"] = "twoFingers" }
-            if mode == .text { group["mode"] = "text" }
         }
         if manager.setTapSyncGroup(group, for: identifier) { dismiss() }
     }

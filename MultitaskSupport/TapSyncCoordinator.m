@@ -147,9 +147,6 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     scene.tapSyncPeer.didReceiveTouchFrame = ^(NSDictionary *frame, NSString *session, uint64_t sequence) {
         [weakSelf receiveTouchFrame:frame source:weakScene.dataUUID session:session sequence:sequence];
     };
-    scene.tapSyncPeer.didReceiveTextEdit = ^(NSDictionary *edit, NSString *session, uint64_t sequence) {
-        [weakSelf receiveTextEdit:edit source:weakScene.dataUUID session:session sequence:sequence];
-    };
     scene.tapSyncPeer.didReceiveSourceReturn = ^(NSArray<NSDictionary *> *packets, NSString *session) {
         [weakSelf receiveSourceReturn:packets source:weakScene.dataUUID session:session];
     };
@@ -208,10 +205,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     [self changed];
 }
 - (BOOL)isReadyForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.ready; }
-- (BOOL)canReplayForContainer:(NSString *)container {
-    LCTapSyncPeer *peer = [self.scenes objectForKey:container].tapSyncPeer;
-    return self.mode == LCTapSyncModeText ? peer.ready : peer.canReplay;
-}
+- (BOOL)canReplayForContainer:(NSString *)container { return [self.scenes objectForKey:container].tapSyncPeer.canReplay; }
 - (NSDictionary<NSString *, LCTapSyncPeer *> *)performancePeers {
     NSMutableDictionary *peers = [NSMutableDictionary dictionary];
     for (NSString *container in self.scenes.keyEnumerator) {
@@ -294,7 +288,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     [self changed];
 }
 - (void)setMode:(LCTapSyncMode)mode {
-    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers && mode != LCTapSyncModeText) return;
+    if (mode != LCTapSyncModeTapsOnly && mode != LCTapSyncModeSingleFinger && mode != LCTapSyncModeTwoFingers) return;
     if (_mode == mode) return;
     [self pause];
     _mode = mode;
@@ -338,7 +332,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         if (!bundle) {
             bundle = window.appSceneVC.bundleId;
             sourceSize = window.appSceneVC.view.bounds.size;
-        } else if (![bundle isEqualToString:window.appSceneVC.bundleId] || ![self canReplayForContainer:container]) return nil;
+        } else if (![bundle isEqualToString:window.appSceneVC.bundleId] || !window.appSceneVC.tapSyncPeer.canReplay) return nil;
         CGRect frame = [window.view convertRect:window.view.bounds toView:self.host];
         if (!CGRectContainsRect(CGRectInset(self.host.bounds, -1, -1), frame)) return nil;
         // Every participant must remain visible. Overlapping guest windows are ambiguous to operate together.
@@ -394,8 +388,8 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         [scene.tapSyncPeer resumeSourceSession:session.identifier previousSession:self.resumingSourceSession
                                 inputRevision:self.resumingSourceRevision reply:completed];
     } else {
-        [scene.tapSyncPeer prepareSession:session.identifier source:source mode:session.mode resumeOnSource:session.mode != LCTapSyncModeText && self.resumeOnSource
-                         syncReturnGesture:session.mode != LCTapSyncModeText && self.syncReturnGesture reply:completed];
+        [scene.tapSyncPeer prepareSession:session.identifier source:source mode:session.mode resumeOnSource:self.resumeOnSource
+                         syncReturnGesture:self.syncReturnGesture reply:completed];
     }
 }
 - (void)start { [self startPreservingCount:NO]; }
@@ -532,17 +526,6 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     [self recordQueueWithCoalescedMoves:session.coalescedMoveCount - coalesced];
     [self sendNext];
 }
-- (void)receiveTextEdit:(NSDictionary *)edit source:(NSString *)source session:(NSString *)identifier sequence:(uint64_t)sequence {
-    LCTapSyncSession *session = self.session;
-    if (!session || ![session.identifier isEqualToString:identifier] || ![session.source isEqualToString:source]) return;
-    [self validateWindows];
-    if (self.session != session) return;
-    LCTapSyncResult result = [session enqueueTextEdit:edit fromSource:source session:identifier sequence:sequence
-        now:NSProcessInfo.processInfo.systemUptime];
-    if (result != LCTapSyncResultAccepted) { [self stopForEnqueueResult:result source:source]; return; }
-    [self recordQueueWithCoalescedMoves:0];
-    [self sendNext];
-}
 - (void)stopForEnqueueResult:(LCTapSyncResult)result source:(NSString *)source {
     NSArray *affected = result == LCTapSyncResultBusy && self.awaitingReplies.count ? self.awaitingReplies.array : @[source];
     [self stopWithResult:result containers:affected];
@@ -556,10 +539,9 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     if (!next) return;
     LCTouchSyncSample touch = {0};
     LCMultiTouchSyncFrame frame = {0};
-    BOOL isText = next[@"text"] != nil;
     BOOL isTouch = next[@"touch"] != nil;
     BOOL isFrame = next[@"frame"] != nil;
-    if ((isText && !LCTextSyncPacketIsValid(next[@"text"])) || (isTouch && !LCTouchSyncDecode(next[@"touch"], &touch)) || (isFrame && !LCMultiTouchSyncDecode(next[@"frame"], &frame))) {
+    if ((isTouch && !LCTouchSyncDecode(next[@"touch"], &touch)) || (isFrame && !LCMultiTouchSyncDecode(next[@"frame"], &frame))) {
         [self stopWithResult:LCTapSyncResultInvalidGesture containers:@[session.source]]; return;
     }
     // Layout callbacks also validate geometry. A move does not need another full host window scan.
@@ -588,10 +570,9 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     dispatch_resume(self.replyTimer);
     __block NSUInteger remaining = session.targets.count;
     for (NSString *container in session.targets) {
-        if (self.session != session || self.inFlightSequence != sequence) break;
         void (^receiveReply)(LCTapSyncResult) = ^(LCTapSyncResult reply) {
             if (self.session != session || self.inFlightSequence != sequence) return;
-            if (reply == LCTapSyncResultSuspended && session.mode != LCTapSyncModeText && self.resumeOnSource) {
+            if (reply == LCTapSyncResultSuspended && self.resumeOnSource) {
                 [self beginRecovery:LCTapSyncRecoveryFollowerInput containers:@[container]];
                 return;
             }
@@ -613,8 +594,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
             [self sendNext];
         };
         LCTapSyncPeer *peer = [self.scenes objectForKey:container].tapSyncPeer;
-        if (isText) [peer replayTextEdit:next[@"text"] session:session.identifier sequence:sequence reply:receiveReply];
-        else if (isFrame) [peer replayTouchFrame:next[@"frame"] session:session.identifier sequence:sequence reply:receiveReply];
+        if (isFrame) [peer replayTouchFrame:next[@"frame"] session:session.identifier sequence:sequence reply:receiveReply];
         else if (isTouch) [peer replayTouch:next[@"touch"] session:session.identifier sequence:sequence reply:receiveReply];
         else [peer replayTap:next[@"tap"] session:session.identifier sequence:sequence reply:receiveReply];
     }
@@ -624,7 +604,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     switch (result) {
         case LCTapSyncResultUnsupported: status = @"lc.tapSync.unsupported"; break;
         case LCTapSyncResultGeometryChanged: status = @"lc.tapSync.layoutChanged"; break;
-        case LCTapSyncResultBusy: status = self.mode == LCTapSyncModeText ? @"lc.tapSync.textBusy" : @"lc.tapSync.interrupted"; break;
+        case LCTapSyncResultBusy: status = @"lc.tapSync.interrupted"; break;
         case LCTapSyncResultExpired: status = @"lc.tapSync.expiredInput"; break;
         case LCTapSyncResultStopped: status = @"lc.tapSync.paused"; break;
         case LCTapSyncResultInvalidGesture: status = @"lc.tapSync.gestureInterrupted"; break;
@@ -634,14 +614,6 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         case LCTapSyncResultWindowCovered: status = @"lc.tapSync.windowCovered"; break;
         case LCTapSyncResultWindowNotReady: status = @"lc.tapSync.windowNotReady"; break;
         case LCTapSyncResultKeyboardVisible: status = @"lc.tapSync.keyboardVisible"; break;
-        case LCTapSyncResultTextInputUnavailable: status = @"lc.tapSync.textInputUnavailable"; break;
-        case LCTapSyncResultTextInputMismatch: status = @"lc.tapSync.textInputMismatch"; break;
-        case LCTapSyncResultTextInputNotFocused: status = @"lc.tapSync.textInputNotFocused"; break;
-        case LCTapSyncResultTextInputUnsupported: status = @"lc.tapSync.textInputUnsupported"; break;
-        case LCTapSyncResultTextInputNotVisible: status = @"lc.tapSync.textInputNotVisible"; break;
-        case LCTapSyncResultTextInputComposing: status = @"lc.tapSync.textInputComposing"; break;
-        case LCTapSyncResultTextInputSelectionUnavailable: status = @"lc.tapSync.textInputSelectionUnavailable"; break;
-        case LCTapSyncResultTextInputSecure: status = @"lc.tapSync.textInputSecure"; break;
         case LCTapSyncResultPhysicalTouch: status = @"lc.tapSync.physicalTouch"; break;
         case LCTapSyncResultPreparationTimedOut: status = @"lc.tapSync.preparationTimedOut"; break;
         case LCTapSyncResultSuspended: status = @"lc.tapSync.waitingForSource"; break;
@@ -753,8 +725,8 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
         @"version": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
         @"systemVersion": UIDevice.currentDevice.systemVersion, @"copiedAtUptime": @(NSProcessInfo.processInfo.systemUptime),
         @"currentStatus": self.statusKey, @"active": @(self.active), @"starting": @(self.starting), @"recovering": @(self.recovering),
-        @"options": @{@"resumeOnSource": @(self.mode != LCTapSyncModeText && self.resumeOnSource), @"syncFirstReturnGesture": @(self.mode != LCTapSyncModeText && self.syncReturnGesture),
-            @"resumeAfterRotation": @(self.mode != LCTapSyncModeText && self.autoResumeAfterRotation)}} mutableCopy];
+        @"options": @{@"resumeOnSource": @(self.resumeOnSource), @"syncFirstReturnGesture": @(self.syncReturnGesture),
+            @"resumeAfterRotation": @(self.autoResumeAfterRotation)}} mutableCopy];
     NSDictionary *interruption = self.lastInterruptionDiagnostics;
     if (interruption) report[@"lastInterruption"] = interruption;
     if (self.inputDiagnosticsRequest) { report[@"guestReadStatus"] = @"alreadyReading"; reply(report.copy); return; }
@@ -806,7 +778,7 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     if (self.session || self.recovering) [self stopWithStatus:@"lc.tapSync.layoutChanged" containers:@[container]];
 }
 - (BOOL)shouldRecoverForRotation {
-    return self.active && self.session && self.session.mode != LCTapSyncModeText && self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry];
+    return self.active && self.session && self.autoResumeAfterRotation && [self hostRotatedSinceGeometry:self.geometry];
 }
 - (BOOL)hostIsAnimatingRotation {
     id<UIViewControllerTransitionCoordinator> transition = self.host.window.rootViewController.transitionCoordinator;
@@ -867,10 +839,6 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
     if (previous && revision <= previous.unsignedLongLongValue) return;
     self.inputRevisions[container] = @(revision);
     if (touching) [self.touchingContainers addObject:container]; else [self.touchingContainers removeObject:container];
-    if (self.session.mode == LCTapSyncModeText && touching && [self.session.targets containsObject:container]) {
-        [self stopWithResult:LCTapSyncResultPhysicalTouch containers:@[container]];
-        return;
-    }
     if (self.resumeOnSource && touching && [self.session.targets containsObject:container]) {
         if (self.active) [self beginRecovery:LCTapSyncRecoveryFollowerInput containers:@[container]];
         else if (self.starting) [self stopWithResult:LCTapSyncResultPhysicalTouch containers:@[container]];
@@ -879,10 +847,6 @@ static NSTimeInterval const LCTapSyncPreparationTimeout = 5;
 - (void)beginRecovery:(LCTapSyncRecoveryReason)reason containers:(NSArray<NSString *> *)containers {
     LCTapSyncSession *session = self.session;
     if (!session || !self.active) return;
-    if (session.mode == LCTapSyncModeText) {
-        [self stopWithResult:reason == LCTapSyncRecoveryRotation ? LCTapSyncResultGeometryChanged : LCTapSyncResultPhysicalTouch containers:containers];
-        return;
-    }
     LCTapSyncRecovery *recovery = [[LCTapSyncRecovery alloc] initWithSource:session.source targets:session.targets reason:reason
                                                                 afterTime:NSProcessInfo.processInfo.systemUptime];
     for (NSString *container in self.inputRevisions) {

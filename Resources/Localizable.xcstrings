@@ -36092,117 +36092,21 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs, loading and account differences are not corrected automatically. Touch modes exclude keyboard input; Text Only supports matching standard text fields. System gestures, pointers and game-control keys are not replayed. Compatibility varies by app; the count confirms delivery, not the resulting app action."
+            "value" : "Start on matching app screens, with the same orientation and similar sizes and content scales. Dialogs, loading and account differences are not corrected automatically. Two Fingers supports at most two simultaneous contacts; system gestures, pointers and keyboard input are not replayed. Compatibility varies by app; the count confirms delivery, not the resulting app action."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放。弹窗、加载与账号差异不会自动校正。触控模式不包含键盘输入；仅文字模式支持对应的标准输入框。系统手势、指针和游戏控制按键不参与同步。兼容性因 App 而异，计数表示操作已转送，不代表 App 已完成对应操作。"
+            "value" : "请先让各 App 进入相同画面，使用相同方向、相近尺寸和内容缩放。弹窗、加载与账号差异不会自动校正。双指模式最多支持两个同时触点；系统手势、指针和键盘输入不参与同步。兼容性因 App 而异，计数表示操作已转送，不代表 App 已完成对应操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放。彈窗、載入與帳號差異不會自動校正。觸控模式不包含鍵盤輸入；僅文字模式支援對應的標準輸入框。系統手勢、指標和遊戲控制按鍵不參與同步。相容性因 App 而異，計數表示操作已轉送，不代表 App 已完成對應操作。"
+            "value" : "請先讓各 App 進入相同畫面，使用相同方向、相近尺寸和內容縮放。彈窗、載入與帳號差異不會自動校正。雙指模式最多支援兩個同時觸點；系統手勢、指標和鍵盤輸入不參與同步。相容性因 App 而異，計數表示操作已轉送，不代表 App 已完成對應操作。"
           }
         }
-      }
-    },
-    "lc.tapSync.mode.text" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Text Only" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅文字" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "僅文字" } }
-      }
-    },
-    "lc.tapSync.textSetup" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Text Only, the source and followers, then tap Done. Open the same field with identical text in every account, opening the source last. Keep follower fields visible and editable; only the source needs keyboard focus. Wait for the layout to settle, then tap Resume and type." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选好仅文字模式、来源和接收窗口后，轻点完成。在每个账号打开相同的输入框并让文字一致，最后打开来源输入框。接收输入框保持显示且可编辑即可，只有来源需要键盘焦点。布局稳定后，轻点继续并开始输入。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "選好僅文字模式、來源和接收視窗後，點一下完成。在每個帳號開啟相同的輸入框並讓文字一致，最後開啟來源輸入框。接收輸入框保持顯示且可編輯即可，只有來源需要鍵盤焦點。佈局穩定後，點一下繼續並開始輸入。" } }
-      }
-    },
-    "lc.tapSync.textHelp" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sync confirmed text, paste and deletion in standard text fields. Chinese and Japanese text is forwarded after you finish choosing characters. Touch gestures, Send/Return actions, password fields, web pages and custom game inputs are excluded. After an interruption, reopen matching fields and resume manually." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "同步标准输入框中已确认的文字、粘贴和删除。中文、日文在选字完成后转送。不包含触控手势、发送或回车提交动作、密码框、网页和游戏自定义输入框。中断后，请重新打开对应输入框并手动继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "同步標準輸入框中已確認的文字、貼上和刪除。中文、日文在選字完成後轉送。不包含觸控手勢、傳送或 Return 提交動作、密碼框、網頁和遊戲自訂輸入框。中斷後，請重新開啟對應輸入框並手動繼續。" } }
-      }
-    },
-    "lc.tapSync.textBusy" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Text synchronization paused because a follower could not keep up. Check all fields, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "接收窗口未能及时处理，文字同步已暂停。请检查所有输入框后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "接收視窗未能及時處理，文字同步已暫停。請檢查所有輸入框後再繼續。" } }
-      }
-    },
-    "lc.tapSync.textInputNotFocused" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this window has no active text field, or the field lost focus. Tap its input field, return to the source, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此窗口没有正在编辑的输入框，或输入框已失去焦点。请点按该输入框，返回来源窗口后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此視窗沒有正在編輯的輸入框，或輸入框已失去焦點。請點一下該輸入框，返回來源視窗後再繼續。" } }
-      }
-    },
-    "lc.tapSync.textInputUnsupported" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this app's active input control is not supported by Text Only. Copy Sync Diagnostics to help check compatibility." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：仅文字模式不支持此 App 当前的输入控件。请复制同步诊断，以便检查兼容性。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：僅文字模式不支援此 App 目前的輸入控制項。請複製同步診斷，以便檢查相容性。" } }
-      }
-    },
-    "lc.tapSync.textInputNotVisible" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this input field is hidden or cannot be edited. Bring the field into view and enable editing, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此输入框不可见或无法编辑。请让输入框显示并处于可编辑状态后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此輸入框不可見或無法編輯。請讓輸入框顯示並處於可編輯狀態後再繼續。" } }
-      }
-    },
-    "lc.tapSync.textInputComposing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: character composition is still active in this window. Finish or cancel character selection, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此窗口仍在组字或选字。请完成或取消选字后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此視窗仍在組字或選字。請完成或取消選字後再繼續。" } }
-      }
-    },
-    "lc.tapSync.textInputSelectionUnavailable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this field's caret or selected range could not be read. Tap inside the field and try again. If it repeats, copy Sync Diagnostics." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：无法读取此输入框的光标或选取范围。请点按输入框后重试；若仍然发生，请复制同步诊断。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：無法讀取此輸入框的游標或選取範圍。請點一下輸入框後重試；若仍然發生，請複製同步診斷。" } }
-      }
-    },
-    "lc.tapSync.textInputSecure" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: this field uses secure text entry. Password fields are excluded from text sync; use a non-password field." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：此输入框使用安全文字输入。文字同步不包含密码框；请选择非密码输入框。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：此輸入框使用安全文字輸入。文字同步不包含密碼框；請選擇非密碼輸入框。" } }
-      }
-    },
-    "lc.tapSync.textInputUnavailable" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: text input could not be prepared or checked. Try again; if it repeats, copy Sync Diagnostics from Input Sync settings." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：无法准备或检查文字输入。请重试；若仍然发生，请在输入同步设置中复制同步诊断。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：無法準備或檢查文字輸入。請重試；若仍然發生，請在輸入同步設定中複製同步診斷。" } }
-      }
-    },
-    "lc.tapSync.textInputMismatch" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: the text fields or their contents no longer match. Check every account, align the fields and text, then resume." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已暂停：输入框或文字内容不一致。请检查每个账号，让输入框和文字一致后再继续。" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已暫停：輸入框或文字內容不一致。請檢查每個帳號，讓輸入框和文字一致後再繼續。" } }
       }
     },
     "lc.tapSync.mode" : {

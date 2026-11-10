@@ -49,10 +49,7 @@
 @property(nonatomic) BOOL syncReturnGesture, holdPreparation;
 @property(nonatomic) BOOL holdSourceReply, holdReturnPayload;
 @property(nonatomic) BOOL holdReplay;
-@property(nonatomic) LCTapSyncResult preparationResult, replayResult;
-@property(nonatomic) LCTapSyncMode preparedMode;
-@property(nonatomic) NSMutableArray<NSDictionary *> *textEdits;
-@property(nonatomic) NSMutableArray<NSNumber *> *textSequences;
+@property(nonatomic) LCTapSyncResult preparationResult;
 @property(nonatomic) uint64_t revision;
 @property(nonatomic) uint64_t returnRevision;
 @property(nonatomic) NSUInteger prepares, suspensions, stops, replays, sourceResumes, returnDiscards;
@@ -61,7 +58,6 @@
 @property(nonatomic, copy) void (^didReceiveTap)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy) void (^didReceiveTouch)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy) void (^didReceiveTouchFrame)(NSDictionary *, NSString *, uint64_t);
-@property(nonatomic, copy) void (^didReceiveTextEdit)(NSDictionary *, NSString *, uint64_t);
 @property(nonatomic, copy) void (^didReceiveSourceReturn)(NSArray<NSDictionary *> *, NSString *);
 @property(nonatomic, copy) void (^didInterrupt)(NSString *, LCTapSyncResult);
 @property(nonatomic, copy) void (^didChangePhysicalInput)(NSString *, uint64_t, BOOL, BOOL, NSTimeInterval, uint64_t);
@@ -79,14 +75,13 @@
 @implementation LCTestSyncPeer
 - (BOOL)isReady { return self.ready; }
 - (instancetype)init {
-    if ((self = [super init])) { _ready = YES; _canReplay = YES; _textEdits = [NSMutableArray array]; _textSequences = [NSMutableArray array]; }
+    if ((self = [super init])) { _ready = YES; _canReplay = YES; }
     return self;
 }
 - (void)prepareSession:(NSString *)session source:(BOOL)source mode:(LCTapSyncMode)mode resumeOnSource:(BOOL)resumeOnSource
          syncReturnGesture:(BOOL)syncReturnGesture
                  reply:(void (^)(LCTapSyncResult))reply {
     self.prepares++;
-    self.preparedMode = mode;
     if (self.preparationResult != LCTapSyncResultAccepted) { reply(self.preparationResult); return; }
     if (self.touching) { reply(LCTapSyncResultPhysicalTouch); return; }
     self.session = session;
@@ -127,13 +122,6 @@
     self.replays++;
     if (self.holdReplay) self.pendingReplay = reply;
     else reply(LCTapSyncResultAccepted);
-}
-- (void)replayTextEdit:(NSDictionary *)edit session:(NSString *)session sequence:(uint64_t)sequence reply:(void (^)(LCTapSyncResult))reply {
-    self.replays++;
-    [self.textEdits addObject:edit];
-    [self.textSequences addObject:@(sequence)];
-    if (self.holdReplay) self.pendingReplay = reply;
-    else reply(self.replayResult);
 }
 - (void)inputTouching:(BOOL)touching began:(BOOL)began {
     self.touching = touching;
@@ -550,159 +538,6 @@
     CGSize size = self.host.tapSyncWindows[0].appSceneVC.view.bounds.size;
     return LCTapSyncEncode((LCTapSyncSample){0.5, 0.5, size.width, size.height,
                                            NSProcessInfo.processInfo.systemUptime, 0.05, 1, 1});
-}
-- (NSDictionary *)textEditFrom:(NSString *)before to:(NSString *)after {
-    return @{@"timestamp": @(NSProcessInfo.processInfo.systemUptime), @"before": before, @"after": after,
-        @"selectionLocation": @(after.length), @"selectionLength": @0,
-        @"field": @{@"kind": @"field", @"path": @[@0], @"identifier": @"name"}};
-}
-- (void)testTextModeUsesFieldPreparationWithoutTouchReplayAndDisablesGestureRecovery {
-    self.sync.resumeOnSource = YES;
-    self.sync.syncReturnGesture = YES;
-    self.sync.autoResumeAfterRotation = YES;
-    self.sync.mode = LCTapSyncModeText;
-    for (LCTestSyncPeer *peer in self.peers) peer.canReplay = NO;
-    XCTAssertTrue([self.sync canReplayForContainer:@"B"]);
-    [self.sync start];
-    XCTAssertTrue(self.sync.active);
-    for (LCTestSyncPeer *peer in self.peers) {
-        XCTAssertEqual(peer.preparedMode, LCTapSyncModeText);
-        XCTAssertFalse(peer.resumeOnSource || peer.syncReturnGesture);
-    }
-    [self.peers[1] inputTouching:YES began:YES];
-    XCTAssertFalse(self.sync.active || self.sync.recovering);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.physicalTouch");
-    [self.peers[1] inputTouching:NO began:NO];
-    [self.peers[0] inputTouching:YES began:YES];
-    [self.peers[0] inputTouching:NO began:NO];
-    [self letRecoveryCheckFinish];
-    XCTAssertFalse(self.sync.active || self.sync.recovering);
-    [self.sync start];
-    XCTAssertTrue(self.sync.active);
-    self.peers[0].didInterrupt(self.peers[0].session, LCTapSyncResultGeometryChanged);
-    XCTAssertFalse(self.sync.active || self.sync.recovering);
-}
-- (void)testTextEditsWaitForAllFollowersAndKeepInsertionDeletionOrder {
-    self.sync.mode = LCTapSyncModeText;
-    self.peers[3].holdReplay = YES;
-    [self.sync start];
-    NSString *session = self.peers[0].session;
-    NSDictionary *first = [self textEditFrom:@"" to:@"ab"];
-    NSDictionary *second = [self textEditFrom:@"ab" to:@"a"];
-    self.peers[0].didReceiveTextEdit(first, session, 1);
-    self.peers[0].didReceiveTextEdit(second, session, 2);
-    XCTAssertEqual(self.sync.forwardedTapCount, 0u);
-    for (NSUInteger index = 1; index < self.peers.count; index++) {
-        XCTAssertEqual(self.peers[index].textEdits.count, 1u);
-        XCTAssertEqualObjects(self.peers[index].textEdits[0], first);
-    }
-    void (^finish)(LCTapSyncResult) = self.peers[3].pendingReplay;
-    self.peers[3].pendingReplay = nil;
-    self.peers[3].holdReplay = NO;
-    finish(LCTapSyncResultAccepted);
-    XCTAssertTrue(self.sync.active);
-    XCTAssertEqual(self.sync.forwardedTapCount, 2u);
-    for (NSUInteger index = 1; index < self.peers.count; index++) {
-        XCTAssertEqualObjects(self.peers[index].textEdits, (@[first, second]));
-        XCTAssertEqualObjects(self.peers[index].textSequences, (@[@1, @2]));
-    }
-}
-- (void)testTextFocusMismatchStopsEveryParticipantAndDiscardsQueue {
-    self.sync.mode = LCTapSyncModeText;
-    self.peers[3].holdReplay = YES;
-    [self.sync start];
-    NSString *session = self.peers[0].session;
-    self.peers[0].didReceiveTextEdit([self textEditFrom:@"" to:@"a"], session, 1);
-    self.peers[0].didReceiveTextEdit([self textEditFrom:@"a" to:@"ab"], session, 2);
-    self.peers[3].pendingReplay(LCTapSyncResultTextInputMismatch);
-    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.textInputMismatch");
-    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"D"]));
-    for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
-    self.peers[3].pendingReplay(LCTapSyncResultAccepted);
-    self.peers[0].didReceiveTextEdit([self textEditFrom:@"ab" to:@"abc"], session, 3);
-    for (NSUInteger index = 1; index < self.peers.count; index++) XCTAssertEqual(self.peers[index].textEdits.count, 1u);
-}
-- (void)testImmediateTextFailureDoesNotStartDeliveryToLaterFollowers {
-    self.sync.mode = LCTapSyncModeText;
-    self.peers[1].replayResult = LCTapSyncResultTextInputUnavailable;
-    [self.sync start];
-    self.peers[0].didReceiveTextEdit([self textEditFrom:@"" to:@"a"], self.peers[0].session, 1);
-    XCTAssertFalse(self.sync.active);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.textInputUnavailable");
-    XCTAssertEqual(self.peers[1].textEdits.count, 1u);
-    XCTAssertEqual(self.peers[2].textEdits.count, 0u);
-    XCTAssertEqual(self.peers[3].textEdits.count, 0u);
-}
-- (void)testTextRejectsWrongModeSessionSourceAndExpiredInputWithoutLeakingContent {
-    [self.sync start];
-    self.peers[0].didReceiveTextEdit([self textEditFrom:@"" to:@"a"], self.peers[0].session, 1);
-    XCTAssertFalse(self.sync.active);
-    self.sync.mode = LCTapSyncModeText;
-    [self.sync start];
-    NSString *session = self.peers[0].session;
-    NSDictionary *edit = [self textEditFrom:@"" to:@"secret-test-text"];
-    self.peers[0].didReceiveTextEdit(edit, @"old-session", 1);
-    self.peers[1].didReceiveTextEdit(edit, session, 1);
-    XCTAssertTrue(self.sync.active);
-    XCTAssertEqual(self.peers[1].textEdits.count, 0u);
-    NSMutableDictionary *expired = edit.mutableCopy;
-    expired[@"timestamp"] = @(NSProcessInfo.processInfo.systemUptime - 1);
-    self.peers[0].didReceiveTextEdit(expired, session, 1);
-    XCTAssertFalse(self.sync.active);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.expiredInput");
-    __block NSDictionary *report;
-    [self.sync readInputDiagnosticsWithReply:^(NSDictionary *value) { report = value; }];
-    XCTAssertEqualObjects(report[@"lastInterruption"][@"mode"], @"text");
-    XCTAssertEqualObjects(report[@"lastInterruption"][@"hostInputFailure"][@"reason"], @"inputTooOld");
-    NSString *json = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:report options:0 error:nil] encoding:NSUTF8StringEncoding];
-    XCTAssertFalse([json containsString:@"secret-test-text"]);
-    for (NSUInteger index = 1; index < self.peers.count; index++) XCTAssertEqual(self.peers[index].textEdits.count, 0u);
-}
-- (void)testTextPreparationFailureDoesNotEnableSource {
-    self.sync.mode = LCTapSyncModeText;
-    self.peers[2].preparationResult = LCTapSyncResultTextInputUnavailable;
-    [self.sync start];
-    XCTAssertFalse(self.sync.active || self.sync.starting);
-    XCTAssertEqual(self.peers[0].prepares, 0u);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.textInputUnavailable");
-    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"C"]));
-}
-- (void)testTextPreparationReasonsIdentifyEachAffectedWindow {
-    self.sync.mode = LCTapSyncModeText;
-    self.peers[1].preparationResult = LCTapSyncResultTextInputNotFocused;
-    self.peers[2].preparationResult = LCTapSyncResultTextInputUnsupported;
-    self.peers[3].preparationResult = LCTapSyncResultTextInputComposing;
-    [self.sync start];
-    XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
-    XCTAssertEqual(self.peers[0].prepares, 0u);
-    XCTAssertEqualObjects(self.sync.statusKey, @"lc.tapSync.startFailed");
-    XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"B", @"C", @"D"]));
-    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"B"], @"lc.tapSync.textInputNotFocused");
-    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"C"], @"lc.tapSync.textInputUnsupported");
-    XCTAssertEqualObjects([self.sync statusKeyForContainer:@"D"], @"lc.tapSync.textInputComposing");
-}
-- (void)testTextReadinessReasonsRemainSpecificDuringReplay {
-    self.sync.mode = LCTapSyncModeText;
-    NSArray<NSNumber *> *reasons = @[@(LCTapSyncResultTextInputNotFocused), @(LCTapSyncResultTextInputUnsupported),
-        @(LCTapSyncResultTextInputNotVisible), @(LCTapSyncResultTextInputComposing),
-        @(LCTapSyncResultTextInputSelectionUnavailable), @(LCTapSyncResultTextInputSecure)];
-    NSArray<NSString *> *keys = @[@"lc.tapSync.textInputNotFocused", @"lc.tapSync.textInputUnsupported",
-        @"lc.tapSync.textInputNotVisible", @"lc.tapSync.textInputComposing",
-        @"lc.tapSync.textInputSelectionUnavailable", @"lc.tapSync.textInputSecure"];
-    for (NSUInteger index = 0; index < reasons.count; index++) {
-        self.peers[1].replayResult = reasons[index].integerValue;
-        [self.sync start];
-        XCTAssertTrue(self.sync.active);
-        NSUInteger laterReplays = self.peers[2].replays;
-        self.peers[0].didReceiveTextEdit([self textEditFrom:@"" to:@"a"], self.peers[0].session, 1);
-        XCTAssertFalse(self.sync.active || self.sync.starting || self.sync.recovering);
-        XCTAssertEqualObjects(self.sync.statusKey, keys[index]);
-        XCTAssertEqualObjects(self.sync.interruptedContainers, (@[@"B"]));
-        XCTAssertEqualObjects([self.sync statusKeyForContainer:@"B"], keys[index]);
-        XCTAssertEqual(self.peers[2].replays, laterReplays);
-        for (LCTestSyncPeer *peer in self.peers) XCTAssertNil(peer.session);
-    }
 }
 - (void)testDelayedAcknowledgmentAfterOneSecondKeepsDeliveredInputActive {
     self.peers[3].holdReplay = YES;
