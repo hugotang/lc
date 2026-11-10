@@ -4,7 +4,7 @@
 #import <objc/message.h>
 #import <dlfcn.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
+#import <mach/vm_map.h>
 #import <mach-o/loader.h>
 #include <string.h>
 
@@ -19,8 +19,8 @@ static const uint8_t LCMSImageUUID[16] = {0x0f,0xb0,0x91,0xe2,0x19,0x1b,0x38,0x4
 static uintptr_t LCMSAddress(uintptr_t unslid) { return LCMSImageBase + (unslid - 0x100000000ULL); }
 static BOOL LCMSRead(uintptr_t address, void *output, size_t size) {
     if (!address || !output || !size || size > 32768 || address > UINTPTR_MAX - size) return NO;
-    mach_vm_size_t copied = 0;
-    return mach_vm_read_overwrite(mach_task_self(), address, size, (mach_vm_address_t)output, &copied) == KERN_SUCCESS && copied == size;
+    vm_size_t copied = 0;
+    return vm_read_overwrite(mach_task_self(), (vm_address_t)address, (vm_size_t)size, (vm_address_t)output, &copied) == KERN_SUCCESS && copied == size;
 }
 static BOOL LCMSPointer(uintptr_t address, uintptr_t *value) { return LCMSRead(address, value, sizeof(*value)); }
 static BOOL LCMSPointerEquals(uintptr_t address, uintptr_t expected) {

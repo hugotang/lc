@@ -255,6 +255,48 @@ static void LCMSPutByte(uintptr_t address, uint8_t value) {
     LCMSPutPointer(slot, 1);
     XCTAssertFalse(LCMSCurrentScene(&current));
 }
+- (void)testRenderedLabelsMustBeDistinctLiveChildrenWithKnownClasses {
+    uintptr_t labelTable = [self bytes:640];
+    LCMSImageBase = labelTable - 0x35310C0;
+    LCMSPutPointer(labelTable + 312, LCMSImageBase + 0x266E5DC);
+    LCMSPutPointer(labelTable + 440, LCMSImageBase + 0x266E52C);
+    LCMSPutPointer(labelTable + 456, LCMSImageBase + 0x266E75C);
+    LCMSPutPointer(labelTable + 632, LCMSImageBase + 0x266E754);
+    uintptr_t impl = [self bytes:40], node = [self node], text = [self node], placeholder = [self node];
+    LCMSPutPointer(text, labelTable);
+    LCMSPutPointer(placeholder, labelTable);
+    LCMSPutPointer(impl + 24, text);
+    LCMSPutPointer(impl + 32, placeholder);
+    [self setChildren:@[@(text), @(placeholder)] of:node];
+    XCTAssertTrue(LCMSLabels(impl, node));
+    // Cocos hides the placeholder when it displays entered text. Hidden labels
+    // remain valid while they still belong to this live edit box.
+    LCMSPutByte(placeholder + 268, 0);
+    XCTAssertTrue(LCMSLabels(impl, node));
+    LCMSPutPointer(impl + 32, text);
+    XCTAssertFalse(LCMSLabels(impl, node));
+    LCMSPutPointer(impl + 32, placeholder);
+    for (NSNumber *value in @[@(text), @(placeholder)]) {
+        uintptr_t label = value.unsignedLongLongValue;
+        LCMSPutPointer(label, self.table);
+        XCTAssertFalse(LCMSLabels(impl, node));
+        LCMSPutPointer(label, labelTable);
+        LCMSPutPointer(label + 200, 0);
+        XCTAssertFalse(LCMSLabels(impl, node));
+        LCMSPutPointer(label + 200, node);
+        LCMSPutByte(label + 264, 0);
+        XCTAssertFalse(LCMSLabels(impl, node));
+        LCMSPutByte(label + 264, 1);
+        XCTAssertTrue(LCMSLabels(impl, node));
+    }
+    [self setChildren:@[@(text)] of:node];
+    XCTAssertFalse(LCMSLabels(impl, node));
+    [self setChildren:@[@(text), @(placeholder)] of:node];
+    LCMSPutPointer(impl + 32, 1);
+    XCTAssertFalse(LCMSLabels(impl, node));
+    LCMSPutPointer(impl + 32, 0);
+    XCTAssertFalse(LCMSLabels(impl, node));
+}
 - (void)testDiscardInvalidatesOutstandingBindingReferences {
     LCMonsterStrikeTextBinding *binding = [LCMonsterStrikeTextBinding new];
     LCMSRemembered = binding;
