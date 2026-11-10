@@ -1,4 +1,5 @@
 #include <Foundation/Foundation.h>
+#include <TargetConditionals.h>
 
 @interface NSBundle(private)
 - (id)_cfBundle;
@@ -36,9 +37,13 @@
 + (NSXPCInterface *)_extensionAuxiliaryVendorProtocol;
 @end
 
+#if TARGET_OS_OSX
+#include <Security/SecTask.h>
+#else
 void* SecTaskCreateFromSelf(CFAllocatorRef allocator);
-NSString *SecTaskCopyTeamIdentifier(void *task, NSError **error);
 CFTypeRef SecTaskCopyValueForEntitlement(void *task, CFStringRef key, CFErrorRef *error);
+#endif
+NSString *SecTaskCopyTeamIdentifier(void *task, NSError **error);
 
 
 @interface _CFXPreferences2 : NSObject
