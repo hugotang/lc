@@ -18,8 +18,8 @@ void NSURLSCGuestHooksInit(void);
 void initDead10ccFix(void);
 void IDFVHookInit(NSUUID* uuid);
 void NSExtensionGuestHooksInit(NSURL *appURL, NSURL *containerURL);
-int LCRunGuestExtension(NSDictionary *request, NSExtensionContext *context);
-NSString *LCPrepareGuestExtension(NSDictionary *request);
+void GuestExtensionHooksInit(void);
+NSString *LCRunGuestExtension(NSDictionary *request, int argc, char *argv[], char *envp[], char *apple[]);
 
 @interface NSBundle(LiveContainer)
 - (instancetype)initWithPathForMainBundle:(NSString *)path;

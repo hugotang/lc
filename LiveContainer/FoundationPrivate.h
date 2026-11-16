@@ -32,11 +32,6 @@
 - (void)_hostWillResignActiveNote:(NSNotification *)note;
 @end
 
-@interface NSExtensionContext (LCAuxiliaryConnection)
-+ (NSXPCInterface *)_extensionAuxiliaryHostProtocol;
-+ (NSXPCInterface *)_extensionAuxiliaryVendorProtocol;
-@end
-
 #if TARGET_OS_OSX
 #include <Security/SecTask.h>
 #else

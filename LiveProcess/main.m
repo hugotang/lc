@@ -11,6 +11,7 @@
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
 #import "../SideStoreSupport/XPCServer.h"
+#import "../LiveContainer/LivePlugInSupport/LivePlugInServer.h"
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
 @end
@@ -41,10 +42,6 @@ int LiveProcessMain(int argc, char *argv[]) {
     // Ensure app info is delivered
     NSDictionary *appInfo = LiveProcessHandler.retrievedAppInfo;
     NSCAssert(appInfo, @"Failed to retrieve app info");
-    NSDictionary *guestExtension = appInfo[@"LCGuestExtension"];
-    if (guestExtension) {
-        return LCRunGuestExtension(guestExtension, LiveProcessHandler.extensionContext);
-    }
     
     // Check if we received a request to execute a custom payload
     NSString *customPayloadDylib = appInfo[@"customPayloadDylib"];
@@ -124,8 +121,18 @@ static void* hook_dlopen(void* dyldApiInstancePtr, const char* path, int mode) {
     }
 }
 
+extern int LivePlugInMain(int argc, char *argv[], char *envp[], char *apple[]);
 // Extension entry point
 int NSExtensionMain(int argc, char *argv[], char *envp[], char *apple[]) {
+    // Only guest launches carry this marker. A host also uses LiveProcess for
+    // ordinary windows and SideStore after its helper service has been started.
+    const char *guestPlugIn = getenv(LCLivePlugInEnvironmentKey);
+    BOOL isGuestPlugIn = guestPlugIn && strcmp(guestPlugIn, "1") == 0;
+    unsetenv(LCLivePlugInEnvironmentKey);
+    if (isGuestPlugIn) {
+        return LivePlugInMain(argc, argv, envp, apple);
+    }
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
     method_setImplementation(class_getInstanceMethod(NSClassFromString(@"NSXPCDecoder"), @selector(_validateAllowedClass:forKey:allowingInvocations:)), (IMP)hook_do_nothing);

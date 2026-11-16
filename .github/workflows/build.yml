@@ -95,10 +95,12 @@ jobs:
           "$RUNNER_TEMP/guest-preferences-routing-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation Tests/GuestExtensionSigningTests.m -o "$RUNNER_TEMP/guest-extension-signing-tests"
           "$RUNNER_TEMP/guest-extension-signing-tests"
-      - name: Test guest helper XPC connections
+      - name: Test guest helper v2 transport
         run: |
-          clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter -framework Foundation Tests/GuestExtensionConnectionTests.m -o "$RUNNER_TEMP/guest-extension-connection-tests"
-          "$RUNNER_TEMP/guest-extension-connection-tests"
+          clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -I LiveContainer -I LiveContainer/Tweaks -framework Foundation Tests/GuestPlugInHostTests.m -o "$RUNNER_TEMP/guest-plugin-host-tests"
+          python3 -c 'import os, subprocess; subprocess.run([os.environ["RUNNER_TEMP"] + "/guest-plugin-host-tests"], check=True, timeout=45)'
+          clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -framework Foundation Tests/GuestPlugInClientTests.m -o "$RUNNER_TEMP/guest-plugin-client-tests"
+          python3 -c 'import os, subprocess; subprocess.run([os.environ["RUNNER_TEMP"] + "/guest-plugin-client-tests"], check=True, timeout=45)'
       - name: Test workspace persistence
         run: |
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
