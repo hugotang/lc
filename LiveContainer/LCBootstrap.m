@@ -320,7 +320,7 @@ NSString *LCRunGuestExtension(NSDictionary *request, int argc, char *argv[], cha
     };
     NSDictionary *patchInfo = [NSDictionary dictionaryWithContentsOfFile:[bundlePath stringByAppendingPathComponent:@"LCAppExtension.plist"]];
     if (@available(iOS 27.0, *)) {
-        if ([patchInfo[@"segCountMismatch"] boolValue]) bypass_seg_count_check(load);
+        if ([patchInfo[@"segCountMismatch"] boolValue]) bypass_linkedit_checks(load);
         else load();
     } else {
         load();
@@ -692,7 +692,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     BOOL is27up = false;
     if(@available(iOS 27, *)) { is27up = true; }
     if(is27up && [guestAppInfo[@"segCountMismatch"] boolValue]) {
-        bypass_seg_count_check(dlopenBlock);
+        bypass_linkedit_checks(dlopenBlock);
     } else {
         dlopenBlock();
     }
@@ -990,10 +990,3 @@ int LiveContainerMain(int argc, char *argv[]) {
     return LiveContainerSwiftUIMain();
 
 }
-
-#ifdef DEBUG
-int callAppMain(int argc, char *argv[], char *envp[]) {
-    assert(appMain != NULL);
-    __attribute__((musttail)) return appMain(argc, argv, envp);
-}
-#endif

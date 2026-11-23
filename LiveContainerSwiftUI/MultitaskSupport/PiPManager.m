@@ -1,7 +1,7 @@
 #import "PiPManager.h"
 #import "DecoratedAppSceneViewController.h"
-#import "../LiveContainer/LCSharedUtils.h"
-#import "../LiveContainer/utils.h"
+#import "../../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/utils.h"
 
 static void *LCPiPBoundsContext = &LCPiPBoundsContext;
 static PiPManager *LCPiPManagerInstance;

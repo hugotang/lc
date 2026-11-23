@@ -1,5 +1,5 @@
 // Run with: cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/WindowGridLayoutTests.c -lm -o /tmp/window-grid-tests && /tmp/window-grid-tests
-#include "../MultitaskSupport/WindowGridLayout.h"
+#include "../LiveContainerSwiftUI/MultitaskSupport/WindowGridLayout.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>

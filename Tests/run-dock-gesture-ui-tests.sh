@@ -32,8 +32,8 @@ plistlib.dump({
 
 sources = [
     ('H1', 'Tests/DockGestureTestHost.swift', 'sourcecode.swift'),
-    ('H2', 'MultitaskSupport/DockRevealControl.m', 'sourcecode.c.objc'),
-    ('H3', 'MultitaskSupport/MultitaskDockLayout.swift', 'sourcecode.swift'),
+    ('H2', 'LiveContainerSwiftUI/MultitaskSupport/DockRevealControl.m', 'sourcecode.c.objc'),
+    ('H3', 'LiveContainerSwiftUI/MultitaskSupport/MultitaskDockLayout.swift', 'sourcecode.swift'),
     ('H4', 'Tests/DockGestureDiagnostics.m', 'sourcecode.c.objc'),
     ('T1', 'Tests/DockGestureUITests.m', 'sourcecode.c.objc'),
 ]

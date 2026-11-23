@@ -7,7 +7,7 @@
 #import "AppSceneViewController.h"
 #import "DecoratedAppSceneViewController.h"
 #import "LiveContainerSwiftUI-Swift.h"
-#import "../LiveContainerSwiftUI/Utilities/LCUtils.h"
+#import "../Utilities/LCUtils.h"
 #import "PiPManager.h"
 #import "Localization.h"
 #import "LCSharedUtils.h"
@@ -15,7 +15,7 @@
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "TapSyncCoordinator.h"
 #import "WindowContentGeometry.h"
-#import "../LiveContainer/LCAppDisplaySettings.h"
+#import "../../LiveContainer/LCAppDisplaySettings.h"
 
 static NSUUID *LCWindowGeometryClipboardRequest;
 

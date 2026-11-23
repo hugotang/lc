@@ -2,7 +2,7 @@
 // Compile the production guest in the test bundle without activating its launch
 // constructor (the test defaults provider reports that this is not LiveProcess).
 #import "../TweakLoader/TapSyncClient.m"
-#import "../MultitaskSupport/TapSyncPeer.m"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncPeer.m"
 #import "TapSyncTestWindow.h"
 
 @interface LCTestInputHost : NSObject

@@ -58,19 +58,19 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     -Wl,-rpath,"$test_frameworks" -Wl,-rpath,"$test_libraries" \
     -I "$repo_root/LiveContainer" \
     "$repo_root/TweakLoader/TapSyncWindow.m" "$repo_root/Tests/TapSyncWindowTests.m" \
-    "$repo_root/MultitaskSupport/TapSyncCoordinator.m" "$repo_root/MultitaskSupport/TapSyncRecovery.m" \
-    "$repo_root/MultitaskSupport/TapSyncControlsView.m" "$repo_root/Tests/TapSyncControlsViewTests.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/TapSyncCoordinator.m" "$repo_root/LiveContainerSwiftUI/MultitaskSupport/TapSyncRecovery.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/TapSyncControlsView.m" "$repo_root/Tests/TapSyncControlsViewTests.m" \
     "$repo_root/LiveContainer/Localization.m" \
-    "$repo_root/MultitaskSupport/TapSyncSession.m" "$repo_root/MultitaskSupport/TapSyncSelection.m" \
-    "$repo_root/MultitaskSupport/WindowWorkspace.m" "$repo_root/Tests/TapSyncCoordinatorTests.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/TapSyncSession.m" "$repo_root/LiveContainerSwiftUI/MultitaskSupport/TapSyncSelection.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WindowWorkspace.m" "$repo_root/Tests/TapSyncCoordinatorTests.m" \
     "$repo_root/TweakLoader/TapSyncClientState.m" "$repo_root/TweakLoader/TapSyncReturnGesture.m" \
     "$repo_root/Tests/TapSyncClientTests.m" \
-    "$repo_root/MultitaskSupport/WindowChromeLayout.m" "$repo_root/Tests/WindowChromeLayoutTests.m" \
-    "$repo_root/MultitaskSupport/WindowContentGeometry.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WindowChromeLayout.m" "$repo_root/Tests/WindowChromeLayoutTests.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WindowContentGeometry.m" \
     "$repo_root/Tests/WindowContentGeometryTests.m" \
-    "$repo_root/MultitaskSupport/WindowMinimization.m" "$repo_root/MultitaskSupport/WindowGridOrder.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WindowMinimization.m" "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WindowGridOrder.m" \
     "$repo_root/Tests/WindowMinimizationTests.m" \
-    "$repo_root/MultitaskSupport/DockRevealControl.m" "$repo_root/Tests/DockRevealControlTests.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/DockRevealControl.m" "$repo_root/Tests/DockRevealControlTests.m" \
     "$repo_root/Tests/WindowScreenTests.m" \
     "$repo_root/Tests/AmbientAudioTests.m" \
     "$repo_root/Tests/BackgroundAudioTests.m" \
@@ -78,7 +78,7 @@ xcrun clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" -fobjc-a
     "$repo_root/Tests/CustomLocationSystemTests.m" \
     "$repo_root/Tests/LocationSessionTests.m" \
     "$repo_root/TweakLoader/WindowGeometryDiagnostics.m" \
-    "$repo_root/MultitaskSupport/WorkspaceLaunchLayout.m" \
+    "$repo_root/LiveContainerSwiftUI/MultitaskSupport/WorkspaceLaunchLayout.m" \
     -o "$bundle/TapSyncWindowTests"
 codesign --force --sign - "$bundle"
 codesign --force --sign - "$app"

@@ -1,8 +1,8 @@
 #import "TapSyncControlsView.h"
 #import "TapSyncCoordinator.h"
 #import "PerformanceMonitor.h"
-#import "../LiveContainer/Localization.h"
-#import "../LiveContainer/utils.h"
+#import "../../LiveContainer/Localization.h"
+#import "../../LiveContainer/utils.h"
 #include <math.h>
 
 @interface LCTapSyncControlsView ()

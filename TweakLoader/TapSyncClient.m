@@ -3,9 +3,9 @@
 #import <dlfcn.h>
 #import <mach/mach_time.h>
 #import "../LiveContainer/utils.h"
-#import "../MultitaskSupport/TapSyncProtocol.h"
-#import "../MultitaskSupport/TapSyncDiagnostics.h"
-#import "../MultitaskSupport/ProcessMetrics.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncProtocol.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncDiagnostics.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/ProcessMetrics.h"
 #import "TapSyncClientState.h"
 #import "TapSyncReturnGesture.h"
 #import "TapSyncWindow.h"

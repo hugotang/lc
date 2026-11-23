@@ -1,4 +1,4 @@
-#import "../MultitaskSupport/WindowWorkspace.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowWorkspace.h"
 #import "../LiveContainer/LCWorkspaceLaunch.h"
 #include <assert.h>
 #include <stdio.h>

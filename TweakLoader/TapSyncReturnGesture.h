@@ -1,4 +1,4 @@
-#import "../MultitaskSupport/TapSyncProtocol.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncProtocol.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

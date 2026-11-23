@@ -326,7 +326,8 @@
     NSString *execPath = [NSString stringWithFormat:@"%@/%@", appPath, _infoPlist[@"CFBundleExecutable"]];
     
     // Update patch
-    int currentPatchRev = 7;
+    // Re-scan installed executables for the new LINKEDIT alignment check.
+    int currentPatchRev = 8;
     bool needPatch = [info[@"LCPatchRevision"] intValue] < currentPatchRev;
     if (needPatch || forceSign) {
         // copy-delete-move to avoid EXC_BAD_ACCESS (SIGKILL - CODESIGNING)
@@ -349,7 +350,7 @@
                     info[@"LCTweakLoaderCantInject"] = @YES;
                     info[@"dontInjectTweakLoader"] = @YES;
                 }
-                if(patchResult & PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH) {
+                if(patchResult & (PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH | PATCH_EXEC_RESULT_MISALIGNED_LINKEDIT_STRING_POOL)) {
                     info[@"segCountMismatch"] = @YES;
                 }
             }
@@ -382,14 +383,14 @@
     // Prepare their helpers separately when the user opts in, before signing.
     // An encrypted, unused extension must not block an ordinary app launch.
     if (self.helperProcessesSupport && !self.is32bit &&
-        [info[@"LCGuestExtensionPatchRevision"] intValue] < 1) {
+        [info[@"LCGuestExtensionPatchRevision"] intValue] < 2) {
         NSString *error = [self patchGuestExtensions];
         if (error) {
             [NSUserDefaults.standardUserDefaults removeObjectForKey:@"SigningInProgress"];
             completetionHandler(NO, error);
             return;
         }
-        info[@"LCGuestExtensionPatchRevision"] = @1;
+        info[@"LCGuestExtensionPatchRevision"] = @2;
         info[@"LCGuestExtensionSignPending"] = @YES;
         forceSign = YES;
         [self save];
@@ -477,7 +478,8 @@
             hasARM64 = YES;
             encrypted |= LCIsMachOEncrypted(header);
             if (!encrypted) {
-                mismatch |= (LCPatchExecSlice(path.fileSystemRepresentation, header, false) & PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH) != 0;
+                int patchResult = LCPatchExecSlice(path.fileSystemRepresentation, header, false);
+                mismatch |= (patchResult & (PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH | PATCH_EXEC_RESULT_MISALIGNED_LINKEDIT_STRING_POOL)) != 0;
             }
         });
         if (!error && (!hasARM64 || encrypted)) {

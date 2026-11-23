@@ -40,11 +40,11 @@ jobs:
           "$RUNNER_TEMP/location-movement-tests"
       - name: Test window grid swapping
         run: |
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/WindowGridOrder.m Tests/WindowGridOrderTests.m -o "$RUNNER_TEMP/window-grid-order-tests"
           "$RUNNER_TEMP/window-grid-order-tests"
       - name: Test dock layout and account identity
         run: |
-          swiftc -warnings-as-errors MultitaskSupport/MultitaskDockLayout.swift Tests/MultitaskDockLayoutTests.swift -o "$RUNNER_TEMP/dock-layout-tests"
+          swiftc -warnings-as-errors LiveContainerSwiftUI/MultitaskSupport/MultitaskDockLayout.swift Tests/MultitaskDockLayoutTests.swift -o "$RUNNER_TEMP/dock-layout-tests"
           "$RUNNER_TEMP/dock-layout-tests"
       - name: Test input sync geometry and sessions
         run: |
@@ -54,21 +54,21 @@ jobs:
           "$RUNNER_TEMP/touch-sync-geometry-tests"
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/MultiTouchSyncGeometryTests.c -lm -o "$RUNNER_TEMP/multi-touch-sync-tests"
           "$RUNNER_TEMP/multi-touch-sync-tests"
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSession.m Tests/TapSyncSessionTests.m -o "$RUNNER_TEMP/tap-sync-session-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/TapSyncSession.m Tests/TapSyncSessionTests.m -o "$RUNNER_TEMP/tap-sync-session-tests"
           "$RUNNER_TEMP/tap-sync-session-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncClientState.m Tests/TapSyncClientStateTests.m -o "$RUNNER_TEMP/tap-sync-client-state-tests"
           "$RUNNER_TEMP/tap-sync-client-state-tests"
           clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation TweakLoader/TapSyncReturnGesture.m Tests/TapSyncReturnGestureTests.m -o "$RUNNER_TEMP/tap-sync-return-gesture-tests"
           "$RUNNER_TEMP/tap-sync-return-gesture-tests"
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/TapSyncSelection.m Tests/TapSyncSelectionTests.m -o "$RUNNER_TEMP/tap-sync-selection-tests"
           "$RUNNER_TEMP/tap-sync-selection-tests"
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/TapSyncRecovery.m Tests/TapSyncRecoveryTests.m -o "$RUNNER_TEMP/tap-sync-recovery-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/TapSyncRecovery.m Tests/TapSyncRecoveryTests.m -o "$RUNNER_TEMP/tap-sync-recovery-tests"
           "$RUNNER_TEMP/tap-sync-recovery-tests"
       - name: Test performance metrics
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/PerformanceMetricsTests.c -lm -o "$RUNNER_TEMP/performance-metrics-tests"
           "$RUNNER_TEMP/performance-metrics-tests"
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/PerformanceRecording.m Tests/PerformanceRecordingTests.m -o "$RUNNER_TEMP/performance-recording-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/PerformanceRecording.m Tests/PerformanceRecordingTests.m -o "$RUNNER_TEMP/performance-recording-tests"
           "$RUNNER_TEMP/performance-recording-tests" "$RUNNER_TEMP/performance-recording.csv"
           python3 Tests/PerformanceCSVTests.py "$RUNNER_TEMP/performance-recording.csv"
       - name: Test app language selection
@@ -103,11 +103,11 @@ jobs:
           python3 -c 'import os, subprocess; subprocess.run([os.environ["RUNNER_TEMP"] + "/guest-plugin-client-tests"], check=True, timeout=45)'
       - name: Test workspace persistence
         run: |
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/WindowWorkspace.m Tests/WindowWorkspaceTests.m -o "$RUNNER_TEMP/window-workspace-tests"
           "$RUNNER_TEMP/window-workspace-tests"
       - name: Test workspace launch slots
         run: |
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m MultitaskSupport/WorkspaceLaunchLayout.m Tests/WorkspaceLaunchLayoutTests.m -o "$RUNNER_TEMP/workspace-launch-layout-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/WindowWorkspace.m LiveContainerSwiftUI/MultitaskSupport/WorkspaceLaunchLayout.m Tests/WorkspaceLaunchLayoutTests.m -o "$RUNNER_TEMP/workspace-launch-layout-tests"
           "$RUNNER_TEMP/workspace-launch-layout-tests"
       - name: Test workspace restore requests
         run: |
@@ -115,7 +115,7 @@ jobs:
           "$RUNNER_TEMP/workspace-restore-request-tests"
       - name: Test workspace library
         run: |
-          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation MultitaskSupport/WindowWorkspace.m Tests/WorkspaceLibraryTests.m -o "$RUNNER_TEMP/workspace-library-tests"
+          clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation LiveContainerSwiftUI/MultitaskSupport/WindowWorkspace.m Tests/WorkspaceLibraryTests.m -o "$RUNNER_TEMP/workspace-library-tests"
           "$RUNNER_TEMP/workspace-library-tests"
       - name: Test symbol cache validation
         run: |
@@ -144,6 +144,9 @@ jobs:
           file_to_build=`ls -A | grep -i \\.xcworkspace\$ || ls -A | grep -i \\.xcodeproj\$`
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
           echo "file_to_build=$file_to_build" >> $GITHUB_OUTPUT
+      - name: Prepare Dependencies
+        run: |
+          sh .github/prepare_dependencies.sh
       - name: Archive
         id: archive
         env:

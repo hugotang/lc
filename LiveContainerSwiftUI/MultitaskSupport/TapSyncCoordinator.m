@@ -7,7 +7,7 @@
 #import "AppSceneViewController.h"
 #import "DecoratedAppSceneViewController.h"
 #import "VirtualWindowsHostView.h"
-#import "../LiveContainer/utils.h"
+#import "../../LiveContainer/utils.h"
 #include <math.h>
 
 NSNotificationName const LCTapSyncDidChangeNotification = @"LCTapSyncDidChange";

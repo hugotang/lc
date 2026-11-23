@@ -1,5 +1,5 @@
 #import "WindowChromeLayout.h"
-#import "../LiveContainer/LCAppDisplaySettings.h"
+#import "../../LiveContainer/LCAppDisplaySettings.h"
 
 @interface LCWindowChromeLayout ()
 @property(nonatomic) NSArray<NSLayoutConstraint *> *constraints;

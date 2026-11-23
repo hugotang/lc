@@ -1,10 +1,10 @@
 #import <XCTest/XCTest.h>
 #import <QuartzCore/QuartzCore.h>
-#import "../MultitaskSupport/WindowContentGeometry.h"
-#import "../MultitaskSupport/WindowChromeLayout.h"
-#import "../MultitaskSupport/WorkspaceLaunchLayout.h"
-#import "../MultitaskSupport/WindowGridLayout.h"
-#import "../MultitaskSupport/TapSyncGeometry.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowContentGeometry.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowChromeLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WorkspaceLaunchLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowGridLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncGeometry.h"
 #import "TapSyncTestWindow.h"
 #include <math.h>
 

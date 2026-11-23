@@ -3,10 +3,10 @@
 #import <QuartzCore/QuartzCore.h>
 // Exercise the production hooks explicitly, without guest launch constructors.
 #import "../TweakLoader/WindowScreen.m"
-#import "../MultitaskSupport/WorkspaceLaunchLayout.h"
-#import "../MultitaskSupport/WindowGridLayout.h"
-#import "../MultitaskSupport/WindowChromeLayout.h"
-#import "../MultitaskSupport/WindowContentGeometry.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WorkspaceLaunchLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowGridLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowChromeLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowContentGeometry.h"
 #import "../TweakLoader/WindowGeometryDiagnostics.h"
 #import "TapSyncTestWindow.h"
 

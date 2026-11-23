@@ -1,5 +1,5 @@
-#import "../MultitaskSupport/TapSyncSession.h"
-#import "../MultitaskSupport/TapSyncDiagnostics.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncSession.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncDiagnostics.h"
 #include <assert.h>
 #include <stdio.h>
 

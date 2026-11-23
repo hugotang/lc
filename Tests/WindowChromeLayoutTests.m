@@ -1,5 +1,5 @@
 #import <XCTest/XCTest.h>
-#import "../MultitaskSupport/WindowChromeLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowChromeLayout.h"
 #import "TapSyncTestWindow.h"
 
 @interface WindowChromeLayoutTests : XCTestCase

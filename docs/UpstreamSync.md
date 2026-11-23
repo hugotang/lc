@@ -1,8 +1,12 @@
-# Upstream sync — 3.8.45
+# Upstream sync — 3.8.46
 
-Integrates `LiveContainer/LiveContainer` main through `b7cfda60c39933a94d616f2a358ac2e48fd4e5cd`, checked on 2026-11-16. Upstream rewrote its helper-process history after the earlier 3.8.39 merge; the common ancestor is `ea79dc9`. This integration adopts the current helper v2 implementation, helper settings and source-loading changes while retaining the fork's features.
+Integrates `LiveContainer/LiveContainer` main through `b0f53e8`, checked on 2026-11-23. This adds seven upstream commits after the 3.8.45 integration at `b7cfda60c39933a94d616f2a358ac2e48fd4e5cd`. The merge retains the fork's helper v2 integration and custom window, location, audio, workspace and input-sync behavior.
 
-The fork keeps its GitHub-hosted macOS/Xcode 26.2 build configuration and its existing checks. `LivePlugInSupport` is added to `LiveContainerShared`, and `LiveProcess/LivePlugIn.m` supplies the helper entry path. The shared framework retains Swift 5 mode and the location bridging header. Both the main app and LiveProcess declare `MusicHapticsSupported`. Version 3.8.45 follows the fork's installed 3.8.44 rather than adopting upstream's lower 3.8.14 version.
+The fork keeps its GitHub-hosted macOS/Xcode 26.2 build configuration and its existing checks. All multitasking sources, including the fork's Dock, input-sync, performance and workspace additions, now live under `LiveContainerSwiftUI/MultitaskSupport`. Project membership, relative imports, CLI tests and generated simulator projects use the new location. The shared framework retains Swift 5 mode and the location bridging header. Both the main app and LiveProcess declare `MusicHapticsSupported`. Version 3.8.46 follows the fork's installed 3.8.45.
+
+OpenSSL is downloaded from release 3.6.5000 rather than cloned as a submodule. `.github/prepare_dependencies.sh` pins the archive SHA-256, fails on download/checksum/extraction errors, and stages extraction before installing `Dependencies/OpenSSL.xcframework`. A receipt outside the signed framework allows repeat preparation; an existing unrecognized framework is left intact. Obsolete OpenSSL project references and search paths are removed.
+
+The upstream fixes also cover missing team-ID entitlements, the system Liquid Glass check, debug entry points and removal of SideStore components from extra LiveContainer copies. Data and tweak directory enumeration runs in a detached utility task, with published model updates on the main actor. The new LINKEDIT string-pool alignment detection applies to both app and helper executables. Main patch revision 8 and helper patch revision 2 make installed guests run the new detection on their next preparation; successful helper bundle signing remains tracked independently.
 
 Sources now load saved entries and refresh only when the Sources tab is first opened. Adding a source also ensures saved entries are loaded before persisting changes, including when a source deep link arrives before the tab appears. Subsequent tab visits reuse the loaded model. The fork's download-size display remains available.
 

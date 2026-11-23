@@ -8,9 +8,9 @@
 #import "VirtualWindowsHostView.h"
 #import "WindowChromeLayout.h"
 #import "WindowContentGeometry.h"
-#import "../LiveContainer/Localization.h"
-#import "../LiveContainer/Tweaks/LocationUI.h"
-#import "../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/Localization.h"
+#import "../../LiveContainer/Tweaks/LocationUI.h"
+#import "../../LiveContainer/LCSharedUtils.h"
 #import "utils.h"
 
 @interface DecoratedAppSceneViewController()

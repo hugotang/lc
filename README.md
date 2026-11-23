@@ -131,6 +131,8 @@ Some apps may experience issues with their file pickers or not be able to apply 
 Unfortunately, not all apps work in LiveContainer, so we have a [compatibility list](https://github.com/LiveContainer/LiveContainer/labels/compatibility) to tell if there is apps that have issues. If they aren't on this list, then it's likely going run. However, if it doesn't work, please make an [issue](https://github.com/LiveContainer/LiveContainer/issues/new/choose) about it.
 
 ## Building
+Run `sh .github/prepare_dependencies.sh` from a macOS checkout to download the pinned OpenSSL 3.6.5000 XCFramework, verify its SHA-256, and install it at `Dependencies/OpenSSL.xcframework`.
+
 Open Xcode, edit `DEVELOPMENT_TEAM[config=Debug]` in `xcconfigs/Global.xcconfig` to your team id and compile.
 
 ## Project structure

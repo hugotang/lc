@@ -1,8 +1,8 @@
 #import <XCTest/XCTest.h>
-#import "../MultitaskSupport/TapSyncControlsView.h"
-#import "../MultitaskSupport/TapSyncCoordinator.h"
-#import "../MultitaskSupport/TapSyncRecovery.h"
-#import "../MultitaskSupport/PerformanceMonitor.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncControlsView.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncCoordinator.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/TapSyncRecovery.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/PerformanceMonitor.h"
 #import "../LiveContainer/Localization.h"
 #import "../LiveContainer/utils.h"
 #import "TapSyncTestWindow.h"

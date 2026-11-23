@@ -1,7 +1,7 @@
 #import <XCTest/XCTest.h>
-#import "../MultitaskSupport/WindowMinimization.h"
-#import "../MultitaskSupport/WindowGridOrder.h"
-#import "../MultitaskSupport/WindowGridLayout.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowMinimization.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowGridOrder.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/WindowGridLayout.h"
 #import "TapSyncTestWindow.h"
 
 @interface LCMinimizationTestHost : UIView

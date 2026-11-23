@@ -1,6 +1,6 @@
 #import <XCTest/XCTest.h>
 #import <UIKit/UIGestureRecognizerSubclass.h>
-#import "../MultitaskSupport/DockRevealControl.h"
+#import "../LiveContainerSwiftUI/MultitaskSupport/DockRevealControl.h"
 #import "TapSyncTestWindow.h"
 
 @interface LCDockRevealControl (Testing)

@@ -14,8 +14,8 @@
 #import "TapSyncControlsView.h"
 #import "PerformanceMonitor.h"
 #import "LiveContainerSwiftUI-Swift.h"
-#import "../LiveContainer/Localization.h"
-#import "../LiveContainer/utils.h"
+#import "../../LiveContainer/Localization.h"
+#import "../../LiveContainer/utils.h"
 #import <QuartzCore/QuartzCore.h>
 
 static LCWindowGridRect LCKeyboardRect(CGRect rect) {
