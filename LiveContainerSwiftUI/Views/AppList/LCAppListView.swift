@@ -80,6 +80,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("darkModeIcon", store: LCUtils.appGroupUserDefault) private var darkModeIcon = false
+    @AppStorage("LCAppStorageFilter", store: LCUtils.appGroupUserDefault) private var storageFilter: LCAppStorageFilter = .all
+    @AppStorage("LCAppFilterNeedsJIT", store: LCUtils.appGroupUserDefault) private var filterNeedsJIT = false
+    @State private var filterMetadataRevision = 0
     
     @State private var isViewAppeared = false
     
@@ -92,28 +95,31 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         return sharedAppSortManager.sortedHiddenApps
     }
     
-    var filteredApps: [LCAppModel] {
-        let apps = sortedApps
-        if searchContext.debouncedQuery.isEmpty {
-            return apps
-        } else {
-            return apps.filter { app in
-                app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-                app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
-            }
+    private var appFilter: LCAppListFilter {
+        LCAppListFilter(storage: storageFilter, needsJIT: filterNeedsJIT, query: searchContext.debouncedQuery)
+    }
+
+    private func filtered(_ apps: [LCAppModel]) -> [LCAppModel] {
+        apps.filter { app in
+            appFilter.matches(name: app.appInfo.displayName(), bundleIdentifier: app.appInfo.bundleIdentifier(),
+                              isShared: app.uiIsShared, needsJIT: app.uiIsJITNeeded || app.uiIs32bit)
         }
+    }
+
+    var filteredApps: [LCAppModel] {
+        _ = filterMetadataRevision
+        return filtered(sortedApps)
     }
     
     var filteredHiddenApps: [LCAppModel] {
-        let apps = sortedHiddenApps
-        if searchContext.debouncedQuery.isEmpty || !sharedModel.isHiddenAppUnlocked {
-            return apps
-        } else {
-            return apps.filter { app in
-                app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-                app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
-            }
-        }
+        _ = filterMetadataRevision
+        // Locked placeholders must not reveal metadata through their count.
+        return sharedModel.isHiddenAppUnlocked ? filtered(sortedHiddenApps) : sortedHiddenApps
+    }
+
+    private var filterMetadataChanges: AnyPublisher<Void, Never> {
+        Publishers.MergeMany((sharedModel.apps + sharedModel.hiddenApps).map { $0.objectWillChange.eraseToAnyPublisher() })
+            .receive(on: DispatchQueue.main).eraseToAnyPublisher()
     }
     
     init() {
@@ -189,7 +195,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     }
 
                     let appCount = sharedModel.isHiddenAppUnlocked ? filteredApps.count + filteredHiddenApps.count : filteredApps.count
-                    Text(appCount > 0 || searchContext.debouncedQuery != "" ? "lc.appList.appCounter %lld".localizeWithFormat(appCount) : (sharedModel.multiLCStatus == 2 ? "lc.appList.convertToSharedToShowInLC2".loc : "lc.appList.installTip".loc))
+                    Text(appCount == 0 && appFilter.isActive ? "lc.appList.filter.noMatches".loc :
+                         (appCount > 0 ? "lc.appList.appCounter %lld".localizeWithFormat(appCount) : (sharedModel.multiLCStatus == 2 ? "lc.appList.convertToSharedToShowInLC2".loc : "lc.appList.installTip".loc)))
                         .padding(.horizontal)
                         .foregroundStyle(.gray)
                         .animation(searchContext.isTyping ? nil : .easeInOut, value: appCount)
@@ -204,6 +211,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
             }
             .navigationBarProgressBar(show:$installprogressVisible, progress: $installProgressPercentage)
+            .onReceive(filterMetadataChanges) { filterMetadataRevision &+= 1 }
             .coordinateSpace(name: "scroll")
             .onAppear {
                 if !didAppear {
@@ -259,6 +267,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Picker("lc.appList.filter.storage".loc, selection: $storageFilter) {
+                            ForEach(LCAppStorageFilter.allCases, id: \.self) { filter in
+                                Text(filter.titleKey.loc).tag(filter)
+                            }
+                        }
+                        Toggle("lc.appList.filter.needsJIT".loc, isOn: $filterNeedsJIT)
+                        if storageFilter != .all || filterNeedsJIT {
+                            Button("lc.appList.filter.clear".loc) { storageFilter = .all; filterNeedsJIT = false }
+                        }
+                        Divider()
                         Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
                             ForEach(AppSortType.allCases, id: \.self) { sortType in
                                 Label(sortType.displayName, systemImage: sortType.systemImage)
@@ -280,7 +298,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             }
                         }
                     } label: {
-                        Label("Sort by", systemImage: "line.3.horizontal.decrease.circle")
+                        Label("lc.appList.filter.sortAndFilter".loc, systemImage: storageFilter != .all || filterNeedsJIT ?
+                              "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     }
                 }
             }

@@ -72,8 +72,6 @@ class SharedModel: ObservableObject {
     @Published var arm32EmuApps : [LCAppModel] = []
     @Published var hiddenApps : [LCAppModel] = []
     
-    @Published var pidCallback : ((NSNumber, Error?) -> Void)? = nil
-    
     static let isPhone: Bool = {
         UIDevice.current.userInterfaceIdiom == .phone
     }()

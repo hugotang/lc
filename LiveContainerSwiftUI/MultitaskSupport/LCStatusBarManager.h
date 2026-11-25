@@ -13,5 +13,5 @@
 
 API_AVAILABLE(ios(16.0))
 @interface LCStatusBarManager : UIStatusBarManager
-@property(nonatomic) AppSceneViewController *nativeWindowViewController;
+@property(nonatomic, weak) AppSceneViewController *nativeWindowViewController;
 @end

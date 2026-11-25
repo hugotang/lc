@@ -587,6 +587,30 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (void)bringSubviewToFront:(UIView *)view {
     [super bringSubviewToFront:view];
     [self bringGridControlsToFront];
+    [self updateFullscreenStatusBar];
+}
+
+- (void)setDockCollapsed:(BOOL)dockCollapsed {
+    _dockCollapsed = dockCollapsed;
+    [self updateFullscreenStatusBar];
+}
+
+- (void)updateFullscreenStatusBar {
+    BOOL hidden = NO;
+    if (self.window && !self.hidden && self.alpha > 0 &&
+        [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskHideStatusBar"] &&
+        self.dockCollapsed) {
+        // Use visual stacking order, not saved grid order. A smaller window in
+        // front of a maximized app must restore the host's normal status bar.
+        for (UIView *view in self.subviews.reverseObjectEnumerator) {
+            DecoratedAppSceneViewController *vc = (id)view._viewDelegate;
+            if (![vc isKindOfClass:DecoratedAppSceneViewController.class] || view.hidden || view.alpha <= 0 ||
+                vc.windowMinimization.isMinimized || vc.appSceneVC.shouldIgnoreSceneUpdates) continue;
+            hidden = vc.isMaximized && !vc.isAppTerminated && vc.appSceneVC.isAppRunning;
+            break;
+        }
+    }
+    [LCFullscreenStatusBarState.shared updateWithHidden:hidden inScene:self.window.windowScene];
 }
 
 - (void)bringGridControlsToFront {
@@ -601,6 +625,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
     if (!self.window) [self finishGridEditing];
     [LCTapSyncCoordinator.shared validateWindows];
     [LCPerformanceMonitor.shared updateVisibility];
+    [self updateFullscreenStatusBar];
 }
 
 - (void)safeAreaInsetsDidChange {
@@ -613,6 +638,7 @@ static CGRect LCCGKeyboardRect(LCWindowGridRect rect) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     [MultitaskDockManager.shared hostGeometryDidChange];
+    [self updateFullscreenStatusBar];
     BOOL avoidingKeyboard = self.isAvoidingKeyboard;
     if (self.maintainsGridLayout || self.isAdjustingGridDividers || self.isChoosingGridSwap ||
         ((avoidingKeyboard || self.wasAvoidingKeyboard) && self.allVisibleWindowsAreInGrid)) {

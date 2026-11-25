@@ -29,6 +29,7 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCDockHiddenArrowSwipeOnly", store: LCUtils.appGroupUserDefault) var hiddenArrowSwipeOnly = false
     @AppStorage("LCDockShowAccountLabels", store: LCUtils.appGroupUserDefault) var showAccountLabels = true
     @AppStorage("LCMultitaskOverlayMode", store: LCUtils.appGroupUserDefault) var overlayMode = false
+    @AppStorage("LCMultitaskHideStatusBar", store: LCUtils.appGroupUserDefault) var hideFullscreenStatusBar = false
     @AppStorage("LCRedirectURLToHost", store: LCUtils.appGroupUserDefault) var redirectURLToHost = false
     
     var body: some View {
@@ -60,14 +61,6 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $autoEndPiP) {
                         Text("lc.settings.autoEndPiP".loc)
                     }
-                    Toggle(isOn: $skipTerminatedScreen) {
-                        Text("lc.settings.skipTerminatedScreen".loc)
-                    }
-                    if skipTerminatedScreen {
-                        Toggle(isOn: $restartTerminatedApp) {
-                            Text("lc.settings.restartTerminatedApp".loc)
-                        }
-                    }
                     Toggle(isOn: $bottomWindowBar) {
                         Text("lc.settings.bottomWindowBar".loc)
                     }
@@ -79,9 +72,17 @@ struct LCMultitaskSettingView: View {
                 }
             }
 
+            Section {
+                Toggle("lc.settings.skipTerminatedScreen".loc, isOn: $skipTerminatedScreen)
+                if skipTerminatedScreen {
+                    Toggle("lc.settings.restartTerminatedApp".loc, isOn: $restartTerminatedApp)
+                }
+            }
+
             if multitaskMode == .virtualWindow, #available(iOS 16.0, *) {
                 Section {
                     Toggle("lc.settings.multitaskOverlay".loc, isOn: $overlayMode)
+                    Toggle("lc.settings.multitaskHideStatusBar".loc, isOn: $hideFullscreenStatusBar)
                 } footer: {
                     Text("lc.settings.multitaskOverlayDesc".loc)
                 }

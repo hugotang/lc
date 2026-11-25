@@ -57,6 +57,10 @@
 }
 
 + (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    [self launchMultitaskGuestApp:displayName launchAllowed:nil completionHandler:completionHandler];
+}
+
++ (void)launchMultitaskGuestApp:(NSString *)displayName launchAllowed:(BOOL (^)(void))launchAllowed completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
     if(!self.liveProcessBundleIdentifier) {
         NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
         if (completionHandler) completionHandler(nil, error);
@@ -71,11 +75,17 @@
     [lcUserDefaults removeObjectForKey:@"selectedContainer"];
     
     dispatch_async(dispatch_get_main_queue(), ^{
+        // A native scene may have been closed while signing or awaiting this queue.
+        if (launchAllowed && !launchAllowed()) {
+            if (completionHandler) completionHandler(nil, [NSError errorWithDomain:NSCocoaErrorDomain code:NSUserCancelledError userInfo:nil]);
+            return;
+        }
         if (@available(iOS 16.1, *)) {
             if(UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
-                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:completionHandler];
-                MultitaskDockManager *dock = [MultitaskDockManager shared];
-                [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                if ([MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:completionHandler]) {
+                    MultitaskDockManager *dock = [MultitaskDockManager shared];
+                    [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                }
                 return;
             }
         }

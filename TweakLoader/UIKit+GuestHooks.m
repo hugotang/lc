@@ -5,6 +5,7 @@
 #import <LocalAuthentication/LocalAuthentication.h>
 #import "Localization.h"
 #import "WindowScreen.h"
+#import "GuestWindows.h"
 
 @interface LiveProcessHandler : NSObject
 + (NSDictionary *)retrievedAppInfo;
@@ -26,6 +27,9 @@ static void UIKitGuestHooksInit() {
     swizzle(UIApplication.class, @selector(openURL:options:completionHandler:), @selector(hook_openURL:options:completionHandler:));
     swizzle(UIApplication.class, @selector(canOpenURL:), @selector(hook_canOpenURL:));
     swizzle(UIApplication.class, @selector(setDelegate:), @selector(hook_setDelegate:));
+    if (NSUserDefaults.isLiveProcess) {
+        swizzle(UIApplication.class, @selector(windows), @selector(lc_guestWindows));
+    }
     swizzle(UIScene.class, @selector(scene:didReceiveActions:fromTransitionContext:), @selector(hook_scene:didReceiveActions:fromTransitionContext:));
     swizzle(UIScene.class, @selector(openURL:options:completionHandler:), @selector(hook_openURL:options:completionHandler:));
     NSInteger LCOrientationLockDirection = [NSUserDefaults.guestAppInfo[@"LCOrientationLock"] integerValue];
@@ -549,6 +553,19 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
 
 // Handler for AppDelegate
 @implementation UIApplication(LiveContainerHook)
+- (NSArray<UIWindow *> *)lc_guestWindows {
+    // The fallback is main-thread-only; recursive UIKit reads retain the original result.
+    static BOOL enumerating;
+    NSArray<UIWindow *> *original = [self lc_guestWindows];
+    if (original.count || !NSThread.isMainThread || enumerating) return original;
+    enumerating = YES;
+    @try {
+        return LCGuestWindowsFallback(original, self.connectedScenes, UIScreen.mainScreen);
+    } @finally {
+        enumerating = NO;
+    }
+}
+
 - (void)hook__applicationOpenURLAction:(id)action payload:(NSDictionary *)payload origin:(id)origin {
     NSURL *url = [NSURL URLWithString:payload[UIApplicationLaunchOptionsURLKey]];
     NSString* replacementURLString = nil;

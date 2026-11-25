@@ -253,7 +253,8 @@ class LCAppModel: ObservableObject, Hashable {
     }
     
     // You should let LCAppModel.runApp to decide whether to run in multitask mode, but you may override the multitask parameter if necessary
-    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil) async throws{
+    func runApp(multitask: Bool? = nil, containerFolderName : String? = nil, bundleIdOverride : String? = nil, urlStr : String? = nil, forceJIT: Bool? = nil, launchAllowed: (() -> Bool)? = nil) async throws{
+        if let launchAllowed, !(await MainActor.run(body: { launchAllowed() })) { throw CancellationError() }
         if isAppRunning {
             return
         }
@@ -364,6 +365,7 @@ class LCAppModel: ObservableObject, Hashable {
             }}
         }
         try await signApp(force: false)
+        if let launchAllowed, !(await MainActor.run(body: { launchAllowed() })) { throw CancellationError() }
         
         if let bundleIdOverride {
             UserDefaults.standard.set(bundleIdOverride, forKey: "selected")
@@ -386,7 +388,7 @@ class LCAppModel: ObservableObject, Hashable {
         if jitNeeded {
             if multitask, #available(iOS 17.4, *) {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    LCUtils.launchMultitaskGuestApp(appInfo.displayName()) { pidNumber, error in
+                    LCUtils.launchMultitaskGuestApp(appInfo.displayName(), launchAllowed: launchAllowed) { pidNumber, error in
                         if let error {
                             continuation.resume(throwing: error)
                             return
@@ -414,7 +416,7 @@ class LCAppModel: ObservableObject, Hashable {
                 }
             }
         } else if multitask, #available(iOS 16.0, *) {
-            try await LCUtils.launchMultitaskGuestApp(appInfo.displayName())
+            try await LCUtils.launchMultitaskGuestApp(appInfo.displayName(), launchAllowed: launchAllowed)
         } else {
             if #available(iOS 26.0, *), FileManager.default.fileExists(atPath: "\(appInfo.bundlePath()!)/Frameworks/MetalANGLE.framework/MetalANGLE") {
                 let fileContents = "\(appInfo.bundlePath()!)/Frameworks/MetalANGLE.framework/MetalANGLE".data(using: .utf8)

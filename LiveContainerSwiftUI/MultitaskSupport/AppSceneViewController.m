@@ -33,6 +33,8 @@ static NSUUID *LCWindowGeometryClipboardRequest;
 @property(nonatomic) NSExtension* extension;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @property(nonatomic) BOOL didCompleteInitialization;
+@property(nonatomic) BOOL terminationRequested;
+@property(nonatomic) BOOL extensionRequestPending;
 @property(nonatomic, copy) dispatch_block_t launchRequest;
 @property(nonatomic) LCWindowHostingGeometryUpdate *hostingGeometryUpdate;
 @property(nonatomic) CGSize initialLogicalWindowSize;
@@ -119,25 +121,37 @@ static NSUUID *LCWindowGeometryClipboardRequest;
     [_extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             AppSceneViewController *vc = weakSelf;
+            vc.extensionRequestPending = NO;
             [vc completeInitializationWithError:error ?: [vc startupError]];
             [vc appTerminationCleanUp];
         });
     }];
     [_extension setRequestInterruptionBlock:^(NSUUID *uuid) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            weakSelf.extensionRequestPending = NO;
             [weakSelf appTerminationCleanUp];
         });
     }];
     void (^beginRequest)(void) = ^{
         AppSceneViewController *controller = weakSelf;
         if (!controller || controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+        controller.extensionRequestPending = YES;
         [controller.extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (controller.didCompleteInitialization || controller.isAppTerminationCleanUpCalled) return;
+                controller.extensionRequestPending = NO;
+                if (controller.terminationRequested || controller.isAppTerminationCleanUpCalled || controller.didCompleteInitialization) {
+                    // A canceled startup can still deliver its request later.
+                    // Cancel only that late request, never a replacement guest.
+                    if (identifier && ![identifier isEqual:controller.identifier]) {
+                        [controller.extension cancelExtensionRequestWithIdentifier:identifier];
+                    }
+                    if (controller.terminationRequested) [controller appTerminationCleanUp];
+                    return;
+                }
                 controller.pid = identifier ? [controller.extension pidForRequestIdentifier:identifier] : 0;
                 if (identifier && controller.pid > 0) {
                     controller.tapSyncPeer.expectedProcessIdentifier = controller.pid;
-                    [MultitaskManager registerMultitaskContainerWithContainer:controller.dataUUID];
+                    [MultitaskManager registerMultitaskContainerWithContainer:controller.dataUUID request:identifier];
                     controller.identifier = identifier;
                     [controller completeInitializationWithError:nil];
                     [controller setUpAppPresenter];
@@ -351,11 +365,18 @@ static NSUUID *LCWindowGeometryClipboardRequest;
 }
 
 - (void)terminate {
+    if (self.isAppTerminationCleanUpCalled || self.terminationRequested) return;
+    self.terminationRequested = YES;
+    self.launchRequest = nil;
     if(self.isAppRunning) {
         [self.extension _kill:SIGTERM];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [self.extension _kill:SIGKILL];
+            if (!self.isAppTerminationCleanUpCalled && self.isAppRunning) [self.extension _kill:SIGKILL];
         });
+    } else if (!self.extensionRequestPending) {
+        // Keep a pending native launch reserved until PluginKit supplies a
+        // request to cancel, or confirms that startup was interrupted.
+        [self appTerminationCleanUp];
     }
 }
 
@@ -530,8 +551,9 @@ static NSUUID *LCWindowGeometryClipboardRequest;
         }
         self.presenter = nil;
         
+        if (self.identifier) [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID request:self.identifier];
         [self.delegate appSceneVCAppDidExit:self];
-        [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID];
+        if (self.isNativeWindow) self.delegate = nil;
     });
 }
 
@@ -563,7 +585,9 @@ static NSUUID *LCWindowGeometryClipboardRequest;
         if(self.sceneID) {
             [self.view.window.windowScene _unregisterSettingsDiffActionArrayForKey:self.sceneID];
         }
-        self.delegate = nil;
+        // SwiftUI removes a native view before asynchronous extension cleanup.
+        // Keep its completion delegate until cleanup releases the session entry.
+        if (!self.isNativeWindow) self.delegate = nil;
     }
 }
 

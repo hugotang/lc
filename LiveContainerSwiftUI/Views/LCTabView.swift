@@ -18,6 +18,7 @@ struct LCTabView: View {
     @State var shouldToggleMainWindowOpen = false
     @Environment(\.scenePhase) var scenePhase
     @StateObject var downloadHelper = DownloadHelper()
+    @ObservedObject private var fullscreenStatusBar = LCFullscreenStatusBarState.shared
 
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
     
@@ -49,6 +50,8 @@ struct LCTabView: View {
                 }
                 .tag(LCTabIdentifier.settings)
         }
+        .statusBarHidden(scenePhase == .active && fullscreenStatusBar.hiddenSceneIdentifier != nil &&
+                         fullscreenStatusBar.hiddenSceneIdentifier == sceneDelegate.window?.windowScene?.session.persistentIdentifier)
         .downloadAlert(helper: downloadHelper)
         .environmentObject(downloadHelper)
         .alert("lc.common.error".loc, isPresented: $errorShow){

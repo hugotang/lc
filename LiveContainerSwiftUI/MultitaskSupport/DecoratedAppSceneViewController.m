@@ -358,6 +358,7 @@
     [LCTapSyncCoordinator.shared pauseForChangeToContainer:self.appSceneVC.dataUUID];
     [MultitaskDockManager.shared.windowHostingView finishGridEditing];
     [self.windowMinimization minimize];
+    [MultitaskDockManager.shared.windowHostingView updateFullscreenStatusBar];
     [MultitaskDockManager.shared gridLayoutDidChange];
 }
 
@@ -494,6 +495,7 @@
     [self.windowMinimization invalidate];
     [MultitaskDockManager.shared gridLayoutDidChange];
     BOOL skipTerminationScreen = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCSkipTerminatedScreen"];
+    [MultitaskDockManager.shared.windowHostingView updateFullscreenStatusBar];
     BOOL isManual = _isAppTerminationRequested;
     if(isManual || skipTerminationScreen) {
         
@@ -673,6 +675,7 @@
 }
 
 - (void)updateVerticalConstraints {
+    [MultitaskDockManager.shared.windowHostingView updateFullscreenStatusBar];
     BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
     BOOL compactGrid = self.isInGridLayout && !self.isMaximized && MultitaskDockManager.shared.windowHostingView.shouldHideGridWindowBars && !self.isAppTerminated;
     BOOL hideWindowBar = compactGrid || (MultitaskDockManager.shared.isCollapsed && self.isMaximized && !self.isAppTerminated);

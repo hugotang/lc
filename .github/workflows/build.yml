@@ -46,6 +46,10 @@ jobs:
         run: |
           swiftc -warnings-as-errors LiveContainerSwiftUI/MultitaskSupport/MultitaskDockLayout.swift Tests/MultitaskDockLayoutTests.swift -o "$RUNNER_TEMP/dock-layout-tests"
           "$RUNNER_TEMP/dock-layout-tests"
+      - name: Test native window recovery
+        run: |
+          swiftc -warnings-as-errors LiveContainerSwiftUI/MultitaskSupport/NativeWindowState.swift LiveContainerSwiftUI/MultitaskSupport/MultitaskManager.swift Tests/NativeWindowStateTests.swift -o "$RUNNER_TEMP/native-window-tests"
+          "$RUNNER_TEMP/native-window-tests"
       - name: Test input sync geometry and sessions
         run: |
           cc -std=c11 -Wall -Wextra -Werror -pedantic Tests/TapSyncGeometryTests.c -lm -o "$RUNNER_TEMP/tap-sync-geometry-tests"

@@ -224,6 +224,7 @@ class AppInfoProvider {
     override init() {
         super.init()
         isCollapsed = windowHostingView.automaticallyTilesWindows
+        windowHostingView.dockCollapsed = isCollapsed
         if let root = keyWindow?.rootViewController?.view {
             (root.subviews.first ?? root).addSubview(windowHostingView)
         }
@@ -270,6 +271,7 @@ class AppInfoProvider {
         DispatchQueue.main.async {
             self.refreshAccountMetadata()
             self.settingsChanged.toggle()
+            self.windowHostingView.updateFullscreenStatusBar()
             if self.isVisible {
                 self.updateDockFrame()
             }
@@ -702,6 +704,7 @@ class AppInfoProvider {
     
     @objc public func notifyDockCollapseChanged() {
         self.updateDockFrame()
+        self.windowHostingView.dockCollapsed = isCollapsed
         // find fullscreen apps and hide its UINavigationBar
         self.apps.forEach { app in
             if let vc = app.view?._viewDelegate() as? DecoratedAppSceneViewController,

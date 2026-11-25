@@ -11,6 +11,7 @@
 API_AVAILABLE(ios(16.0))
 @interface VirtualWindowsHostView: UIView
 @property(nonatomic) BOOL shouldForwardTapAction;
+@property(nonatomic) BOOL dockCollapsed;
 @property(nonatomic, readonly) BOOL automaticallyTilesWindows;
 @property(nonatomic, readonly) BOOL maintainsGridLayout;
 @property(nonatomic, readonly) BOOL shouldHideGridWindowBars;
@@ -44,4 +45,5 @@ API_AVAILABLE(ios(16.0))
 - (void)forgetKeyboardFrameForWindow:(UIView * _Nonnull)window;
 - (CGRect)unobscuredFrameForWindow:(UIView * _Nonnull)window;
 - (BOOL)handleStatusBarTapAction:(UIAction *)action;
+- (void)updateFullscreenStatusBar;
 @end
