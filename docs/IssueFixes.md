@@ -28,7 +28,11 @@ This addresses the reported empty legacy enumeration path. It does not establish
 
 `NativeWindowStateTests.swift` exercises stale completions, one-shot startup completion, failed/short launches, close suppression, retry limits and replacement-request cleanup. The existing build workflow compiles and runs it on macOS. `GuestWindowsTests.m` is wired into the existing iPad simulator suite and exercises foreground/background enumeration, preservation of original results, scene ambiguity, external scenes, auxiliary windows, ordering and deduplication.
 
-At implementation time the Windows host had no Swift compiler, Xcode or iOS simulator. Local verification covers parsing changed Swift/Objective-C sources, localization JSON, workflow YAML, test-script shell syntax and diff whitespace. These checks do not replace a Release build or simulator/device execution. No new simulator or device success is recorded here.
+Source commit `2ffed3de100a2d54286ab7f645bb120746192cc3` passed [macOS CI 45567521384](https://github.com/hugotang/lc/actions/runs/45567521384) on the first attempt with Xcode 26.2. All 18 command-line test steps passed, including native recovery, helper v2 transport, signing/preferences and workspace checks. The Release archive and both IPA variants succeeded. All **226 simulator test executions** passed: input/window tests (190 iPad, including five new legacy-window cases, plus seven iPhone), Dock gestures (14 iPad plus one iPhone) and custom location (seven per device). Nightly release was skipped.
+
+Both downloaded IPAs identify version **3.8.47** and source `2ffed3d`. Package verification passed ZIP CRC, source/version markers, main/LiveProcess/shared-framework executables, OpenSSL 3.6.5000, Music Haptics declarations and absence of test artifacts. The SideStore variant also passed embedded SideStoreSupport/SideStoreApp and app-group checks. English, Simplified Chinese and Traditional Chinese strings were checked inside the compiled package. The local Windows checks covered source parsing, localization JSON, workflow YAML, shell syntax and diff whitespace. The build still emits existing helper-fixture warnings; it is not a warning-free build.
+
+These results cover compilation, fixtures and package identity. Native PluginKit/scene lifecycle, the reported enterprise app and fullscreen status-bar behavior have **not** been verified on a device. The delivered IPA remains bound to `2ffed3d`; a later documentation-only commit does not change its tested source.
 
 Before accepting the changes on a device:
 
