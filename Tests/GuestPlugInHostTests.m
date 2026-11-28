@@ -46,7 +46,13 @@ static id discoveredPlugIn;
 @end
 @implementation NSBundle (GuestPlugInDiscoveryTests)
 + (instancetype)test_bundleWithURL:(NSURL *)url {
-    return testBundles[url.path] ?: [self test_bundleWithURL:url];
+    // Directory enumeration can canonicalize macOS's /var -> /private/var
+    // temporary-directory alias. Match bundle locations, not URL spellings.
+    NSString *path = url.URLByResolvingSymlinksInPath.path;
+    for (NSString *fixturePath in testBundles) {
+        if ([fixturePath.stringByResolvingSymlinksInPath isEqualToString:path]) return testBundles[fixturePath];
+    }
+    return [self test_bundleWithURL:url];
 }
 @end
 
@@ -285,6 +291,7 @@ static void testDiscoveryFromPrimaryAndExtraContainers(void) {
         host.bundlePath = [[guestExtensionsAppURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:name] path];
         testBundles = @{guestURL.path: (id)guest};
         testIsLiveProcess = false;
+        assert(LCFindGuestExtension(guest.bundleIdentifier) == (id)guest);
         verify(@"com.kdt.livecontainer.TESTTEAM42.LiveProcess", YES);
     }
     // Embedded and sibling helpers take precedence over the guessed identifier.
