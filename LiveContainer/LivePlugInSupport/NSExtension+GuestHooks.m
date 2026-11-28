@@ -5,6 +5,7 @@
 #import "PlugInKitPrivate.h"
 #import "LivePlugInServer.h"
 #import "../utils.h"
+#import "../LCSharedUtils.h"
 #import "Tweaks.h"
 
 static NSURL *guestExtensionsAppURL;
@@ -101,20 +102,27 @@ void hook_discoverPlugInsForAttributes(id self, SEL _cmd, NSDictionary* attribut
         orig_discoverPlugInsForAttributes(self, _cmd, attributes, flags, found);
         return;
     }
-
-    NSBundle *liveProcessBundle;
+    NSString *liveProcessBundleId;
     if(NSUserDefaults.isLiveProcess) {
-        liveProcessBundle = [NSBundle bundleWithURL:[NSUserDefaults.lcMainBundle.bundleURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"LiveProcess.appex"]];
+        liveProcessBundleId = [NSBundle bundleWithURL:[NSUserDefaults.lcMainBundle.bundleURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"LiveProcess.appex"]].bundleIdentifier;
     } else {
-        liveProcessBundle = [NSBundle bundleWithURL:[NSUserDefaults.lcMainBundle.builtInPlugInsURL URLByAppendingPathComponent:@"LiveProcess.appex"]];
+        liveProcessBundleId = [NSBundle bundleWithURL:[NSUserDefaults.lcMainBundle.builtInPlugInsURL URLByAppendingPathComponent:@"LiveProcess.appex"]].bundleIdentifier;
     }
-    if (!liveProcessBundle.bundleIdentifier) {
-        NSLog(@"LivePlugIn is missing. Reinstall LiveContainer and keep its extensions.");
+    if (!liveProcessBundleId.length) {
+        // Extra LC copies do not embed LiveProcess. Discover LC1's signed helper.
+        NSString *teamIdentifier = LCSharedUtils.teamIdentifier;
+        if (teamIdentifier.length) {
+            liveProcessBundleId = [[@"com.kdt.livecontainer" stringByAppendingPathExtension:teamIdentifier]
+                                  stringByAppendingPathExtension:@"LiveProcess"];
+        }
+    }
+    if (!liveProcessBundleId.length) {
+        NSLog(@"LivePlugIn is missing and its signed identifier is unavailable.");
         orig_discoverPlugInsForAttributes(self, _cmd, attributes, flags, found);
         return;
     }
     NSMutableDictionary *newAttributes = [attributes mutableCopy];
-    newAttributes[@"NSExtensionIdentifier"] = liveProcessBundle.bundleIdentifier;
+    newAttributes[@"NSExtensionIdentifier"] = liveProcessBundleId;
     orig_discoverPlugInsForAttributes(self, _cmd, newAttributes, flags, ^(NSSet* result, NSError* err) {
         if([result count] == 1) {
             NSMutableSet* result2 = [result mutableCopy];

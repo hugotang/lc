@@ -19,9 +19,17 @@ static NSDictionary *capturedEnvironment;
 static NSUInteger launchCalls;
 static NSError *nativeLaunchError;
 static NSArray *nativePIDs;
+static NSString *testTeamIdentifier;
+static NSBundle *testHostBundle;
+static bool testIsLiveProcess;
+static NSDictionary<NSString *, NSBundle *> *testBundles;
+static NSDictionary *capturedDiscoveryAttributes;
+static uint64_t capturedDiscoveryFlags;
+static id discoveredPlugIn;
 
 @implementation LCSharedUtils
 + (NSString *)appGroupID { return nil; }
++ (NSString *)teamIdentifier { return testTeamIdentifier; }
 @end
 
 @implementation NSUserDefaults (GuestPlugInHostTests)
@@ -29,6 +37,17 @@ static NSArray *nativePIDs;
 + (NSDictionary *)guestContainerInfo { return testContainerInfo ?: @{}; }
 + (NSDictionary *)guestAppInfo { return @{@"helperProcessesSupport": @YES}; }
 + (NSString *)lcAppGroupPath { return nil; }
++ (NSBundle *)lcMainBundle { return testHostBundle; }
++ (bool)isLiveProcess { return testIsLiveProcess; }
+@end
+
+@interface NSBundle (GuestPlugInDiscoveryTests)
++ (instancetype)test_bundleWithURL:(NSURL *)url;
+@end
+@implementation NSBundle (GuestPlugInDiscoveryTests)
++ (instancetype)test_bundleWithURL:(NSURL *)url {
+    return testBundles[url.path] ?: [self test_bundleWithURL:url];
+}
 @end
 
 @interface NSURL (GuestPlugInHostTests)
@@ -53,8 +72,12 @@ static NSArray *nativePIDs;
 @interface LCTestGuestBundle : NSObject
 @property(nonatomic, copy) NSString *bundleIdentifier;
 @property(nonatomic, copy) NSString *bundlePath;
+@property(nonatomic, readonly) NSURL *bundleURL;
+@property(nonatomic, readonly) NSURL *builtInPlugInsURL;
 @end
 @implementation LCTestGuestBundle
+- (NSURL *)bundleURL { return [NSURL fileURLWithPath:self.bundlePath isDirectory:YES]; }
+- (NSURL *)builtInPlugInsURL { return [self.bundleURL URLByAppendingPathComponent:@"PlugIns" isDirectory:YES]; }
 @end
 
 @interface LCTestPlugInTarget : NSObject
@@ -215,6 +238,84 @@ static void testDiscoveryProxyOwnsTarget(void) {
     assert(!weakTarget);
 }
 
+static void nativeDiscover(id object, SEL selector, NSDictionary *attributes, uint64_t flags,
+        void (^found)(NSSet *, NSError *)) {
+    (void)object; (void)selector;
+    capturedDiscoveryAttributes = [attributes copy];
+    capturedDiscoveryFlags = flags;
+    if (found) found([NSSet setWithObject:discoveredPlugIn], nil);
+}
+
+static void testDiscoveryFromPrimaryAndExtraContainers(void) {
+    LCTestGuestBundle *guest = guestBundle();
+    NSURL *guestURL = guest.bundleURL;
+    assert([NSFileManager.defaultManager createDirectoryAtURL:guestURL withIntermediateDirectories:YES attributes:nil error:nil]);
+    LCTestGuestBundle *host = [LCTestGuestBundle new];
+    LCTestGuestBundle *helper = [LCTestGuestBundle new];
+    helper.bundleIdentifier = @"custom.signed.LiveProcess";
+    testHostBundle = (id)host;
+    testTeamIdentifier = @"TESTTEAM42";
+    discoveredPlugIn = guestPlugIn(nil);
+    orig_discoverPlugInsForAttributes = nativeDiscover;
+    Method nativeBundle = class_getClassMethod(NSBundle.class, @selector(bundleWithURL:));
+    Method fixtureBundle = class_getClassMethod(NSBundle.class, @selector(test_bundleWithURL:));
+    method_exchangeImplementations(nativeBundle, fixtureBundle);
+
+    NSDictionary *attributes = @{@"NSExtensionIdentifier": guest.bundleIdentifier, @"NSExtensionPointName": @"keep-filter"};
+    void (^verify)(NSString *, BOOL) = ^(NSString *expectedIdentifier, BOOL proxyExpected) {
+        __block BOOL called = NO;
+        hook_discoverPlugInsForAttributes(nil, NULL, attributes, 73, ^(NSSet *result, NSError *error) {
+            called = YES;
+            assert(!error && result.count == 1);
+            id plugin = result.anyObject;
+            if (proxyExpected) {
+                assert(plugin != discoveredPlugIn);
+                assert([(PKHostPluginProxy *)plugin target] == discoveredPlugIn);
+                assert([(PKHostPluginProxy *)plugin guestBundle] == (id)guest);
+            } else assert(plugin == discoveredPlugIn);
+        });
+        assert(called && capturedDiscoveryFlags == 73);
+        assert([capturedDiscoveryAttributes[@"NSExtensionIdentifier"] isEqual:expectedIdentifier]);
+        assert([capturedDiscoveryAttributes[@"NSExtensionPointName"] isEqual:@"keep-filter"]);
+        assert([attributes[@"NSExtensionIdentifier"] isEqual:guest.bundleIdentifier]);
+    };
+
+    // LC2/LC3 have no embedded helper and use LC1's signed identifier.
+    for (NSString *name in @[@"LC2.app", @"LC3.app"]) {
+        host.bundlePath = [[guestExtensionsAppURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:name] path];
+        testBundles = @{guestURL.path: (id)guest};
+        testIsLiveProcess = false;
+        verify(@"com.kdt.livecontainer.TESTTEAM42.LiveProcess", YES);
+    }
+    // Embedded and sibling helpers take precedence over the guessed identifier.
+    testBundles = @{guestURL.path: (id)guest,
+        [host.builtInPlugInsURL URLByAppendingPathComponent:@"LiveProcess.appex"].path: (id)helper};
+    verify(helper.bundleIdentifier, YES);
+    testIsLiveProcess = true;
+    testBundles = @{guestURL.path: (id)guest,
+        [host.bundleURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"LiveProcess.appex"].path: (id)helper};
+    verify(helper.bundleIdentifier, YES);
+
+    // Missing signing identity cannot turn into a malformed discovery request.
+    testBundles = @{guestURL.path: (id)guest};
+    testTeamIdentifier = nil;
+    verify(guest.bundleIdentifier, NO);
+    testTeamIdentifier = @"";
+    verify(guest.bundleIdentifier, NO);
+    // Unknown extensions retain their original lookup even when LC1 is available.
+    testTeamIdentifier = @"TESTTEAM42";
+    NSDictionary *ordinary = @{@"NSExtensionIdentifier": @"ordinary.extension", @"other-filter": @YES};
+    hook_discoverPlugInsForAttributes(nil, NULL, ordinary, 29, nil);
+    assert([capturedDiscoveryAttributes isEqual:ordinary] && capturedDiscoveryFlags == 29);
+
+    method_exchangeImplementations(nativeBundle, fixtureBundle);
+    testBundles = nil;
+    testHostBundle = nil;
+    testTeamIdentifier = nil;
+    testIsLiveProcess = false;
+    discoveredPlugIn = nil;
+}
+
 static void testConcurrentRegistrationAndTerminalCleanup(void) {
     resetRegistry();
     dispatch_apply(40, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^(size_t index) { @autoreleasepool {
@@ -319,6 +420,7 @@ int main(void) {
         testBookmarksAndPreparationErrors();
         testLaunchRoutingAndFailurePropagation();
         testDiscoveryProxyOwnsTarget();
+        testDiscoveryFromPrimaryAndExtraContainers();
         testConcurrentRegistrationAndTerminalCleanup();
         testConfigurationWithRealXPC(NO);
         testConfigurationWithRealXPC(YES);
@@ -327,6 +429,6 @@ int main(void) {
         [testDefaults removePersistentDomainForName:suite];
         assert([NSFileManager.defaultManager removeItemAtURL:root error:nil]);
     }
-    puts("Guest plugin host tests passed (parent grants, launch routing/errors, proxy lifetime, concurrent cleanup and real XPC configuration delivery)");
+    puts("Guest plugin host tests passed (parent grants, LC1/LC2/LC3 discovery, launch routing/errors, proxy lifetime, concurrent cleanup and real XPC configuration delivery)");
     return 0;
 }

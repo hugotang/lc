@@ -1,4 +1,16 @@
-# Upstream sync — 3.8.46
+# Upstream sync — 3.8.48
+
+Integrates `LiveContainer/LiveContainer` main through `f7965ef83fe281f008de180c2ac4a90f093451f9`, checked on 2026-11-28. The two new upstream commits add helper process discovery for LC2/LC3 (`69f82cc`) and repair the Launch App shortcut's `open-url` forwarding (`f7965ef`). Version **3.8.48** follows the verified 3.8.47 issue-fix build.
+
+LC2/LC3 can discover LC1's signed LiveProcess extension when their own copy has none. Embedded or sibling LiveProcess bundles retain precedence. The merge preserves the fork's additional PluginKit discovery attributes, guest-only routing, launch failure propagation, parent bookmarks and serialized helper lifecycle. If neither an embedded helper nor a signing team identifier is available, the original discovery request is preserved. The host regression harness covers primary/sibling helpers, extra LC copies, missing signing identity, ordinary extensions and retained query filters.
+
+Upstream separates the AppIntents extension entry point from `LaunchAppIntent`, retaining the old `LaunchAppExtension` persistent identifier for existing shortcuts. A decoded `open-url` now reaches the shared launch preferences before the guest starts; a launch without that parameter clears the prior value. The fork's localized description and workspace-restore forwarding move with the intent, so named and default workspace shortcuts still target their requested host without selecting a guest.
+
+Native Window recovery, shared/private/JIT filters, legacy guest window enumeration and optional fullscreen status-bar handling from 3.8.47 are retained. This sync does not change their production or regression-test sources.
+
+Validation for this integration is pending the source-bound macOS Release build, helper/state suites, simulator jobs and both IPA checks. Real LC2/LC3 helper launch and existing Shortcuts automation remain device acceptance checks; fixture or package success does not establish these behaviors.
+
+## Previous directory and dependency integration — 3.8.46
 
 Integrates `LiveContainer/LiveContainer` main through `b0f53e8`, checked on 2026-11-23. This adds seven upstream commits after the 3.8.45 integration at `b7cfda60c39933a94d616f2a358ac2e48fd4e5cd`. The merge retains the fork's helper v2 integration and custom window, location, audio, workspace and input-sync behavior.
 
