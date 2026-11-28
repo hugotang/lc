@@ -7,6 +7,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, nullable) NSString *session;
 - (void)rememberSyntheticTouch:(id)touch;
 - (BOOL)ownsTouch:(id)touch;
+// Returns YES only when this particular contact changes between down and released.
+- (BOOL)observePhysicalTouch:(id)touch active:(BOOL)active;
+@property(nonatomic, readonly) BOOL hasPhysicalTouches;
+- (BOOL)hasPhysicalTouchesOtherThan:(NSHashTable *)touches;
+- (void)clearPhysicalTouches;
 // Capture now, execute after UIKit finishes the event that caused the interruption.
 // A stopped/replaced session makes the returned action a no-op.
 - (nullable dispatch_block_t)actionForCurrentSession:(dispatch_block_t)action;

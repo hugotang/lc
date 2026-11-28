@@ -1,0 +1,11 @@
+# Text sync rollback — 3.8.44
+
+The user requested reverting keyboard/text synchronization after the Monster Strike search trials failed on the device. Version 3.8.44 restores the production code, touch-only sync controls, protocol and tests from 3.8.39 (`4dc5974912594ccb20589871a948dffdd56fc7fa`). Its higher version permits a normal upgrade from 3.8.43. It retains the upstream merge and the existing window, Dock, workspace, audio, location and helper-process features.
+
+The rollback removes Text Only mode, committed-text capture/replay, input commit hooks and the Monster Strike native-field bridge. Standard touch synchronization keeps its original behavior: opening a keyboard pauses touch forwarding. The keyboard is not synchronized. Existing saved participant groups are preserved; unrecognized saved `text` mode falls back to Taps Only, and restored groups remain paused until manually started.
+
+On 2026-11-10, the 3.8.43 device report from iPadOS 27.0.1 showed source window 4 and followers 1–3. All three followers rejected preparation with `noFocusedInput`, `gameTextState: selectionRejected`, at uptime approximately 24645.038; the host stopped at 24645.039 with zero forwarded actions. The source had no matching failure because follower preparation stopped the start sequence before source preparation. The user reported interruption when the keyboard appeared and requested the rollback. These results do not establish that text synchronization is impossible in principle; they establish that the implemented versions did not satisfy this device workflow.
+
+The experimental 3.8.43 package compiled and passed 246 iPad core/input tests and 7 iPhone controls tests, including the simulated hidden-field lifecycle. Those fixtures did not establish working Monster Strike device replay. Its remaining UI jobs were canceled when the user requested rollback. Analysis and test evidence are retained in Git history and local build artifacts rather than in active runtime code.
+
+Deliver `LiveContainer+SideStore.ipa` for this installation. After updating, reopen the guest accounts before resuming touch synchronization so all guests use the restored protocol. This rollback does not delete account data or saved workspaces.

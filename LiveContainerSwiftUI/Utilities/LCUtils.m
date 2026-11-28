@@ -8,7 +8,7 @@
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
 #import "LCAppInfo.h"
-#import "../../MultitaskSupport/DecoratedAppSceneViewController.h"
+#import "../MultitaskSupport/DecoratedAppSceneViewController.h"
 #import "../../ZSign/zsigner.h"
 #import "LiveContainerSwiftUI-Swift.h"
 
@@ -47,7 +47,8 @@
     }
     
     // in LC2, attempt to guess LC1's LiveProcess extension
-    NSString *bundleID = [NSString stringWithFormat:@"com.kdt.livecontainer.%@.LiveProcess", LCSharedUtils.teamIdentifier];
+    NSString *bundleID = [[@"com.kdt.livecontainer" stringByAppendingPathExtension:LCSharedUtils.teamIdentifier]
+                          stringByAppendingPathExtension:@"LiveProcess"];
     if([NSExtension extensionWithIdentifier:bundleID error:nil]) {
         return bundleID;
     }
@@ -56,6 +57,10 @@
 }
 
 + (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    [self launchMultitaskGuestApp:displayName launchAllowed:nil completionHandler:completionHandler];
+}
+
++ (void)launchMultitaskGuestApp:(NSString *)displayName launchAllowed:(BOOL (^)(void))launchAllowed completionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
     if(!self.liveProcessBundleIdentifier) {
         NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
         if (completionHandler) completionHandler(nil, error);
@@ -70,11 +75,17 @@
     [lcUserDefaults removeObjectForKey:@"selectedContainer"];
     
     dispatch_async(dispatch_get_main_queue(), ^{
+        // A native scene may have been closed while signing or awaiting this queue.
+        if (launchAllowed && !launchAllowed()) {
+            if (completionHandler) completionHandler(nil, [NSError errorWithDomain:NSCocoaErrorDomain code:NSUserCancelledError userInfo:nil]);
+            return;
+        }
         if (@available(iOS 16.1, *)) {
             if(UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
-                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:completionHandler];
-                MultitaskDockManager *dock = [MultitaskDockManager shared];
-                [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                if ([MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId pidCallback:completionHandler]) {
+                    MultitaskDockManager *dock = [MultitaskDockManager shared];
+                    [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                }
                 return;
             }
         }
@@ -417,19 +428,16 @@
     }
     
     // we don't care about errors when removing unnecessary files. errors occur probably because the file does not exist
-    // we remove the extension
+    // we remove the extension and all sidestore stuff
     [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"PlugIns"] error:nil];
-    // remove all sidestore stuff
-    if([NSUserDefaults sideStoreExist]) {
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStoreSupport.framework"] error:nil];
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStore.framework"] error:nil];
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"] error:nil];
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Intents.intentdefinition"] error:nil];
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"ViewApp.intentdefinition"] error:nil];
-        [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Metadata.appintents"] error:nil];
-        [infoDict removeObjectForKey:@"INIntentsSupported"];
-        [infoDict removeObjectForKey:@"NSUserActivityTypes"];
-    }
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStoreSupport.framework"] error:nil];
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStore.framework"] error:nil];
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"] error:nil];
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Intents.intentdefinition"] error:nil];
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"ViewApp.intentdefinition"] error:nil];
+    [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Metadata.appintents"] error:nil];
+    [infoDict removeObjectForKey:@"INIntentsSupported"];
+    [infoDict removeObjectForKey:@"NSUserActivityTypes"];
     
     [infoDict writeToURL:infoPath error:error];
     

@@ -12,9 +12,11 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCAutoTileMultitaskWindows", store: LCUtils.appGroupUserDefault) var autoTileMultitaskWindows = false
-    @AppStorage("LCGridSingleRowInLandscape", store: LCUtils.appGroupUserDefault) var singleRowInLandscape = false
-    @AppStorage("LCGridReservePortraitTop", store: LCUtils.appGroupUserDefault) var reservePortraitTop = true
-    @AppStorage("LCGridReservePortraitBottom", store: LCUtils.appGroupUserDefault) var reservePortraitBottom = false
+    @AppStorage(layout: .singleRowInLandscape) var singleRowInLandscape: Bool
+    @AppStorage(layout: .reservePortraitTop) var reservePortraitTop: Bool
+    @AppStorage(layout: .reservePortraitBottom) var reservePortraitBottom: Bool
+    @AppStorage(layout: .reserveLandscapeTop) var reserveLandscapeTop: Bool
+    @AppStorage(layout: .reserveLandscapeBottom) var reserveLandscapeBottom: Bool
     @AppStorage("LCHideGridWindowBars", store: LCUtils.appGroupUserDefault) var hideGridWindowBars = true
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
@@ -24,6 +26,10 @@ struct LCMultitaskSettingView: View {
     @AppStorage("LCMaxOneAppOnStage", store: LCUtils.appGroupUserDefault) var onlyOneAppOnStage = false
     @AppStorage("LCDockWidth", store: LCUtils.appGroupUserDefault) var dockWidth: Double = 80
     @AppStorage("LCHideCollapsedDock", store: LCUtils.appGroupUserDefault) var hideCollapsedDock: Bool = false
+    @AppStorage("LCDockHiddenArrowSwipeOnly", store: LCUtils.appGroupUserDefault) var hiddenArrowSwipeOnly = false
+    @AppStorage("LCDockShowAccountLabels", store: LCUtils.appGroupUserDefault) var showAccountLabels = true
+    @AppStorage("LCMultitaskOverlayMode", store: LCUtils.appGroupUserDefault) var overlayMode = false
+    @AppStorage("LCMultitaskHideStatusBar", store: LCUtils.appGroupUserDefault) var hideFullscreenStatusBar = false
     @AppStorage("LCRedirectURLToHost", store: LCUtils.appGroupUserDefault) var redirectURLToHost = false
     
     var body: some View {
@@ -55,14 +61,6 @@ struct LCMultitaskSettingView: View {
                     Toggle(isOn: $autoEndPiP) {
                         Text("lc.settings.autoEndPiP".loc)
                     }
-                    Toggle(isOn: $skipTerminatedScreen) {
-                        Text("lc.settings.skipTerminatedScreen".loc)
-                    }
-                    if skipTerminatedScreen {
-                        Toggle(isOn: $restartTerminatedApp) {
-                            Text("lc.settings.restartTerminatedApp".loc)
-                        }
-                    }
                     Toggle(isOn: $bottomWindowBar) {
                         Text("lc.settings.bottomWindowBar".loc)
                     }
@@ -74,7 +72,20 @@ struct LCMultitaskSettingView: View {
                 }
             }
 
+            Section {
+                Toggle("lc.settings.skipTerminatedScreen".loc, isOn: $skipTerminatedScreen)
+                if skipTerminatedScreen {
+                    Toggle("lc.settings.restartTerminatedApp".loc, isOn: $restartTerminatedApp)
+                }
+            }
+
             if multitaskMode == .virtualWindow, #available(iOS 16.0, *) {
+                Section {
+                    Toggle("lc.settings.multitaskOverlay".loc, isOn: $overlayMode)
+                    Toggle("lc.settings.multitaskHideStatusBar".loc, isOn: $hideFullscreenStatusBar)
+                } footer: {
+                    Text("lc.settings.multitaskOverlayDesc".loc)
+                }
                 Section {
                     Toggle("lc.settings.avoidKeyboard".loc, isOn: $avoidKeyboard)
                 } footer: {
@@ -135,6 +146,14 @@ struct LCMultitaskSettingView: View {
                 } footer: {
                     Text("lc.settings.portraitReservedAreasDesc".loc)
                 }
+                Section {
+                    Toggle("lc.multitask.reserveLandscapeTop".loc, isOn: $reserveLandscapeTop)
+                    Toggle("lc.multitask.reserveLandscapeBottom".loc, isOn: $reserveLandscapeBottom)
+                } header: {
+                    Text("lc.multitask.landscapeReservedAreas".loc)
+                } footer: {
+                    Text("lc.settings.landscapeReservedAreasDesc".loc)
+                }
             }
             
             Section {
@@ -143,11 +162,11 @@ struct LCMultitaskSettingView: View {
                         Text("lc.settings.dockWidth".loc)
                             .foregroundColor(.primary)
                         Spacer()
-                        Text("\(Int(dockWidth))px")
+                        Text("\(Int(max(56, min(120, dockWidth)))) pt")
                             .foregroundColor(.secondary)
                             .font(.caption)
                     }
-                    Slider(value: $dockWidth, in: 20...120) {
+                    Slider(value: Binding(get: { max(56, min(120, dockWidth)) }, set: { dockWidth = $0 }), in: 56...120) {
                         Text("lc.settings.dockWidth".loc)
                     }
                     .tint(.accentColor)
@@ -156,6 +175,18 @@ struct LCMultitaskSettingView: View {
                 Toggle(isOn: $hideCollapsedDock) {
                     Text("lc.settings.hideCollapsedDock".loc)
                 }
+                Toggle("lc.dock.swipeToRevealOnly".loc, isOn: $hiddenArrowSwipeOnly)
+                    .disabled(!hideCollapsedDock)
+                Toggle("lc.dock.showAccountLabels".loc, isOn: $showAccountLabels)
+                Button {
+                    if #available(iOS 16.0, *) { MultitaskDockManager.shared.resetDockPosition() }
+                } label: {
+                    Label("lc.dock.resetPosition".loc, systemImage: "arrow.counterclockwise")
+                }
+            } header: {
+                Text("lc.dock.settings".loc)
+            } footer: {
+                Text("lc.dock.settingsHelp".loc)
             }
         }
         .navigationTitle("lc.appBanner.multitask".loc)

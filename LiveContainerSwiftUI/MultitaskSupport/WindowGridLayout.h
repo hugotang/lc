@@ -1,0 +1,202 @@
+// Geometry shared by the virtual window host and the standalone layout tests.
+#ifndef LCWindowGridLayout_h
+#define LCWindowGridLayout_h
+
+#include <math.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+static const double LCWindowGridSpacing = 2;
+static const double LCWindowGridMinimumHeight = 88;
+static const double LCWindowGridMinimumWidth = 96;
+
+typedef struct {
+    double x, y, width, height;
+} LCWindowGridRect;
+
+typedef struct {
+    size_t count, rows, columns;
+    double width, height, spacing;
+} LCWindowGridLayout;
+
+// Which top/bottom safe areas the grid keeps clear in each host orientation.
+// These change the grid's drawing area, not the safe areas sent to guests.
+// Left/right always follow system safe areas.
+typedef struct {
+    bool portraitTop, portraitBottom, landscapeTop, landscapeBottom;
+} LCWindowGridReservedAreas;
+
+// The only definition of the default: keep the status bar and Dynamic Island
+// clear and extend content beneath the home indicator, in both orientations.
+// Older saves without these choices also restore this layout.
+static inline LCWindowGridReservedAreas LCWindowGridReservedAreasDefault(void) {
+    return (LCWindowGridReservedAreas){.portraitTop = true, .portraitBottom = false,
+                                       .landscapeTop = true, .landscapeBottom = false};
+}
+
+static inline bool LCWindowGridReservedAreasEqual(LCWindowGridReservedAreas a, LCWindowGridReservedAreas b) {
+    return a.portraitTop == b.portraitTop && a.portraitBottom == b.portraitBottom &&
+        a.landscapeTop == b.landscapeTop && a.landscapeBottom == b.landscapeBottom;
+}
+
+// Use the host's full bounds to identify portrait before applying insets.
+static inline LCWindowGridRect LCWindowGridContentBoundsWithReservedAreas(LCWindowGridRect bounds,
+                                                        LCWindowGridRect safeBounds,
+                                                        LCWindowGridReservedAreas reserved) {
+    if (!isfinite(bounds.x) || !isfinite(bounds.y) || !isfinite(bounds.width) || !isfinite(bounds.height) ||
+        !isfinite(safeBounds.x) || !isfinite(safeBounds.y) || !isfinite(safeBounds.width) ||
+        !isfinite(safeBounds.height) || bounds.width <= 0 || bounds.height <= 0 ||
+        safeBounds.width <= 0 || safeBounds.height <= 0) return (LCWindowGridRect){0};
+    double left = fmax(bounds.x, safeBounds.x);
+    double right = fmin(bounds.x + bounds.width, safeBounds.x + safeBounds.width);
+    bool portrait = bounds.height >= bounds.width;
+    bool reserveTop = portrait ? reserved.portraitTop : reserved.landscapeTop;
+    bool reserveBottom = portrait ? reserved.portraitBottom : reserved.landscapeBottom;
+    double top = reserveTop ? fmax(bounds.y, safeBounds.y) : bounds.y;
+    double bottom = reserveBottom ?
+        fmin(bounds.y + bounds.height, safeBounds.y + safeBounds.height) : bounds.y + bounds.height;
+    return (LCWindowGridRect){left, top, fmax(0, right - left), fmax(0, bottom - top)};
+}
+
+static inline LCWindowGridRect LCWindowGridContentBounds(LCWindowGridRect bounds, LCWindowGridRect safeBounds) {
+    return LCWindowGridContentBoundsWithReservedAreas(bounds, safeBounds, LCWindowGridReservedAreasDefault());
+}
+
+// Orientation comes from the full host, so reserved areas and keyboards cannot
+// accidentally select a landscape layout on a nearly square portrait surface.
+static inline LCWindowGridLayout LCWindowGridLayoutMakeForOrientation(size_t count, double width, double height,
+                                                                       double spacing, double minimumHeight,
+                                                                       bool portrait, bool singleRowInLandscape) {
+    LCWindowGridLayout layout = {0};
+    if (count == 0 || !isfinite(width) || !isfinite(height) || width <= 0 || height <= 0 ||
+        !isfinite(spacing) || !isfinite(minimumHeight)) {
+        return layout;
+    }
+
+    // Put the longer side of the grid along the longer side of the screen.
+    size_t side = (size_t)ceil(sqrt((double)count));
+    size_t rows = portrait ? side : 1 + (count - 1) / side;
+    if (singleRowInLandscape && !portrait) rows = 1;
+    spacing = fmax(0, spacing);
+    if (minimumHeight > 0) {
+        double maximumRows = fmax(1, floor((height + spacing) / (minimumHeight + spacing)));
+        if (maximumRows < (double)rows) {
+            rows = (size_t)maximumRows;
+        }
+    }
+    size_t columns = 1 + (count - 1) / rows;
+    rows = 1 + (count - 1) / columns;
+
+    // Reduce the gaps on very small surfaces instead of producing negative sizes.
+    spacing = fmin(spacing, fmin(width / (2.0 * columns), height / (2.0 * rows)));
+    layout.count = count;
+    layout.rows = rows;
+    layout.columns = columns;
+    layout.width = width;
+    layout.height = height;
+    layout.spacing = spacing;
+    return layout;
+}
+
+static inline LCWindowGridLayout LCWindowGridLayoutMakeWithLandscapePreference(size_t count, double width, double height,
+                                                                                double spacing, double minimumHeight,
+                                                                                bool singleRowInLandscape) {
+    return LCWindowGridLayoutMakeForOrientation(count, width, height, spacing, minimumHeight,
+                                                height >= width, singleRowInLandscape);
+}
+
+static inline LCWindowGridLayout LCWindowGridLayoutMake(size_t count, double width, double height,
+                                                       double spacing, double minimumHeight) {
+    return LCWindowGridLayoutMakeWithLandscapePreference(count, width, height, spacing, minimumHeight, false);
+}
+
+// Divider fractions measure content only, excluding the gaps. A NULL array means equal sizes.
+// Each axis with N tracks owns N - 1 ordered fractions between zero and one.
+static inline double LCWindowGridBoundary(const double *dividers, size_t tracks, size_t boundary) {
+    if (boundary == 0 || tracks == 0) return 0;
+    if (boundary >= tracks) return 1;
+    return dividers ? dividers[boundary - 1] : (double)boundary / tracks;
+}
+
+static inline void LCWindowGridResetDividers(double *dividers, size_t tracks) {
+    if (!dividers) return;
+    for (size_t i = 1; i < tracks; ++i) dividers[i - 1] = (double)i / tracks;
+}
+
+static inline double LCWindowGridMinimumFraction(size_t tracks, double length, double spacing,
+                                                 double minimumSize) {
+    double content = length - spacing * (tracks - 1);
+    return fmin(1.0 / tracks, fmax(0, minimumSize) / content);
+}
+
+// Re-clamp saved proportions when the available space changes. Very small surfaces stay equal.
+static inline void LCWindowGridConstrainDividers(double *dividers, size_t tracks, double length,
+                                                  double spacing, double minimumSize) {
+    if (!dividers || tracks < 2 || !isfinite(length) || !isfinite(spacing) ||
+        !isfinite(minimumSize) || spacing < 0 || length <= spacing * (tracks - 1)) return;
+    double minimum = LCWindowGridMinimumFraction(tracks, length, spacing, minimumSize);
+    double previous = 0;
+    for (size_t i = 1; i < tracks; ++i) {
+        double value = isfinite(dividers[i - 1]) ? dividers[i - 1] : (double)i / tracks;
+        dividers[i - 1] = fmin(1 - minimum * (tracks - i), fmax(previous + minimum, value));
+        previous = dividers[i - 1];
+    }
+}
+
+static inline double LCWindowGridDividerPosition(const double *dividers, size_t tracks, size_t index,
+                                                  double length, double spacing) {
+    if (tracks < 2 || index >= tracks - 1) return 0;
+    double content = length - spacing * (tracks - 1);
+    return LCWindowGridBoundary(dividers, tracks, index + 1) * content + spacing * (index + 0.5);
+}
+
+// Move only the two tracks adjacent to a divider, without crossing either neighbour.
+static inline bool LCWindowGridMoveDivider(double *dividers, size_t tracks, size_t index,
+                                            double position, double length, double spacing, double minimumSize) {
+    if (!dividers || tracks < 2 || index >= tracks - 1 || !isfinite(position) ||
+        !isfinite(length) || !isfinite(spacing) || !isfinite(minimumSize) ||
+        spacing < 0 || length <= spacing * (tracks - 1)) return false;
+    LCWindowGridConstrainDividers(dividers, tracks, length, spacing, minimumSize);
+    double content = length - spacing * (tracks - 1);
+    double minimum = LCWindowGridMinimumFraction(tracks, length, spacing, minimumSize);
+    double lower = LCWindowGridBoundary(dividers, tracks, index) + minimum;
+    double upper = LCWindowGridBoundary(dividers, tracks, index + 2) - minimum;
+    double fraction = (position - spacing * (index + 0.5)) / content;
+    double value = fmin(upper, fmax(lower, fraction));
+    if (fabs(dividers[index] - value) < 1e-12) return false;
+    dividers[index] = value;
+    return true;
+}
+
+static inline LCWindowGridRect LCWindowGridFrameWithDividers(LCWindowGridLayout layout, size_t index,
+                                                             const double *rowDividers, const double *columnDividers,
+                                                             const double *lastRowDividers) {
+    LCWindowGridRect frame = {0};
+    if (index >= layout.count || layout.rows == 0 || layout.columns == 0) {
+        return frame;
+    }
+
+    size_t row = index / layout.columns;
+    size_t column = index % layout.columns;
+    size_t remaining = layout.count - row * layout.columns;
+    size_t columnsInRow = remaining < layout.columns ? remaining : layout.columns;
+    // Full rows share vertical dividers. An incomplete last row still spans the whole width.
+    const double *horizontal = columnsInRow == layout.columns ? columnDividers : lastRowDividers;
+    double contentWidth = layout.width - layout.spacing * (columnsInRow - 1);
+    double contentHeight = layout.height - layout.spacing * (layout.rows - 1);
+    double left = LCWindowGridBoundary(horizontal, columnsInRow, column);
+    double right = LCWindowGridBoundary(horizontal, columnsInRow, column + 1);
+    double top = LCWindowGridBoundary(rowDividers, layout.rows, row);
+    double bottom = LCWindowGridBoundary(rowDividers, layout.rows, row + 1);
+    frame.width = (right - left) * contentWidth;
+    frame.height = (bottom - top) * contentHeight;
+    frame.x = left * contentWidth + column * layout.spacing;
+    frame.y = top * contentHeight + row * layout.spacing;
+    return frame;
+}
+
+static inline LCWindowGridRect LCWindowGridFrame(LCWindowGridLayout layout, size_t index) {
+    return LCWindowGridFrameWithDividers(layout, index, NULL, NULL, NULL);
+}
+
+#endif

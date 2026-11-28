@@ -4,8 +4,13 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import "LCAppInfo.h"
+#import "LCGuestExtensionSigning.h"
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
+#import "../../LiveContainer/Tweaks/LocationSession.h"
+#import <sys/file.h>
+#import <fcntl.h>
+#import <unistd.h>
 
 
 @implementation LCAppInfo
@@ -288,7 +293,16 @@
 
 - (void)save {
     if(!_autoSaveDisabled) {
+        int locationLock = open([_bundlePath stringByAppendingPathComponent:@".lc-location-settings.lock"].fileSystemRepresentation, O_CREAT | O_RDWR, 0600);
+        if (locationLock >= 0) flock(locationLock, LOCK_EX);
+        NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+        // Running guests own location state; unrelated settings saves must not
+        // overwrite a newer point, favorite or quick-control preference.
+        for (NSString *key in @[LCAppLocationKey, @"LCLocationRevision", @"LCLocationQuickControl", @"LCLocationFavorites"]) {
+            if (current[key]) _info[key] = current[key]; else [_info removeObjectForKey:key];
+        }
         [_info writeBinToFile:[NSString stringWithFormat:@"%@/LCAppInfo.plist", _bundlePath] atomically:YES];
+        if (locationLock >= 0) { flock(locationLock, LOCK_UN); close(locationLock); }
     }
 
 }
@@ -304,11 +318,16 @@
         completetionHandler(NO, @"Info.plist not found");
         return;
     }
+    // Include older prepared helpers that predate the pending-sign flag. Only
+    // successful bundle signing advances their independent signing revision.
+    BOOL signingAllowed = LCSharedUtils.certificatePassword && !self.is32bit && !self.dontSign;
+    forceSign |= LCGuestExtensionSigningRequired(info, self.helperProcessesSupport, signingAllowed);
     NSFileManager* fm = NSFileManager.defaultManager;
     NSString *execPath = [NSString stringWithFormat:@"%@/%@", appPath, _infoPlist[@"CFBundleExecutable"]];
     
     // Update patch
-    int currentPatchRev = 7;
+    // Re-scan installed executables for the new LINKEDIT alignment check.
+    int currentPatchRev = 8;
     bool needPatch = [info[@"LCPatchRevision"] intValue] < currentPatchRev;
     if (needPatch || forceSign) {
         // copy-delete-move to avoid EXC_BAD_ACCESS (SIGKILL - CODESIGNING)
@@ -331,7 +350,7 @@
                     info[@"LCTweakLoaderCantInject"] = @YES;
                     info[@"dontInjectTweakLoader"] = @YES;
                 }
-                if(patchResult & PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH) {
+                if(patchResult & (PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH | PATCH_EXEC_RESULT_MISALIGNED_LINKEDIT_STRING_POOL)) {
                     info[@"segCountMismatch"] = @YES;
                 }
             }
@@ -357,6 +376,23 @@
         info[@"LCPatchRevision"] = @(currentPatchRev);
         forceSign = true;
         
+        [self save];
+    }
+
+    // Existing apps can already have the current main-executable revision.
+    // Prepare their helpers separately when the user opts in, before signing.
+    // An encrypted, unused extension must not block an ordinary app launch.
+    if (self.helperProcessesSupport && !self.is32bit &&
+        [info[@"LCGuestExtensionPatchRevision"] intValue] < 2) {
+        NSString *error = [self patchGuestExtensions];
+        if (error) {
+            [NSUserDefaults.standardUserDefaults removeObjectForKey:@"SigningInProgress"];
+            completetionHandler(NO, error);
+            return;
+        }
+        info[@"LCGuestExtensionPatchRevision"] = @2;
+        info[@"LCGuestExtensionSignPending"] = @YES;
+        forceSign = YES;
         [self save];
     }
 
@@ -389,11 +425,13 @@
             void (^signCompletionHandler)(BOOL success, NSError *error)  = ^(BOOL success, NSError *_Nullable error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [NSUserDefaults.standardUserDefaults removeObjectForKey:@"SigningInProgress"];
+                    bool signatureValid = success && checkCodeSignature(executablePath.UTF8String);
+                    LCGuestExtensionSigningDidComplete(info, success, signatureValid);
                     if(!success) {
                         completetionHandler(NO, error.localizedDescription);
                     } else {
-                        bool signatureValid = checkCodeSignature(executablePath.UTF8String);
                         if(signatureValid) {
+                            [self save];
                             completetionHandler(YES, [error localizedDescription]);
                         } else {
                             completetionHandler(NO, @"lc.signer.latestCertificateInvalidErr");
@@ -410,12 +448,70 @@
             }
 }
 
+- (NSString *)patchGuestExtensions {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *pluginsPath = [self.bundlePath stringByAppendingPathComponent:@"PlugIns"];
+    NSArray *plugins = [fm contentsOfDirectoryAtPath:pluginsPath error:nil];
+    for (NSString *name in plugins) {
+        if (![name.pathExtension isEqualToString:@"appex"]) continue;
+        NSString *bundlePath = [pluginsPath stringByAppendingPathComponent:name];
+        NSDictionary *plist = [NSDictionary dictionaryWithContentsOfFile:[bundlePath stringByAppendingPathComponent:@"Info.plist"]];
+
+        // copy remove rename
+        NSString *executable = plist[@"CFBundleExecutable"];
+        if (![executable isKindOfClass:NSString.class] || executable.length == 0 ||
+            ![executable.lastPathComponent isEqualToString:executable] || [executable isEqualToString:@".."] ||
+            [executable isEqualToString:@"."]) {
+            return [NSString stringWithFormat:@"%@ has an invalid executable name", name];
+        }
+        NSString *path = [bundlePath stringByAppendingPathComponent:executable];
+        NSString *temporaryPath = [path stringByAppendingString:@".lcpatch"];
+        NSError *fileError = nil;
+        [fm removeItemAtPath:temporaryPath error:nil];
+        if (![fm copyItemAtPath:path toPath:temporaryPath error:&fileError]) return fileError.localizedDescription;
+
+        __block BOOL hasARM64 = NO;
+        __block BOOL encrypted = NO;
+        __block BOOL mismatch = NO;
+        NSString *error = LCParseMachO(temporaryPath.fileSystemRepresentation, false, ^(const char *slicePath, struct mach_header_64 *header, int fd, void *filePtr) {
+            if (header->cputype != CPU_TYPE_ARM64) return;
+            hasARM64 = YES;
+            encrypted |= LCIsMachOEncrypted(header);
+            if (!encrypted) {
+                int patchResult = LCPatchExecSlice(path.fileSystemRepresentation, header, false);
+                mismatch |= (patchResult & (PATCH_EXEC_RESULT_SEG_COUNT_MISMATCH | PATCH_EXEC_RESULT_MISALIGNED_LINKEDIT_STRING_POOL)) != 0;
+            }
+        });
+        if (!error && (!hasARM64 || encrypted)) {
+            error = [NSString stringWithFormat:@"%@ requires a decrypted arm64 executable", name];
+        }
+        if (!error && ![fm replaceItemAtURL:[NSURL fileURLWithPath:path] withItemAtURL:[NSURL fileURLWithPath:temporaryPath] backupItemName:nil options:0 resultingItemURL:nil error:&fileError]) {
+            error = fileError.localizedDescription;
+        }
+        [fm removeItemAtPath:temporaryPath error:nil];
+        if (error) return error;
+        // Keep extension-specific loader information separate from the app's.
+        [@{@"segCountMismatch": @(mismatch)} writeToFile:[bundlePath stringByAppendingPathComponent:@"LCAppExtension.plist"] atomically:YES];
+    }
+    return nil;
+}
+
 - (bool)isJITNeeded {
     if(_info[@"isJITNeeded"] != nil) {
         return [_info[@"isJITNeeded"] boolValue];
     } else {
         return NO;
     }
+}
+
+- (bool)helperProcessesSupport {
+    // Preserve settings saved before this feature was renamed.
+    return [_info[@"helperProcessesSupport"] boolValue];
+}
+
+- (void)setHelperProcessesSupport:(bool)enabled {
+    _info[@"helperProcessesSupport"] = @(enabled);
+    [self save];
 }
 - (void)setIsJITNeeded:(bool)isJITNeeded {
     _info[@"isJITNeeded"] = [NSNumber numberWithBool:isJITNeeded];
@@ -589,6 +685,67 @@
 
 - (void)setFixLocalNotification:(bool)fixLocalNotification {
     _info[@"fixLocalNotification"] = @(fixLocalNotification);
+    [self save];
+}
+
+- (bool)useWindowScreenSize {
+    return [_info[@"LCUseWindowScreenSize"] boolValue];
+}
+
+- (CGSize)windowAspectRatio {
+    return LCAppAspectRatioFromInfo(_info);
+}
+
+- (NSDictionary *)customLocation {
+    NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:[_bundlePath stringByAppendingPathComponent:@"LCAppInfo.plist"]];
+    return LCAppLocationSettings(current[LCAppLocationKey] ?: _info[LCAppLocationKey]);
+}
+
+- (void)setCustomLocation:(NSDictionary *)settings {
+    NSDictionary *valid = LCAppLocationSettings(settings);
+    if (valid.count && ![valid isEqual:self.customLocation]) {
+        LCLocationSession *session = [LCLocationSession sessionForPath:_bundlePath title:self.displayName];
+        [session selectPoint:valid enabled:[valid[@"enabled"] boolValue]];
+        _info[LCAppLocationKey] = session.settings;
+    }
+}
+
+- (void)setWindowAspectRatio:(CGSize)ratio {
+    if (CGSizeEqualToSize(ratio, CGSizeZero)) [_info removeObjectForKey:LCAppWindowAspectRatioKey];
+    else if (LCAppAspectRatioIsValid(ratio)) _info[LCAppWindowAspectRatioKey] = @[@(ratio.width), @(ratio.height)];
+    else return;
+    [self save];
+}
+
+- (void)setUseWindowScreenSize:(bool)useWindowScreenSize {
+    _info[@"LCUseWindowScreenSize"] = @(useWindowScreenSize);
+    [self save];
+}
+
+- (bool)forceAmbientAudio {
+    return [_info[@"LCForceAmbientAudio"] boolValue];
+}
+
+- (void)setForceAmbientAudio:(bool)forceAmbientAudio {
+    _info[@"LCForceAmbientAudio"] = @(forceAmbientAudio);
+    [self save];
+}
+
+- (bool)keepBackgroundAudio {
+    return [_info[@"LCKeepBackgroundAudio"] boolValue];
+}
+
+- (void)setKeepBackgroundAudio:(bool)keepBackgroundAudio {
+    _info[@"LCKeepBackgroundAudio"] = @(keepBackgroundAudio);
+    [self save];
+}
+
+- (bool)fixBackgroundTaskIdentifiers {
+    return [_info[@"fixBackgroundTaskIdentifiers"] boolValue];
+}
+
+- (void)setFixBackgroundTaskIdentifiers:(bool)fixBackgroundTaskIdentifiers {
+    _info[@"fixBackgroundTaskIdentifiers"] = @(fixBackgroundTaskIdentifiers);
     [self save];
 }
 

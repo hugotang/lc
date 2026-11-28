@@ -1,0 +1,25 @@
+//
+//  PiPManager.h
+//  LiveContainer
+//
+//  Created by s s on 2025/6/3.
+//
+@import Foundation;
+@import AVKit;
+@import UIKit;
+#import "FoundationPrivate.h"
+#import "AppSceneViewController.h"
+
+API_AVAILABLE(ios(16.0))
+@interface PiPManager : NSObject<AVPictureInPictureControllerDelegate>
+@property (class, nonatomic, readonly) PiPManager *shared;
+@property (nonatomic, readonly) bool isPiP;
+// Query presentation ownership without creating a manager or configuring the audio session.
++ (BOOL)hasSessionForVC:(AppSceneViewController *)vc;
+- (BOOL)isPiPWithVC:(AppSceneViewController*)vc;
+- (BOOL)isPiPWithDecoratedVC:(UIViewController*)vc;
+- (void)stopPiP;
+- (void)stopPiPForVC:(AppSceneViewController *)vc;
+- (void)startPiPWithVC:(AppSceneViewController*)vc;
+
+@end
